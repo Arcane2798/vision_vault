@@ -69,6 +69,8 @@ export interface Incident {
   status: IncidentStatus;
   snapshotUrl?: string;
   clipUrl?: string;
+  /** false while the clip is still being recorded / converted to H.264. Missing (older backends) = ready. */
+  clipReady?: boolean;
   detections: Detection[];
   reviewedBy?: string;
   reviewedAt?: string;

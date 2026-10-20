@@ -1,11 +1,11 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, Eye, Lock, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Eye, Loader2, Lock, XCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAsync } from '@/hooks/useAsync';
 import { incidentService } from '@/services';
 import type { Incident, IncidentStatus } from '@/types';
-import { eventTypeLabel, formatConfidence, formatDateTime, incidentIdentity, incidentStatusLabel, isRuleBased } from '@/utils/format';
+import { clipProcessing, eventTypeLabel, formatConfidence, formatDateTime, incidentIdentity, incidentStatusLabel, isRuleBased } from '@/utils/format';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/Modal';
@@ -13,12 +13,28 @@ import { ErrorState, LoadingState } from '@/components/ui/States';
 import { AiPredictionTag, IncidentStatusBadge } from '@/components/ui/StatusBadge';
 import { DetectionOverlay } from '@/components/cameras/DetectionOverlay';
 
+/** Re-fetch this often while the clip is being converted. */
+const CLIP_POLL_MS = 3000;
+/** Stop polling after this long: the conversion most likely failed. */
+const CLIP_WAIT_MS = 3 * 60000;
+
 export default function IncidentDetailPage() {
   const { id = '' } = useParams();
   const { can } = useAuth();
   const incident = useAsync(() => incidentService.get(id), [id]);
   const [local, setLocal] = useState<Incident | null>(null);
   const inc = local?.id === id ? local : incident.data;
+
+  // clip fields always come from the latest fetch (local only holds the review result)
+  const fresh = incident.data;
+  const processing = !!fresh && clipProcessing(fresh);
+  const gaveUp = processing && Date.now() - new Date(fresh.timestamp).getTime() > CLIP_WAIT_MS;
+  const { reload } = incident;
+  useEffect(() => {
+    if (!processing || gaveUp) return;
+    const t = window.setInterval(reload, CLIP_POLL_MS);
+    return () => clearInterval(t);
+  }, [processing, gaveUp, reload]);
 
   if (incident.initialLoading) return <LoadingState label="Loading incident…" />;
   if (incident.error || !inc) {
@@ -78,10 +94,20 @@ export default function IncidentDetailPage() {
 
           {canEvidence && (
             <Card>
-              <CardHeader title="Video clip" />
+              <CardHeader title="Video clip" subtitle="5 s before and 5 s after the alert" />
               <div className="p-4">
-                {inc.clipUrl ? (
-                  <video src={inc.clipUrl} controls className="w-full rounded-lg bg-black" preload="metadata" />
+                {processing && !gaveUp ? (
+                  <div role="status" className="flex flex-col items-center gap-2 rounded-lg bg-surface-2 py-12 text-center text-sm text-ink-2">
+                    <Loader2 className="h-6 w-6 animate-spin text-ink-3" aria-hidden />
+                    Clip processing…
+                    <span className="text-xs text-ink-3">The clip is still recording and converting. It appears here automatically.</span>
+                  </div>
+                ) : processing ? (
+                  <p className="rounded-lg bg-surface-2 py-12 text-center text-sm text-ink-3">
+                    The clip is not ready. It may have failed to convert - check the backend log.
+                  </p>
+                ) : (fresh?.clipUrl ?? inc.clipUrl) ? (
+                  <video key={fresh?.clipUrl ?? inc.clipUrl} src={fresh?.clipUrl ?? inc.clipUrl} controls className="w-full rounded-lg bg-black" preload="metadata" />
                 ) : (
                   <p className="text-sm text-ink-3">No video clip was recorded for this incident.</p>
                 )}
