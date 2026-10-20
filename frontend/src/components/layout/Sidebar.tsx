@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Cctv, LayoutDashboard, ListChecks, MonitorPlay, Users, X } from 'lucide-react';
+import { Cctv, Film, LayoutDashboard, ListChecks, MonitorPlay, Users, X } from 'lucide-react';
 import { config } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/utils/format';
@@ -10,6 +10,7 @@ export const NAV_ITEMS: Array<{ to: string; label: string; Icon: typeof Cctv; pe
   { to: '/live', label: 'Live Monitoring', Icon: MonitorPlay, permission: 'view:live' },
   { to: '/incidents', label: 'Incidents', Icon: ListChecks, permission: 'view:incidents' },
   { to: '/people', label: 'Residents & Visitors', Icon: Users, permission: 'manage:people' },
+  { to: '/test-video', label: 'Test with Video', Icon: Film, permission: 'view:live' },
 ];
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {

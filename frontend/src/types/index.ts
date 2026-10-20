@@ -124,6 +124,28 @@ export interface SecurityUpdate {
   night?: Partial<NightSchedule>;
 }
 
+/** A recorded video in the backend's test_videos/ folder. */
+export interface TestVideo {
+  name: string;
+  sizeBytes: number;
+  modifiedAt: string;
+}
+
+/** GET /api/source - what the engine is watching: the live camera or a test video (played once). */
+export interface VideoSource {
+  kind: 'camera' | 'file';
+  /** test video file name when kind is 'file' */
+  name: string | null;
+  /** the test video reached its end (engine holds the last frame) */
+  finished: boolean;
+  /** 0..1 position in the test video, null for the camera */
+  progress: number | null;
+  videos: TestVideo[];
+}
+
+/** PUT /api/source */
+export type VideoSourceUpdate = { kind: 'camera' } | { kind: 'file'; name: string };
+
 /** GET /api/status - live engine state, polled every few seconds. */
 export interface LiveStatus {
   running: boolean;

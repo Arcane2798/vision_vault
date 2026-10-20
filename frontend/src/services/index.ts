@@ -5,7 +5,7 @@
  */
 import { isMock } from '@/config/env';
 import { mockApi } from '@/mocks/mockApi';
-import type { AuthSession, Camera, CameraInput, DashboardSummary, Incident, IncidentQuery, IncidentStatus, LiveStatus, Person, PersonInput, PersonUpdate, SecuritySettings, SecurityUpdate, TrendPoint, User } from '@/types';
+import type { AuthSession, Camera, CameraInput, DashboardSummary, Incident, IncidentQuery, IncidentStatus, LiveStatus, Person, PersonInput, PersonUpdate, SecuritySettings, SecurityUpdate, TestVideo, TrendPoint, User, VideoSource, VideoSourceUpdate } from '@/types';
 import { api, backendUrl } from './apiClient';
 
 export const authService = {
@@ -61,6 +61,19 @@ export const peopleService = {
     const url = new URL(backendUrl(p.photoUrl));
     url.searchParams.set('v', String(p.photoCount));
     return url.href;
+  },
+};
+
+const VIDEO_UPLOAD_TIMEOUT_MS = 10 * 60000; // test videos can be hundreds of MB
+
+/** Video source: live camera or a recorded test video (live mode only). */
+export const sourceService = {
+  get: (): Promise<VideoSource> => api('/source', { timeoutMs: 5000 }),
+  set: (source: VideoSourceUpdate): Promise<VideoSource> => api('/source', { method: 'PUT', body: source }),
+  upload: (video: File): Promise<TestVideo> => {
+    const form = new FormData();
+    form.append('video', video, video.name);
+    return api('/source/videos', { method: 'POST', body: form, timeoutMs: VIDEO_UPLOAD_TIMEOUT_MS });
   },
 };
 
