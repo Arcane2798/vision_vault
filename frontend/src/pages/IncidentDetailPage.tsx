@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAsync } from '@/hooks/useAsync';
 import { incidentService } from '@/services';
 import type { Incident, IncidentStatus } from '@/types';
-import { formatConfidence, formatDateTime, incidentStatusLabel } from '@/utils/format';
+import { eventTypeLabel, formatConfidence, formatDateTime, incidentIdentity, incidentStatusLabel, isRuleBased } from '@/utils/format';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/Modal';
@@ -33,6 +33,7 @@ export default function IncidentDetailPage() {
   }
 
   const canEvidence = can('view:evidence');
+  const ruleBased = isRuleBased(inc.label);
 
   return (
     <>
@@ -41,7 +42,7 @@ export default function IncidentDetailPage() {
         <div>
           <p className="font-mono text-xs text-ink-3">{inc.id}</p>
           <h1 className="text-xl font-semibold">
-            {inc.label} at {inc.cameraName}
+            {eventTypeLabel(inc.label)} at {inc.cameraName}
           </h1>
         </div>
         <IncidentStatusBadge status={inc.status} />
@@ -56,7 +57,7 @@ export default function IncidentDetailPage() {
       <div className="grid gap-4 xl:grid-cols-3">
         <div className="space-y-4 xl:col-span-2">
           <Card>
-            <CardHeader title="Evidence" subtitle="Snapshot with the AI detection drawn on it" action={<AiPredictionTag />} />
+            <CardHeader title="Evidence" subtitle="Snapshot taken when the alert fired" action={<AiPredictionTag />} />
             <div className="p-4">
               {!canEvidence ? (
                 <div className="flex flex-col items-center gap-2 rounded-lg bg-surface-2 py-12 text-center text-sm text-ink-3">
@@ -94,6 +95,13 @@ export default function IncidentDetailPage() {
             <CardHeader title="Details" />
             <dl className="divide-y divide-line text-sm">
               <Row label="Time">{formatDateTime(inc.timestamp)}</Row>
+              <Row label="Event">{eventTypeLabel(inc.label)}</Row>
+              <Row label="Identity">{incidentIdentity(inc)}</Row>
+              {ruleBased ? (
+                <Row label="Detection">Rule-based alert (no model confidence)</Row>
+              ) : (
+                <Row label="Confidence">{formatConfidence(inc.confidence)}</Row>
+              )}
               <Row label="Camera">{inc.cameraName}</Row>
               <Row label="Location">{inc.location}</Row>
               <Row label="Status">{incidentStatusLabel[inc.status]}</Row>
@@ -103,23 +111,25 @@ export default function IncidentDetailPage() {
             </dl>
           </Card>
 
-          <Card>
-            <CardHeader title="AI detection details" subtitle="Raw model output" />
-            <ul className="divide-y divide-line text-sm">
-              {inc.detections.map((d) => (
-                <li key={d.id} className="space-y-0.5 px-4 py-3">
-                  <div className="flex justify-between gap-2">
-                    <span className="font-medium">{d.label}</span>
-                    <span className="tabular-nums">{formatConfidence(d.confidence)}</span>
-                  </div>
-                  <p className="text-xs text-ink-3">{formatDateTime(d.timestamp)}</p>
-                  <p className="font-mono text-[11px] text-ink-3">
-                    box x {d.bbox.x.toFixed(2)} y {d.bbox.y.toFixed(2)} w {d.bbox.width.toFixed(2)} h {d.bbox.height.toFixed(2)}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </Card>
+          {inc.detections.length > 0 && (
+            <Card>
+              <CardHeader title="AI detection details" subtitle="Raw model output" />
+              <ul className="divide-y divide-line text-sm">
+                {inc.detections.map((d) => (
+                  <li key={d.id} className="space-y-0.5 px-4 py-3">
+                    <div className="flex justify-between gap-2">
+                      <span className="font-medium">{d.label}</span>
+                      <span className="tabular-nums">{formatConfidence(d.confidence)}</span>
+                    </div>
+                    <p className="text-xs text-ink-3">{formatDateTime(d.timestamp)}</p>
+                    <p className="font-mono text-[11px] text-ink-3">
+                      box x {d.bbox.x.toFixed(2)} y {d.bbox.y.toFixed(2)} w {d.bbox.width.toFixed(2)} h {d.bbox.height.toFixed(2)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
 
           {can('review:incidents') && <ReviewPanel incident={inc} onUpdated={setLocal} />}
         </div>

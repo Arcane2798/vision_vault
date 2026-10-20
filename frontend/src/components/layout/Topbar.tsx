@@ -5,7 +5,7 @@ import { config } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
 import { useRealtime } from '@/context/RealtimeContext';
 import type { ConnectionState } from '@/types';
-import { cn, formatConfidence, formatRelative, roleLabel } from '@/utils/format';
+import { cn, formatRelative, incidentHeadline, roleLabel } from '@/utils/format';
 import { IncidentStatusBadge } from '@/components/ui/StatusBadge';
 
 const connectionUi: Record<ConnectionState, { label: string; dot: string }> = {
@@ -81,9 +81,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
                         <p className="text-sm font-medium">{a.cameraName}</p>
                         <span className="text-xs text-ink-3">{formatRelative(a.timestamp)}</span>
                       </div>
-                      <p className="mt-0.5 text-xs text-ink-2">
-                        {a.label} · {formatConfidence(a.confidence)} confidence
-                      </p>
+                      <p className="mt-0.5 text-xs text-ink-2">{incidentHeadline(a)}</p>
                       <div className="mt-1.5">
                         <IncidentStatusBadge status={a.status} />
                       </div>

@@ -1,5 +1,5 @@
 import { config } from '@/config/env';
-import type { CameraStatus, IncidentStatus, Role } from '@/types';
+import type { CameraStatus, Incident, IncidentStatus, Role } from '@/types';
 
 const dateTime = new Intl.DateTimeFormat('en-GB', {
   timeZone: config.timezone,
@@ -33,6 +33,28 @@ export function formatRelative(iso: string): string {
 }
 
 export const formatConfidence = (c: number) => `${Math.round(c * 100)}%`;
+
+/** Backend `event_type` values -> display text. These alerts come from rules, not a model score. */
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  intrusion: 'Unknown person',
+  guest_outside_window: 'Visitor outside allowed time',
+};
+
+export const eventTypeLabel = (type: string) => EVENT_TYPE_LABELS[type] ?? type;
+
+/** Rule-based events have no meaningful confidence (the backend sends a fixed 1.0), so it is hidden. */
+export const isRuleBased = (type: string) => type in EVENT_TYPE_LABELS;
+
+/** One-line description: "Unknown person" for rule-based alerts, "person · 87%" for model detections. */
+export const incidentHeadline = (i: Pick<Incident, 'label' | 'confidence'>) =>
+  isRuleBased(i.label) ? eventTypeLabel(i.label) : `${i.label} · ${formatConfidence(i.confidence)}`;
+
+/** Who the engine matched. Backend logs "unknown" when no face matched. */
+export function incidentIdentity(i: Pick<Incident, 'label' | 'identity'>): string {
+  if (i.identity && i.identity.toLowerCase() !== 'unknown') return i.identity;
+  if (i.identity || i.label === 'intrusion') return 'Unknown (no face match)';
+  return 'Not recorded';
+}
 
 export const incidentStatusLabel: Record<IncidentStatus, string> = {
   new: 'Potential - not reviewed',

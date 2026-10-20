@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import type { Incident } from '@/types';
-import { formatConfidence, formatDateTime } from '@/utils/format';
+import { eventTypeLabel, formatConfidence, formatDateTime, incidentHeadline, incidentIdentity, isRuleBased } from '@/utils/format';
 import { IncidentStatusBadge } from '@/components/ui/StatusBadge';
 
 /** Table on desktop, cards on mobile. Each row opens the incident details. */
@@ -17,7 +17,7 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
               <th className="px-4 py-2.5 font-medium">Incident</th>
               <th className="px-4 py-2.5 font-medium">Date &amp; time</th>
               <th className="px-4 py-2.5 font-medium">Camera</th>
-              <th className="px-4 py-2.5 font-medium">AI detection</th>
+              <th className="px-4 py-2.5 font-medium">Event</th>
               <th className="px-4 py-2.5 font-medium">Status</th>
               <th className="sr-only">Open</th>
             </tr>
@@ -45,8 +45,8 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
                   <p className="text-xs text-ink-3">{i.location}</p>
                 </td>
                 <td className="px-4 py-2">
-                  <p>{i.label}</p>
-                  <p className="text-xs text-ink-3">{formatConfidence(i.confidence)} confidence</p>
+                  <p>{eventTypeLabel(i.label)}</p>
+                  <p className="text-xs text-ink-3">{isRuleBased(i.label) ? incidentIdentity(i) : `${formatConfidence(i.confidence)} confidence`}</p>
                 </td>
                 <td className="px-4 py-2">
                   <IncidentStatusBadge status={i.status} />
@@ -70,9 +70,7 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
                   <p className="truncate text-sm font-medium">{i.cameraName}</p>
                   <span className="font-mono text-[11px] text-ink-3">{i.id}</span>
                 </div>
-                <p className="text-xs text-ink-2">
-                  {i.label} · {formatConfidence(i.confidence)}
-                </p>
+                <p className="text-xs text-ink-2">{incidentHeadline(i)}</p>
                 <p className="text-xs text-ink-3">{formatDateTime(i.timestamp)}</p>
                 <IncidentStatusBadge status={i.status} />
               </div>

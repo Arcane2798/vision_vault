@@ -3,7 +3,7 @@ import { Link, Outlet } from 'react-router-dom';
 import { FlaskConical, ShieldAlert, X } from 'lucide-react';
 import { isMock } from '@/config/env';
 import { useRealtime } from '@/context/RealtimeContext';
-import { formatConfidence } from '@/utils/format';
+import { incidentHeadline } from '@/utils/format';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 
@@ -48,7 +48,7 @@ function AlertToast() {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">Security alert at your door</p>
           <p className="mt-0.5 text-sm text-ink-2">
-            {toast.cameraName} · {toast.label} ({formatConfidence(toast.confidence)})
+            {incidentHeadline(toast)} · {toast.cameraName}
           </p>
           <p className="mt-1 text-xs text-ink-3">Automated alert - review the snapshot and clip before acting.</p>
           <Link to={`/incidents/${toast.id}`} onClick={dismissToast} className="mt-2 inline-block text-sm font-medium text-blue-300 hover:underline">

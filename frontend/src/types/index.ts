@@ -60,8 +60,12 @@ export interface Incident {
   cameraName: string;
   location: string;
   timestamp: string;
+  /** backend event_type: 'intrusion' | 'guest_outside_window' (display text via eventTypeLabel) */
   label: string;
+  /** fixed 1.0 for rule-based events - hidden in the UI for those */
   confidence: number;
+  /** matched person's name, or "unknown" (events.identity) */
+  identity?: string | null;
   status: IncidentStatus;
   snapshotUrl?: string;
   clipUrl?: string;

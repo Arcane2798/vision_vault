@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRealtime } from '@/context/RealtimeContext';
 import { useAsync } from '@/hooks/useAsync';
 import { dashboardService, incidentService } from '@/services';
-import { formatConfidence, formatRelative } from '@/utils/format';
+import { formatRelative, incidentHeadline } from '@/utils/format';
 import { LinkButton } from '@/components/ui/Button';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -116,9 +116,7 @@ export default function DashboardPage() {
                         <p className="truncate text-sm font-medium">{i.cameraName}</p>
                         <span className="shrink-0 text-xs text-ink-3">{formatRelative(i.timestamp)}</span>
                       </div>
-                      <p className="truncate text-xs text-ink-3">
-                        {i.label} · {formatConfidence(i.confidence)}
-                      </p>
+                      <p className="truncate text-xs text-ink-3">{incidentHeadline(i)}</p>
                     </div>
                     <span className="hidden sm:block">
                       <IncidentStatusBadge status={i.status} />
