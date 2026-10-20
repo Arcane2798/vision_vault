@@ -43,9 +43,10 @@ def sync_people(faces_dir=None):
     faces_dir.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(DB_PATH)
     try:
+        have = {r[0].lower() for r in con.execute("SELECT name FROM people")}
         for d in sorted(faces_dir.iterdir()):
-            if d.is_dir():
-                con.execute("INSERT OR IGNORE INTO people (name, role, created_at)"
+            if d.is_dir() and d.name.lower() not in have:   # no INSERT OR IGNORE: it burns ids
+                con.execute("INSERT INTO people (name, role, created_at)"
                             " VALUES (?, 'family', ?)", (d.name, time.time()))
         con.commit()
     finally:

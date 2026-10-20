@@ -104,6 +104,10 @@ class VisionEngine:
                    (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
         return best.normed_embedding
 
+    def has_face(self, img):
+        """True if InsightFace finds a face in `img` (used to validate uploaded photos)."""
+        return self._embed_image(img) is not None
+
     def _embed_folder(self, person_dir):
         embs = []
         for img_path in sorted(person_dir.iterdir()):

@@ -15,12 +15,14 @@ GUEST_ALLOWED = "guest_allowed"
 GUEST_OUTSIDE = "guest_outside_window"   # also the event_type logged for it
 
 _NAME_RE = re.compile(r"^[A-Za-z0-9 _-]{1,40}$")
+_WINDOWS_RESERVED = ({"con", "prn", "aux", "nul"} | {f"com{i}" for i in range(1, 10)}
+                     | {f"lpt{i}" for i in range(1, 10)})
 
 
 def valid_person_name(name: str) -> bool:
     """Folder-safe name: letters, digits, space, '-', '_' (1-40 chars), not 'unknown'."""
     return (bool(_NAME_RE.match(name)) and name.strip() == name
-            and name.lower() != UNKNOWN)
+            and name.lower() != UNKNOWN and name.lower() not in _WINDOWS_RESERVED)
 
 
 def visitor_allowed(role: str, valid_from: Optional[float],

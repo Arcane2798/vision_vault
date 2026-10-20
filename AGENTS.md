@@ -84,7 +84,7 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 
 ## Setup & run
 ```bash
-pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python requests imageio-ffmpeg
+pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python requests imageio-ffmpeg python-multipart
 ```
 - Backend (from `vision_vault/`): `py -m uvicorn main:app --port 8000`
   - On Azhad's laptop use `py` (Python 3.14 has the packages); `python` there is only the Microsoft Store stub.
@@ -103,9 +103,18 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/api/dashboard/summary`, `/api/dashboard/trend?days=14` | |
 | WS | `/api/ws/events` | `{type:"alert", data: Incident}` and `{type:"camera_status", ...}` |
 | GET | `/api/status` | `{running, fps, unknownCount, cameraName}` — live engine state |
+| GET | `/api/people` | `Person[]`, family first then by name (Person JSON in Phase 1 spec; `id` is a number) |
+| POST | `/api/people` | multipart `name, role (default family), validFrom?, validTo?, photos` (repeat `photos` per file) → 201 `Person`. 400 bad name/role/date, from > to, no photo, unreadable image or **no face found**; 409 name taken (case-insensitive) |
+| PATCH | `/api/people/{id}` | JSON `{role?, validFrom?, validTo?}` → `Person`. Omitted = unchanged, `null` = clear (open-ended). Role `family` clears the window |
+| DELETE | `/api/people/{id}` | → 204; removes the row and `faces/<name>/` |
+| POST | `/api/people/{id}/photos` | multipart `photos` → `Person` (same photo checks as create) |
+| GET | `/api/people/{id}/photo` | first photo as a JPEG thumbnail (≤ 320 px); 404 if none. `faces/` itself is never served |
 
 **`events` table:** `id, ts (epoch), camera, track_id, identity, event_type, clip_path, snapshot_path, status, notes, reviewed_at`.
 `event_type` ∈ `intrusion` (identity `unknown`) | `guest_outside_window` (identity = visitor's name).
+
+Dates in: ISO 8601; with no offset (e.g. `datetime-local` "2026-10-24T14:00") they mean the server's local time.
+Dates out: ISO UTC with `Z`. Uploads take ~1 s per photo (face embedding), so use a long client timeout.
 
 **`people` table:** `id, name (= faces/ folder, unique, case-insensitive), role ('family'|'guest'), valid_from, valid_to, created_at`.
 Pure rules live in `rules.py` (`visitor_allowed`, `classify_person`, `valid_person_name`). A guest window bound that is
@@ -176,7 +185,7 @@ orange, unknown red, static figure grey.
       guest outside window → event `guest_outside_window` + Telegram (orange); no match → `intrusion` (red).
       Window check is a pure function `visitor_allowed(role, valid_from, valid_to, now) -> bool`.
 - [x] **Engine:** `last_seen: {name: epoch}` updated whenever a known person is matched (under `self.lock`); exposed as `lastSeen` on people.
-- [ ] **API** (needs `pip install python-multipart`):
+- [x] **API** (needs `pip install python-multipart`):
       `GET /api/people`, `POST /api/people` (multipart: name, role, validFrom?, validTo?, photos[]),
       `PATCH /api/people/{id}` (JSON `{role?, validFrom?, validTo?}`), `DELETE /api/people/{id}` (row + folder),
       `POST /api/people/{id}/photos` (multipart photos[]), `GET /api/people/{id}/photo` (first photo as JPEG; `faces/` is never mounted publicly).
