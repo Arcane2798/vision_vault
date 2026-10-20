@@ -89,9 +89,8 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python requests imageio-ffmpeg python-multipart google-genai
 ```
 - Backend (from `vision_vault/`): `py -m uvicorn main:app --port 8000`
-  - Guard House view on a phone (same Wi-Fi): run the backend with `--host 0.0.0.0` and the frontend with `npm run dev -- --host`,
-    point the frontend's API/stream URLs at the laptop's LAN IP, and open `http://<laptop-ip>:5173/guard`. CORS allows
-    `localhost`, `127.0.0.1` and private-LAN origins (`192.168.x.x`, `10.x.x.x`, `172.16–31.x.x`) on port 5173 only.
+  - Guard House view runs on the same laptop: switch with the bottom-left button (decided Tue 20 Oct: no phone in the demo).
+    CORS also allows private-LAN origins on port 5173, unused for now.
   - On Azhad's laptop use `py` (Python 3.14 has the packages); `python` there is only the Microsoft Store stub.
   - Test video instead of webcam: set `VIDEO_SOURCE=test_videos/test1.mp4` in `.env`
 - Frontend (from `vision_vault/frontend/`): `npm install` once, then `npm run dev` → http://localhost:5173
@@ -269,7 +268,7 @@ orange, unknown red, static figure grey.
 
 ### Phase 2b — Guard House view (owner-approved Tue 20 Oct, ~2–3 h)
 A mock guard-house screen on the same backend that shows the township loop: intrusion → guard sees it → guard acknowledges → homeowner sees the acknowledgement.
-Real deployment = a separate township server for many homes (KIV); the demo is one page, opened in a second window or on a phone on the same Wi-Fi.
+Real deployment = a separate township server for many homes (KIV); the demo is one page on the same laptop, reached with the bottom-left switch button.
 - [x] **Backend:** `guard_notified` = 1 for every `intrusion` raised while the effective level is not `home`. The guard view counts as a channel,
       so this no longer depends on `GUARD_TG_CHAT_ID`; the Telegram guard copy is still sent only when it is configured.
       New `events` columns `guard_ack_at` (epoch), `guard_ack_note`.
