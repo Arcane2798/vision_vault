@@ -221,19 +221,36 @@ orange, unknown red, static figure grey.
 ### Phase 2 — Chatbot with tool calling + guard-house alert (Thu 22)
 - [ ] `POST /api/chat` `{messages}` → `{reply, pendingAction?}` using the `anthropic` Python SDK, model `claude-sonnet-5-5`,
       key `ANTHROPIC_API_KEY` in `.env`. System prompt includes current local time (Asia/Kuala_Lumpur).
+      Code lives in a new `chat.py` (tool functions + loop); `api.py` only adds the route. No key → 503 `{detail: "Chat is not configured: add ANTHROPIC_API_KEY to .env"}`.
+      **Request:** `{messages: [{role: "user"|"assistant", content: string}]}` (plain text history, newest last; server caps at the last 20).
+      **Response:** `{reply: string, pendingAction: PendingAction | null}`.
 - [ ] Tools are plain Python functions reusing existing queries:
       read — `get_summary`, `list_incidents(from, to, status, limit)`, `get_incident(id)`, `get_live_status`, `list_people`,
       `where_is(name)` (answers from `lastSeen`: "last seen at the front door at 14:32");
       write — `review_incident(id, status, notes)`, `add_or_update_guest(name, valid_from, valid_to)`, `set_security_level(level)`.
+      `get_live_status` includes **who is in view right now**: engine `get_status()` adds `in_view: [{name, kind}]`
+      (kind = family / guest_allowed / guest_outside / unknown) and `/api/status` adds `peopleInView: [{name, kind}]`.
+      Text only — **no camera frames are sent to the AI** (keeps the "footage stays in the home" promise).
 - [ ] Write tools are **never executed by the model**: they return `pendingAction`; the frontend shows a Confirm button,
-      and on confirm calls the normal REST endpoint itself.
-- [ ] Frontend chat panel (slide-over from the top bar), works from every page.
+      and on confirm calls the normal REST endpoint itself. **PendingAction** (one per reply, the latest wins):
+      `{summary: string, kind: "request", method: "PATCH"|"PUT", path: string, body: object}` — e.g.
+      `PATCH /api/incidents/12 {status, notes}`, `PUT /api/security {level}`, `PATCH /api/people/3 {role:"guest", validFrom, validTo}`;
+      or `{summary, kind: "add_person", prefill: {name, role, validFrom, validTo}}` when the visitor is **not enrolled yet**
+      (a new person needs photos, so the frontend opens the Add-person form prefilled instead of calling an endpoint).
+- [ ] Frontend chat panel (slide-over from the top bar), works from every page. Shows the PendingAction as a card with
+      Confirm / Cancel; Confirm runs it through the normal services (or opens the prefilled Add-person modal), then shows
+      "Done" or the error in the chat. Suggested prompts on an empty chat: "What happened at the door today?",
+      "Who is at the door right now?", "Where is Azhad?", "Switch to Away mode".
+      Live status strip may also list `peopleInView` names.
+- [ ] **Clip speed:** clips are written at a fixed `CLIP_FPS = 20` while the engine runs ~5 fps, so they play ~4× fast.
+      Write each clip at the engine's measured FPS (rounded, min 1) and size the pre-roll buffer in seconds, not frames.
 - [ ] **Guard-house alert** (small, ~1 h): `.env` gets `GUARD_TG_CHAT_ID` and `HOUSE_UNIT` (e.g. "No. 12, Jalan Elmina 3/1").
       On `intrusion` only, send a second Telegram message with the unit address + snapshot to the guard-house chat
       (same cooldown; skip silently if unset). Add `guard_notified` column; incident detail shows "Guard house notified".
-      `guest_outside_window` goes to the homeowner only.
+      `guest_outside_window` goes to the homeowner only. Security level `home` skips the guard copy (`security_params` `guard_alert`).
+      Incident JSON adds `guardNotified: bool`.
 - [ ] Fix clip race: add `clip_ready` column, set to 1 when H.264 conversion finishes; API exposes `clipReady`;
-      frontend shows "Clip processing…" until ready.
+      frontend shows "Clip processing…" until ready (incident detail re-fetches every few seconds while `clipReady` is false).
 
 ### Phase 3 — Polish & demo (Fri 23, morning only)
 - [ ] Prune engine per-track state for tracks unseen > 30 s (do this together with path trails, which share the same state)
