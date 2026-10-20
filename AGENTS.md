@@ -72,7 +72,8 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 ```bash
 pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python requests imageio-ffmpeg
 ```
-- Backend (from `vision_vault/`): `python -m uvicorn main:app --port 8000`
+- Backend (from `vision_vault/`): `py -m uvicorn main:app --port 8000`
+  - On Azhad's laptop use `py` (Python 3.14 has the packages); `python` there is only the Microsoft Store stub.
   - Test video instead of webcam: set `VIDEO_SOURCE=test_videos/test1.mp4` in `.env`
 - Frontend (from `vision_vault/frontend/`): `npm install` once, then `npm run dev` → http://localhost:5173
 - Node.js 18+ required.

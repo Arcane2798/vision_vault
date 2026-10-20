@@ -145,9 +145,17 @@ class VisionEngine:
 
     # ---------- main loop ----------
     def _loop(self):
-        cap = cv2.VideoCapture(self.source)
+        if self.is_file:
+            cap = cv2.VideoCapture(self.source)
+        else:
+            # Windows' default MSMF backend can open a webcam yet never deliver frames; DirectShow is reliable
+            backend = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY
+            cap = cv2.VideoCapture(self.source, backend)
+        if not cap.isOpened():
+            print(f"[camera] could not open video source {self.source!r}")
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        failed_reads = 0
 
         frame_count = 0
         fps = 0.0
@@ -162,8 +170,13 @@ class VisionEngine:
                 if self.is_file:
                     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)   # loop the video
                     continue
+                failed_reads += 1
+                if failed_reads % 100 == 1:
+                    print(f"[camera] no frames from source {self.source!r} "
+                          "(in use by another app, or try VIDEO_SOURCE=1 in .env)")
                 time.sleep(0.05)
                 continue
+            failed_reads = 0
 
             # keep processing size the same as the webcam (video files are often 1080p)
             h0, w0 = frame.shape[:2]
