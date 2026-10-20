@@ -1,0 +1,20 @@
+# secrets
+.env
+.env.local
+
+# private data: family photos, footage, incident log
+faces/
+clips/
+snapshots/
+vault.db
+
+# large / regenerated files
+*.pt
+test_videos/
+node_modules/
+dist/
+__pycache__/
+*.log
+
+# local AI tool settings
+.claude/settings.local.json
