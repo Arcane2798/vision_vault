@@ -5,6 +5,7 @@ import { isMock } from '@/config/env';
 import { useRealtime } from '@/context/RealtimeContext';
 import { SecurityProvider } from '@/context/SecurityContext';
 import { incidentHeadline } from '@/utils/format';
+import { GuardNotifiedBadge } from '@/components/incidents/GuardNotifiedBadge';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 
@@ -53,6 +54,7 @@ function AlertToast() {
           <p className="mt-0.5 text-sm text-ink-2">
             {incidentHeadline(toast)} · {toast.cameraName}
           </p>
+          {toast.guardNotified && <GuardNotifiedBadge className="mt-1.5" />}
           <p className="mt-1 text-xs text-ink-3">Automated alert - review the snapshot and clip before acting.</p>
           <Link to={`/incidents/${toast.id}`} onClick={dismissToast} className="mt-2 inline-block text-sm font-medium text-blue-300 hover:underline">
             Review incident →

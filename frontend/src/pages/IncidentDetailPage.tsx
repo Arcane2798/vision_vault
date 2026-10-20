@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/ui/Modal';
 import { ErrorState, LoadingState } from '@/components/ui/States';
 import { AiPredictionTag, IncidentStatusBadge } from '@/components/ui/StatusBadge';
 import { DetectionOverlay } from '@/components/cameras/DetectionOverlay';
+import { GuardNotifiedBadge } from '@/components/incidents/GuardNotifiedBadge';
 
 /** Re-fetch this often while the clip is being converted. */
 const CLIP_POLL_MS = 3000;
@@ -61,7 +62,10 @@ export default function IncidentDetailPage() {
             {eventTypeLabel(inc.label)} at {inc.cameraName}
           </h1>
         </div>
-        <IncidentStatusBadge status={inc.status} />
+        <div className="flex flex-wrap items-center gap-2">
+          {inc.guardNotified && <GuardNotifiedBadge />}
+          <IncidentStatusBadge status={inc.status} />
+        </div>
       </div>
 
       {inc.status === 'new' || inc.status === 'under_review' ? (
@@ -127,6 +131,11 @@ export default function IncidentDetailPage() {
                 <Row label="Detection">Rule-based alert (no model confidence)</Row>
               ) : (
                 <Row label="Confidence">{formatConfidence(inc.confidence)}</Row>
+              )}
+              {inc.guardNotified !== undefined && (
+                <Row label="Guard house">
+                  {inc.guardNotified ? <GuardNotifiedBadge /> : <span className="text-ink-3">{inc.label === 'intrusion' ? 'Not notified' : 'Not notified (homeowner only)'}</span>}
+                </Row>
               )}
               <Row label="Camera">{inc.cameraName}</Row>
               <Row label="Location">{inc.location}</Row>

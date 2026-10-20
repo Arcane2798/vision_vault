@@ -71,6 +71,8 @@ export interface Incident {
   clipUrl?: string;
   /** false while the clip is still being recorded / converted to H.264. Missing (older backends) = ready. */
   clipReady?: boolean;
+  /** the township guard house got a Telegram copy (intrusion only). Missing on older backends. */
+  guardNotified?: boolean;
   detections: Detection[];
   reviewedBy?: string;
   reviewedAt?: string;

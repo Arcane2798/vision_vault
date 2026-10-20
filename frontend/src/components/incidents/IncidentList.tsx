@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import type { Incident } from '@/types';
 import { eventTypeLabel, formatConfidence, formatDateTime, incidentHeadline, incidentIdentity, isRuleBased } from '@/utils/format';
 import { IncidentStatusBadge } from '@/components/ui/StatusBadge';
+import { GuardNotifiedBadge } from './GuardNotifiedBadge';
 
 /** Table on desktop, cards on mobile. Each row opens the incident details. */
 export function IncidentList({ incidents, showSnapshot = true }: { incidents: Incident[]; showSnapshot?: boolean }) {
@@ -49,7 +50,10 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
                   <p className="text-xs text-ink-3">{isRuleBased(i.label) ? incidentIdentity(i) : `${formatConfidence(i.confidence)} confidence`}</p>
                 </td>
                 <td className="px-4 py-2">
-                  <IncidentStatusBadge status={i.status} />
+                  <div className="flex flex-col items-start gap-1">
+                    <IncidentStatusBadge status={i.status} />
+                    {i.guardNotified && <GuardNotifiedBadge />}
+                  </div>
                 </td>
                 <td className="px-2 text-ink-3">
                   <ChevronRight className="h-4 w-4" aria-hidden />
@@ -72,7 +76,10 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
                 </div>
                 <p className="text-xs text-ink-2">{incidentHeadline(i)}</p>
                 <p className="text-xs text-ink-3">{formatDateTime(i.timestamp)}</p>
-                <IncidentStatusBadge status={i.status} />
+                <div className="flex flex-wrap gap-1">
+                  <IncidentStatusBadge status={i.status} />
+                  {i.guardNotified && <GuardNotifiedBadge />}
+                </div>
               </div>
             </Link>
           </li>
