@@ -128,6 +128,7 @@ def _incident(r, base):
     out = {"id": str(r["id"]), "cameraId": CAMERA_ID, "cameraName": name,
            "location": location, "timestamp": _iso(r["ts"]),
            "label": r["event_type"] or "intrusion",
+           "identity": r["identity"] or "unknown",   # visitor name for guest_outside_window
            "confidence": 1.0,        # rule-based alert, no model score is logged
            "status": r["status"] or "new", "detections": []}
     if snap:
@@ -208,7 +209,7 @@ def create_router(engine):
         if s:
             out = [i for i in out if any(
                 s in str(i[k]).lower()
-                for k in ("id", "cameraName", "location", "label"))]
+                for k in ("id", "cameraName", "location", "label", "identity"))]
         if cameraId:
             out = [i for i in out if i["cameraId"] == cameraId]
         if status:

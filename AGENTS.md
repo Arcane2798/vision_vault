@@ -98,7 +98,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/video` | MJPEG stream (use `<img>`, not `<video>`) |
 | GET | `/clips/*`, `/snapshots/*` | Static evidence files |
 | GET | `/api/cameras` | Single camera `cam-01`; POST/PUT/DELETE return 501 |
-| GET | `/api/incidents` | `?search&cameraId&status&from&to&sort` |
+| GET | `/api/incidents` | `?search&cameraId&status&from&to&sort`; search also matches `identity`. Incident JSON includes `identity` (`unknown` or the visitor's name) |
 | GET / PATCH | `/api/incidents/{id}` | PATCH `{status, notes}`; status ∈ new, under_review, confirmed, dismissed |
 | GET | `/api/dashboard/summary`, `/api/dashboard/trend?days=14` | |
 | WS | `/api/ws/events` | `{type:"alert", data: Incident}` and `{type:"camera_status", ...}` |
