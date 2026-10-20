@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Lock, RefreshCw, UserPlus } from 'lucide-react';
 import { config } from '@/config/env';
 import { useAsync } from '@/hooks/useAsync';
+import { useDataVersion } from '@/hooks/useDataVersion';
 import { peopleService } from '@/services';
 import type { Person } from '@/types';
 import { personRoleLabel } from '@/utils/format';
@@ -17,7 +18,8 @@ type Notice = { ok: boolean; text: string } | null;
 
 /** Residents (always allowed) and registered visitors (allowed inside their time window). */
 export default function PeoplePage() {
-  const people = useAsync(() => peopleService.list(), [], config.refreshIntervalMs);
+  const changed = useDataVersion('people'); // e.g. added or edited from the assistant chat
+  const people = useAsync(() => peopleService.list(), [changed], config.refreshIntervalMs);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Person | null>(null);
   const [deleting, setDeleting] = useState<Person | null>(null);

@@ -3,8 +3,10 @@ import { Link, Outlet } from 'react-router-dom';
 import { FlaskConical, ShieldAlert, X } from 'lucide-react';
 import { isMock } from '@/config/env';
 import { useRealtime } from '@/context/RealtimeContext';
+import { ChatProvider, useChat } from '@/context/ChatContext';
 import { SecurityProvider } from '@/context/SecurityContext';
-import { incidentHeadline } from '@/utils/format';
+import { ChatPanel } from '@/components/chat/ChatPanel';
+import { cn, incidentHeadline } from '@/utils/format';
 import { GuardNotifiedBadge } from '@/components/incidents/GuardNotifiedBadge';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -13,20 +15,23 @@ export function AppLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <SecurityProvider>
-      <div className="flex min-h-screen">
-        <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-brand focus:px-3 focus:py-2">
-          Skip to content
-        </a>
-        <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar onMenu={() => setMenuOpen(true)} />
-          {isMock && <SampleDataBanner />}
-          <main id="main" className="flex-1 p-4 lg:p-6">
-            <Outlet />
-          </main>
+      <ChatProvider>
+        <div className="flex min-h-screen">
+          <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-brand focus:px-3 focus:py-2">
+            Skip to content
+          </a>
+          <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <Topbar onMenu={() => setMenuOpen(true)} />
+            {isMock && <SampleDataBanner />}
+            <main id="main" className="flex-1 p-4 lg:p-6">
+              <Outlet />
+            </main>
+          </div>
+          <AlertToast />
+          <ChatPanel />
         </div>
-        <AlertToast />
-      </div>
+      </ChatProvider>
     </SecurityProvider>
   );
 }
@@ -44,9 +49,11 @@ function SampleDataBanner() {
 
 function AlertToast() {
   const { toast, dismissToast } = useRealtime();
+  const chat = useChat();
   if (!toast) return null;
   return (
-    <div role="alert" className="fixed bottom-4 right-4 z-50 w-[min(24rem,calc(100vw-2rem))] rounded-xl border border-warn/40 bg-surface-1 p-4 shadow-2xl">
+    // moves left of the open assistant panel so it never covers the chat input
+    <div role="alert" className={cn('fixed bottom-4 right-4 z-50 w-[min(24rem,calc(100vw-2rem))] rounded-xl border border-warn/40 bg-surface-1 p-4 shadow-2xl', chat.open && 'sm:right-[27rem]')}>
       <div className="flex gap-3">
         <ShieldAlert className="h-5 w-5 shrink-0 text-warn" aria-hidden />
         <div className="min-w-0 flex-1">

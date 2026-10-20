@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import type { Person, PersonInput, PersonRole, PersonUpdate } from '@/types';
+import { useState, type FormEvent, type ReactNode } from 'react';
+import type { Person, PersonInput, PersonPrefill, PersonRole, PersonUpdate } from '@/types';
 import { fromDateTimeLocal, personRoleLabel, toDateTimeLocal } from '@/utils/format';
 import { Button } from '@/components/ui/Button';
 import { Field, Input, Select } from '@/components/ui/Field';
@@ -64,12 +64,21 @@ function FormError({ message }: { message: string | null }) {
   ) : null;
 }
 
+interface AddPersonModalProps {
+  onClose: () => void;
+  onSubmit: (input: PersonInput) => Promise<void>;
+  /** prefilled values, e.g. suggested by the assistant (dates ISO) */
+  initial?: PersonPrefill;
+  /** short note shown above the form */
+  intro?: ReactNode;
+}
+
 /** Add a resident or visitor with one or more face photos. */
-export function AddPersonModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (input: PersonInput) => Promise<void> }) {
-  const [name, setName] = useState('');
-  const [role, setRole] = useState<PersonRole>('guest');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+export function AddPersonModal({ onClose, onSubmit, initial, intro }: AddPersonModalProps) {
+  const [name, setName] = useState(initial?.name ?? '');
+  const [role, setRole] = useState<PersonRole>(initial?.role === 'family' ? 'family' : 'guest');
+  const [from, setFrom] = useState(toDateTimeLocal(initial?.validFrom ?? null));
+  const [to, setTo] = useState(toDateTimeLocal(initial?.validTo ?? null));
   const [photos, setPhotos] = useState<File[]>([]);
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -116,8 +125,9 @@ export function AddPersonModal({ onClose, onSubmit }: { onClose: () => void; onS
       }
     >
       <form id="add-person-form" className="space-y-4" onSubmit={submit} noValidate>
+        {intro && <div className="rounded-lg border border-brand/40 bg-brand/10 px-3 py-2 text-sm text-blue-200">{intro}</div>}
         <Field label="Name" error={touched ? nameError : undefined} hint="Shown on the live video when recognised.">
-          {(id, describedBy) => <Input id={id} aria-describedby={describedBy} aria-invalid={touched && !!nameError} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Ali" autoFocus />}
+          {(id, describedBy) => <Input id={id} aria-describedby={describedBy} aria-invalid={touched && !!nameError} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Ali" autoFocus={!initial?.name} />}
         </Field>
         <RoleSelect value={role} onChange={setRole} />
         {role === 'guest' && <WindowFields from={from} to={to} onFrom={setFrom} onTo={setTo} error={windowError} />}

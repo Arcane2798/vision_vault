@@ -207,6 +207,39 @@ export interface PersonUpdate {
   validTo?: string | null;
 }
 
+/** One turn of the assistant chat (plain text, newest last). */
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/** POST /api/chat */
+export interface ChatRequest {
+  messages: ChatMessage[];
+}
+
+/** Values the assistant suggests for a visitor who is not enrolled yet (dates ISO, or null). */
+export interface PersonPrefill {
+  name?: string | null;
+  role?: PersonRole | null;
+  validFrom?: string | null;
+  validTo?: string | null;
+}
+
+/**
+ * A change the assistant proposes. It is never executed by the backend: the homeowner confirms it and the
+ * frontend runs it through the normal services ('request'), or opens the prefilled Add-person form ('add_person').
+ */
+export type PendingAction =
+  | { summary: string; kind: 'request'; method: 'PATCH' | 'PUT'; path: string; body: Record<string, unknown> }
+  | { summary: string; kind: 'add_person'; prefill: PersonPrefill };
+
+/** POST /api/chat response. 503 when the backend has no AI key configured (detail says which .env key to add). */
+export interface ChatResponse {
+  reply: string;
+  pendingAction: PendingAction | null;
+}
+
 export type RealtimeEvent =
   | { type: 'alert'; data: Incident }
   | { type: 'detection'; data: Detection }

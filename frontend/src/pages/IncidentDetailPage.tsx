@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Eye, Loader2, Lock, XCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAsync } from '@/hooks/useAsync';
+import { useDataVersion } from '@/hooks/useDataVersion';
 import { incidentService } from '@/services';
 import type { Incident, IncidentStatus } from '@/types';
 import { clipProcessing, eventTypeLabel, formatConfidence, formatDateTime, incidentIdentity, incidentStatusLabel, isRuleBased } from '@/utils/format';
@@ -22,8 +23,11 @@ const CLIP_WAIT_MS = 3 * 60000;
 export default function IncidentDetailPage() {
   const { id = '' } = useParams();
   const { can } = useAuth();
-  const incident = useAsync(() => incidentService.get(id), [id]);
+  const changed = useDataVersion('incidents'); // e.g. reviewed from the assistant chat
+  const incident = useAsync(() => incidentService.get(id), [id, changed]);
   const [local, setLocal] = useState<Incident | null>(null);
+  // a change made elsewhere wins over this page's last review result
+  useEffect(() => setLocal(null), [changed]);
   const inc = local?.id === id ? local : incident.data;
 
   // clip fields always come from the latest fetch (local only holds the review result)

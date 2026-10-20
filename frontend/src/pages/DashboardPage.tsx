@@ -4,6 +4,7 @@ import { config } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
 import { useRealtime } from '@/context/RealtimeContext';
 import { useAsync } from '@/hooks/useAsync';
+import { useDataVersion } from '@/hooks/useDataVersion';
 import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { dashboardService, incidentService } from '@/services';
 import { formatRelative, incidentHeadline } from '@/utils/format';
@@ -20,7 +21,8 @@ export default function DashboardPage() {
   const { can } = useAuth();
   const { alerts } = useRealtime();
   // refetch when a new alert arrives so counters stay correct
-  const refreshKey = alerts[0]?.id;
+  const changed = useDataVersion('incidents'); // e.g. reviewed from the assistant chat
+  const refreshKey = `${alerts[0]?.id}-${changed}`;
   const summary = useAsync(() => dashboardService.summary(), [refreshKey], config.refreshIntervalMs);
   const trend = useAsync(() => dashboardService.trend(14), [], config.refreshIntervalMs * 4);
   const recent = useAsync(() => incidentService.list({ sort: 'newest' }).then((l) => l.slice(0, 6)), [refreshKey], config.refreshIntervalMs);

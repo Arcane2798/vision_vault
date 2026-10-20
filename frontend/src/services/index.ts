@@ -5,7 +5,7 @@
  */
 import { isMock } from '@/config/env';
 import { mockApi } from '@/mocks/mockApi';
-import type { AuthSession, Camera, CameraInput, DashboardSummary, Incident, IncidentQuery, IncidentStatus, LiveStatus, Person, PersonInput, PersonUpdate, SecuritySettings, SecurityUpdate, TestVideo, TrendPoint, User, VideoSource, VideoSourceUpdate } from '@/types';
+import type { AuthSession, Camera, CameraInput, ChatRequest, ChatResponse, DashboardSummary, Incident, IncidentQuery, IncidentStatus, LiveStatus, Person, PersonInput, PersonUpdate, SecuritySettings, SecurityUpdate, TestVideo, TrendPoint, User, VideoSource, VideoSourceUpdate } from '@/types';
 import { api, backendUrl } from './apiClient';
 
 export const authService = {
@@ -75,6 +75,13 @@ export const sourceService = {
     form.append('video', video, video.name);
     return api('/source/videos', { method: 'POST', body: form, timeoutMs: VIDEO_UPLOAD_TIMEOUT_MS });
   },
+};
+
+const CHAT_TIMEOUT_MS = 90000; // the assistant may call several tools before it answers
+
+/** AI assistant (live mode only). Proposed changes come back as pendingAction and are never applied by the backend. */
+export const chatService = {
+  send: (body: ChatRequest): Promise<ChatResponse> => api('/chat', { method: 'POST', body, timeoutMs: CHAT_TIMEOUT_MS }),
 };
 
 export const incidentService = {

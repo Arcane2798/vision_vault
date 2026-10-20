@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, LogOut, Menu, Radio, User as UserIcon } from 'lucide-react';
+import { Bell, Bot, LogOut, Menu, Radio, User as UserIcon } from 'lucide-react';
 import { config } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
+import { useChat } from '@/context/ChatContext';
 import { useRealtime } from '@/context/RealtimeContext';
 import type { ConnectionState } from '@/types';
 import { cn, formatRelative, incidentHeadline, roleLabel } from '@/utils/format';
@@ -34,6 +35,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
   const bellRef = useClickOutside(() => setBellOpen(false));
   const userRef = useClickOutside(() => setUserOpen(false));
   const conn = connectionUi[connection];
+  const chat = useChat();
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-surface-0/90 px-4 backdrop-blur lg:px-6">
@@ -52,6 +54,19 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         <span className="mr-1">
           <SecurityBadge />
         </span>
+        <button
+          className={cn(
+            'flex items-center gap-1.5 rounded-lg p-2 text-sm text-ink-2 hover:bg-surface-3 hover:text-ink-1',
+            chat.open && 'bg-surface-3 text-ink-1',
+          )}
+          aria-expanded={chat.open}
+          aria-label={`Ask the ${config.appName} assistant`}
+          title={`Ask the ${config.appName} assistant`}
+          onClick={() => chat.setOpen(!chat.open)}
+        >
+          <Bot className="h-5 w-5" aria-hidden />
+          <span className="hidden md:inline">Assistant</span>
+        </button>
         <div className="relative" ref={bellRef}>
           <button
             className="relative rounded-lg p-2 text-ink-2 hover:bg-surface-3 hover:text-ink-1"

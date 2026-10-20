@@ -121,6 +121,7 @@ export function formatLastSeen(iso: string | null): string {
 export function toDateTimeLocal(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 

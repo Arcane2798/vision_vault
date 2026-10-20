@@ -4,6 +4,7 @@ import { RefreshCw } from 'lucide-react';
 import { config } from '@/config/env';
 import { useRealtime } from '@/context/RealtimeContext';
 import { useAsync } from '@/hooks/useAsync';
+import { useDataVersion } from '@/hooks/useDataVersion';
 import { cameraService, incidentService } from '@/services';
 import type { IncidentQuery, IncidentStatus } from '@/types';
 import { Button } from '@/components/ui/Button';
@@ -56,11 +57,12 @@ export default function IncidentsPage() {
   const search = useDebounced(query.search);
   const [page, setPage] = useState(1);
   const { alerts } = useRealtime();
+  const changed = useDataVersion('incidents'); // e.g. reviewed from the assistant chat
 
   const cameras = useAsync(() => cameraService.list(), []);
   const incidents = useAsync(
     () => incidentService.list({ ...query, search }),
-    [search, query.cameraId, query.status, query.from, query.to, query.sort, alerts[0]?.id],
+    [search, query.cameraId, query.status, query.from, query.to, query.sort, alerts[0]?.id, changed],
     config.refreshIntervalMs,
   );
 
