@@ -26,6 +26,7 @@ export default function PeoplePage() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const list = people.data ?? [];
   const residents = list.filter((p) => p.role === 'family');
@@ -63,6 +64,19 @@ export default function PeoplePage() {
     }
   };
 
+  const refreshFaces = async () => {
+    setRefreshing(true);
+    setNotice(null);
+    try {
+      const fresh = await peopleService.reloadFaces();
+      done(`Faces refreshed: the engine re-read the photos of all ${fresh.length} people.`);
+    } catch (e) {
+      setNotice({ ok: false, text: `Could not refresh faces: ${(e as Error).message}` });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const listProps = { uploadingId, onEdit: setEditing, onAddPhotos: addPhotos, onDelete: setDeleting };
 
   return (
@@ -72,8 +86,13 @@ export default function PeoplePage() {
         description="Residents pass silently. Visitors are allowed only inside their time window, like a gated community's visitor registration."
         actions={
           <>
-            <Button icon={<RefreshCw className={people.loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />} onClick={people.reload} disabled={people.loading}>
-              Refresh
+            <Button
+              icon={<RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />}
+              onClick={refreshFaces}
+              disabled={refreshing}
+              title="Re-read the faces/ folder, e.g. after copying photos in by hand"
+            >
+              {refreshing ? 'Refreshing faces…' : 'Refresh faces'}
             </Button>
             <Button variant="primary" icon={<UserPlus className="h-4 w-4" />} onClick={() => (setNotice(null), setAdding(true))}>
               Add person

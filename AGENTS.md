@@ -115,6 +115,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | PATCH | `/api/people/{id}` | JSON `{role?, validFrom?, validTo?}` → `Person`. Omitted = unchanged, `null` = clear (open-ended). Role `family` clears the window |
 | DELETE | `/api/people/{id}` | → 204; removes the row and `faces/<name>/` |
 | POST | `/api/people/{id}/photos` | multipart `photos` → `Person` (same photo checks as create) |
+| POST | `/api/people/reload` | re-read `faces/` (photos copied in by hand) and re-embed only changed folders → `Person[]`. The People page "Refresh faces" button calls it |
 | GET | `/api/people/{id}/photo` | first photo as a JPEG thumbnail (≤ 320 px); 404 if none. `faces/` itself is never served |
 | GET | `/api/guard/alerts` | `?limit=50` (1–200) → newest first, only events with `guard_notified = 1`: `[{id: string, timestamp, houseUnit, cameraName, snapshotUrl: string\|null, clipUrl: string\|null, clipReady, acknowledgedAt: ISO\|null, ackNote: string\|null}]`. **No identity or people data.** `houseUnit` = `HOUSE_UNIT` (fallback "This home") |
 | POST | `/api/guard/alerts/{id}/ack` | JSON `{note?: string}` (≤ 200 chars, body optional) → that alert. The first ack sets `acknowledgedAt` and sends the homeowner a Telegram text ("🛡 Guard house acknowledged the alert at HH:MM — note"); a repeat keeps the time and only updates the note (if given). 404 if not a guard alert; 400 note too long |

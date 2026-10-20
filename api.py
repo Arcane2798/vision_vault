@@ -454,6 +454,12 @@ def create_router(engine):
     def list_people():
         return people_list(engine, faces_dir)
 
+    @router.post("/people/reload")
+    async def reload_people():
+        """Re-read faces/ (e.g. photos copied in by hand) and re-embed only folders that changed."""
+        await asyncio.to_thread(engine.reload_people)
+        return people_list(engine, faces_dir)
+
     @router.post("/people", status_code=201)
     async def create_person(name: str = Form(...), role: str = Form(FAMILY),
                             validFrom: Optional[str] = Form(None),

@@ -50,6 +50,8 @@ function photoForm(photos: File[], fields: Record<string, string | undefined> = 
 /** Residents & visitors (live mode only). */
 export const peopleService = {
   list: (): Promise<Person[]> => api('/people'),
+  /** re-read faces/ (photos copied in by hand) and re-embed changed folders; returns the list */
+  reloadFaces: (): Promise<Person[]> => api('/people/reload', { method: 'POST', timeoutMs: UPLOAD_TIMEOUT_MS }),
   create: ({ photos, ...fields }: PersonInput): Promise<Person> =>
     api('/people', { method: 'POST', body: photoForm(photos, { ...fields }), timeoutMs: UPLOAD_TIMEOUT_MS }),
   update: (id: number, patch: PersonUpdate): Promise<Person> => api(`/people/${id}`, { method: 'PATCH', body: patch }),
