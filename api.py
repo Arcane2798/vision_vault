@@ -359,7 +359,13 @@ def create_router(engine):
                   from_: Optional[str] = Query(None, alias="from"),
                   to: Optional[str] = None):
         base = base_url(request)
-        out = [_incident(r, base) for r in _rows("SELECT * FROM events")]
+        rows = _rows("SELECT * FROM events")
+        # from/to are local calendar days (yyyy-mm-dd); compare against each event's local day, not its UTC date
+        if from_:
+            rows = [r for r in rows if _local_day(r["ts"]).isoformat() >= from_[:10]]
+        if to:
+            rows = [r for r in rows if _local_day(r["ts"]).isoformat() <= to[:10]]
+        out = [_incident(r, base) for r in rows]
         s = search.strip().lower()
         if s:
             out = [i for i in out if any(
@@ -369,10 +375,6 @@ def create_router(engine):
             out = [i for i in out if i["cameraId"] == cameraId]
         if status:
             out = [i for i in out if i["status"] == status]
-        if from_:
-            out = [i for i in out if i["timestamp"][:10] >= from_]
-        if to:
-            out = [i for i in out if i["timestamp"][:10] <= to]
         out.sort(key=lambda i: i["timestamp"], reverse=(sort != "oldest"))
         return out
 

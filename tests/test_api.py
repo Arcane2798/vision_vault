@@ -65,9 +65,6 @@ def test_incident_filters_and_sort(client):
     assert client.get("/api/incidents?to=2000-01-01").json() == []
 
 
-@pytest.mark.xfail(reason="BUG: api.py from/to filter compares the UTC date of the timestamp, "
-                          "not the local date; events between local midnight and 08:00 (MYT) "
-                          "are filed under the previous day", strict=False)
 def test_incident_date_filter_uses_local_day(client):
     today = date.today()
     early = datetime.combine(today, datetime.min.time()) + timedelta(hours=3)
