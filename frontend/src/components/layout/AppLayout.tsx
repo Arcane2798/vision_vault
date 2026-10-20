@@ -46,11 +46,11 @@ function AlertToast() {
       <div className="flex gap-3">
         <ShieldAlert className="h-5 w-5 shrink-0 text-warn" aria-hidden />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Potential theft detected</p>
+          <p className="text-sm font-semibold">Security alert at your door</p>
           <p className="mt-0.5 text-sm text-ink-2">
             {toast.cameraName} · {toast.label} ({formatConfidence(toast.confidence)})
           </p>
-          <p className="mt-1 text-xs text-ink-3">AI prediction - needs review before it is treated as theft.</p>
+          <p className="mt-1 text-xs text-ink-3">Automated alert - review the snapshot and clip before acting.</p>
           <Link to={`/incidents/${toast.id}`} onClick={dismissToast} className="mt-2 inline-block text-sm font-medium text-blue-300 hover:underline">
             Review incident →
           </Link>

@@ -49,7 +49,7 @@ export default function IncidentDetailPage() {
 
       {inc.status === 'new' || inc.status === 'under_review' ? (
         <div className="mb-4 rounded-xl border border-warn/30 bg-warn/10 px-4 py-3 text-sm text-amber-200">
-          This is an <b>AI prediction</b>, not proof that theft occurred. Review the evidence before taking action.
+          This is an <b>automated alert</b>, not proof of an intrusion. Review the snapshot and clip before taking action.
         </div>
       ) : null}
 
@@ -147,7 +147,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 const ACTIONS: Array<{ status: IncidentStatus; label: string; Icon: typeof Eye; variant: 'secondary' | 'danger' | 'ghost'; confirm?: string }> = [
   { status: 'under_review', label: 'Mark under review', Icon: Eye, variant: 'secondary' },
-  { status: 'confirmed', label: 'Confirm theft', Icon: CheckCircle2, variant: 'danger', confirm: 'Confirm that this incident is a real theft? It will be counted as confirmed in reports.' },
+  { status: 'confirmed', label: 'Confirm intrusion', Icon: CheckCircle2, variant: 'danger', confirm: 'Confirm that this was a real intrusion? It will be counted as confirmed in reports.' },
   { status: 'dismissed', label: 'Dismiss as false alarm', Icon: XCircle, variant: 'ghost', confirm: 'Dismiss this incident as a false alarm?' },
 ];
 

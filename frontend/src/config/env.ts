@@ -17,7 +17,7 @@ function num(value: string | undefined, fallback: number): number {
 }
 
 export const config = {
-  appName: env.VITE_APP_NAME || 'Township CCTV',
+  appName: env.VITE_APP_NAME || 'Vision Vault',
   dataMode: oneOf<DataMode>(env.VITE_DATA_MODE, ['mock', 'live'], 'mock'),
   apiBaseUrl: (env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace(/\/$/, ''),
   realtime: oneOf<RealtimeMode>(env.VITE_REALTIME, ['websocket', 'sse', 'mock', 'off'], 'mock'),

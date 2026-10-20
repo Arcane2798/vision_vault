@@ -36,7 +36,7 @@ export interface BoundingBox {
   height: number;
 }
 
-/** A raw AI prediction. It is NOT proof of theft. */
+/** A raw AI prediction. It is NOT proof of an intrusion. */
 export interface Detection {
   id: string;
   cameraId: string;
@@ -49,7 +49,7 @@ export interface Detection {
 /**
  * new           - AI flagged it, nobody has looked yet (potential incident)
  * under_review  - a person is checking it
- * confirmed     - a person confirmed theft
+ * confirmed     - a person confirmed a real intrusion
  * dismissed     - false alarm
  */
 export type IncidentStatus = 'new' | 'under_review' | 'confirmed' | 'dismissed';

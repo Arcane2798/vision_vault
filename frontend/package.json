@@ -1,8 +1,8 @@
 {
-  "name": "frontend-township",
+  "name": "vision-vault-frontend",
   "private": true,
   "version": "1.0.0",
-  "description": "Township CCTV Theft Detection - monitoring dashboard (frontend)",
+  "description": "Vision Vault - smart township home security dashboard (frontend)",
   "type": "module",
   "scripts": {
     "configure": "node scripts/configure.mjs",

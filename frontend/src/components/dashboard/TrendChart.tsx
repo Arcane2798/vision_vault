@@ -22,7 +22,7 @@ export function TrendChart({ data }: { data: TrendPoint[] }) {
           />
           <Legend wrapperStyle={{ fontSize: 12, color: COLORS.axis }} iconType="circle" iconSize={8} />
           <Bar dataKey="potential" name="Potential (AI-flagged)" stackId="a" fill={COLORS.potential} stroke="#111821" strokeWidth={1} />
-          <Bar dataKey="confirmed" name="Confirmed theft" stackId="a" fill={COLORS.confirmed} radius={[4, 4, 0, 0]} stroke="#111821" strokeWidth={1} />
+          <Bar dataKey="confirmed" name="Confirmed intrusion" stackId="a" fill={COLORS.confirmed} radius={[4, 4, 0, 0]} stroke="#111821" strokeWidth={1} />
         </BarChart>
       </ResponsiveContainer>
     </div>

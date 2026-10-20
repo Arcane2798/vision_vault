@@ -75,7 +75,7 @@ export default function IncidentsPage() {
     <>
       <PageHeader
         title="Incidents"
-        description="Every potential theft flagged by the AI model. Open an incident to review the evidence."
+        description="Every unknown person or out-of-window visitor flagged by the AI. Open an incident to review the evidence."
         actions={
           <Button icon={<RefreshCw className={incidents.loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />} onClick={incidents.reload} disabled={incidents.loading}>
             Refresh
@@ -95,7 +95,7 @@ export default function IncidentsPage() {
         ) : list.length === 0 ? (
           <EmptyState
             title={filtered ? 'No incidents match these filters' : 'No incidents recorded yet'}
-            message={filtered ? 'Try a different search term, camera, status or date range.' : 'Potential thefts detected by the AI model will be listed here.'}
+            message={filtered ? 'Try a different search term, camera, status or date range.' : 'Unknown people detected at your door will be listed here.'}
             action={
               filtered && (
                 <Button size="sm" onClick={() => setQuery({ sort: query.sort })}>

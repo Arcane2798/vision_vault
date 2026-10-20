@@ -28,7 +28,7 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        description="Overview of cameras, AI detections and alerts across the township."
+        description="Overview of your front-door camera, AI detections and alerts for your home."
         actions={
           <>
             {can('view:live') && (

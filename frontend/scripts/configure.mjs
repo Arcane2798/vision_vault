@@ -19,7 +19,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ENV_FILE = path.join(ROOT, '.env.local');
 
 const FIELDS = [
-  { key: 'VITE_APP_NAME', flag: 'name', label: 'App name', def: 'Township CCTV' },
+  { key: 'VITE_APP_NAME', flag: 'name', label: 'App name', def: 'Vision Vault' },
   { key: 'VITE_DATA_MODE', flag: 'mode', label: 'Data mode (mock = sample data, live = real backend)', def: 'mock', options: ['mock', 'live'] },
   { key: 'VITE_API_BASE_URL', flag: 'api', label: 'Backend API base URL', def: 'http://localhost:8000/api', liveOnly: true, validate: isUrl },
   { key: 'VITE_REALTIME', flag: 'realtime', label: 'Real-time alerts', def: 'mock', options: ['websocket', 'sse', 'mock', 'off'] },
@@ -98,7 +98,7 @@ async function main() {
 
   if (!nonInteractive) {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    console.log('\n  Township CCTV frontend - configuration');
+    console.log('\n  Vision Vault frontend - configuration');
     console.log('  Press Enter to keep the value in [brackets].\n');
     for (const f of FIELDS) {
       if (f.liveOnly && cfg.VITE_DATA_MODE !== 'live') continue;

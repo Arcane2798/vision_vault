@@ -35,7 +35,7 @@ export default function LiveMonitoringPage() {
     <>
       <PageHeader
         title="Live monitoring"
-        description="AI detections are drawn as dashed amber boxes. They are predictions, not proof of theft."
+        description="Boxes and names are drawn into the video by the AI engine: green = resident, cyan = visitor inside their window, orange = visitor outside their window, red = unknown person."
         actions={
           <>
             <Select aria-label="Select camera" value={selectedId} onChange={(e) => select(e.target.value)} className="w-56">

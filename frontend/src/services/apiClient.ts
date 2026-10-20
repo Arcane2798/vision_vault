@@ -1,6 +1,6 @@
 import { config } from '@/config/env';
 
-const TOKEN_KEY = 'township.token';
+const TOKEN_KEY = 'visionvault.token';
 
 export class ApiError extends Error {
   constructor(

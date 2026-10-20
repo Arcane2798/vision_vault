@@ -41,7 +41,7 @@ export function CameraStatusBadge({ status }: { status: CameraStatus }) {
 /** Marks anything that is an unreviewed model output. */
 export function AiPredictionTag({ className }: { className?: string }) {
   return (
-    <span className={cn(base, 'border-warn/40 bg-transparent text-amber-300', className)} title="Model prediction - not proof that theft occurred">
+    <span className={cn(base, 'border-warn/40 bg-transparent text-amber-300', className)} title="Automated alert - not proof of an intrusion until reviewed">
       AI prediction
     </span>
   );

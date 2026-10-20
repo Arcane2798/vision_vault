@@ -65,7 +65,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
           {bellOpen && (
             <div className="absolute right-0 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-line bg-surface-1 shadow-2xl">
               <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
-                <p className="text-sm font-semibold">Potential theft alerts</p>
+                <p className="text-sm font-semibold">Security alerts</p>
                 {alerts.length > 0 && (
                   <button className="text-xs text-ink-3 hover:text-ink-1" onClick={clearAlerts}>
                     Clear

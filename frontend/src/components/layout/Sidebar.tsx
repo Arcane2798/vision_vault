@@ -30,7 +30,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             </span>
             <div className="leading-tight">
               <p className="text-sm font-semibold">{config.appName}</p>
-              <p className="text-[11px] text-ink-3">Theft detection</p>
+              <p className="text-[11px] text-ink-3">Smart township home security</p>
             </div>
           </div>
           <button className="rounded p-1 text-ink-2 hover:bg-surface-3 lg:hidden" onClick={onClose} aria-label="Close menu">

@@ -37,7 +37,7 @@ export const formatConfidence = (c: number) => `${Math.round(c * 100)}%`;
 export const incidentStatusLabel: Record<IncidentStatus, string> = {
   new: 'Potential - not reviewed',
   under_review: 'Under review',
-  confirmed: 'Confirmed theft',
+  confirmed: 'Confirmed intrusion',
   dismissed: 'Dismissed (false alarm)',
 };
 
