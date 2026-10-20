@@ -90,6 +90,13 @@ def create_router(engine):
     def camera_write(cam_id: str = ""):
         raise HTTPException(501, "Camera management is not supported by this backend.")
 
+    # ---------- live engine status ----------
+    @router.get("/status")
+    def status():
+        s = engine.get_status()
+        return {"running": s["running"], "fps": s["fps"],
+                "unknownCount": s["unknown_count"], "cameraName": s["camera"]}
+
     # ---------- incidents ----------
     @router.get("/incidents")
     def incidents(request: Request, search: str = "", cameraId: str = "",

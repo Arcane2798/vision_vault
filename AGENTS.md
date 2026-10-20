@@ -102,7 +102,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET / PATCH | `/api/incidents/{id}` | PATCH `{status, notes}`; status ∈ new, under_review, confirmed, dismissed |
 | GET | `/api/dashboard/summary`, `/api/dashboard/trend?days=14` | |
 | WS | `/api/ws/events` | `{type:"alert", data: Incident}` and `{type:"camera_status", ...}` |
-| GET | `/status`, `/events` | **Legacy**, only used by old `dashboard/` — to be removed |
+| GET | `/api/status` | `{running, fps, unknownCount, cameraName}` — live engine state |
 
 **`events` table:** `id, ts (epoch), camera, track_id, identity, event_type, clip_path, snapshot_path, status, notes, reviewed_at`.
 
@@ -150,7 +150,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 ### Phase 0 — Clean-up & frontend adaptation (Tue 20)
 - [x] `git init`, root `.gitignore` adds `node_modules/`, `dist/`, `.env.local`, `*.pt`; first commit; pushed to https://github.com/Arcane2798/vision_vault
 - [x] Owner reviews "Pending deletion" list, then delete confirmed items
-- [ ] Backend: add `GET /api/status` (`running, fps, unknownCount, cameraName`); remove legacy `/status` and `/events` from `main.py`
+- [x] Backend: add `GET /api/status` (`running, fps, unknownCount, cameraName`); remove legacy `/status` and `/events` from `main.py`
 - [ ] Frontend rebrand: `VITE_APP_NAME=Vision Vault` (in `.env.local` and the `env.ts` fallback); sidebar subtitle
       "Smart township home security"; `index.html` title; remove all "theft" wording and "Township CCTV" names
       (`grep -rniE "township|theft" frontend/src frontend/index.html`); follow the Positioning wording rules
