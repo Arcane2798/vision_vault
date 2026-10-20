@@ -131,14 +131,14 @@ orange, unknown red, static figure grey.
 | # | Feature | Status | Where in plan |
 |---|---|---|---|
 | 1 | Real-time person detection & tracking | ✅ done | Phase 3: prune per-track state |
-| 2 | Face recognition, homeowner registers faces | ⚠️ recognition done; cache now refreshes per person automatically | Phase 1: cache fix + `/people` page with upload |
+| 2 | Face recognition, homeowner registers faces | ✅ done (register via Residents & Visitors page) | Phase 1: cache fix + `/people` page with upload |
 | 3 | Intrusion snapshot + clip | ✅ done (clip race open) | Phase 2: `clip_ready` |
 | 4 | Telegram alert | ✅ done | Phase 2: guard-house copy, weapon note |
 | 5 | Web dashboard (live, history, analytics) | ✅ done (still old branding) | Phase 0: rebrand, `/api/status` |
-| 5.1 | Security level control | ❌ new | Phase 1: `security_level` (Home / Normal / Away) |
-| 6 | Visitor registration | ❌ | Phase 1: `people` table + `/people` page — **core** |
+| 5.1 | Security level control | ✅ done (incl. night auto-Away) | Phase 1: `security_level` (Home / Normal / Away) |
+| 6 | Visitor registration | ✅ done | Phase 1: `people` table + `/people` page — **core** |
 | 7 | Guard-house alert & dashboard | ❌ | Phase 2: alert to guard-house Telegram. Dashboard for many homes = KIV (pitch only) |
-| 8 | AI assistant (live feed, locate family) | ❌ | Phase 1: `lastSeen` per person. Phase 2: chatbot + tools |
+| 8 | AI assistant (live feed, locate family) | ⏳ lastSeen done; chatbot next | Phase 1: `lastSeen` per person. Phase 2: chatbot + tools |
 | 9 | Path tracking | ❌ | Phase 3: trail drawn on live frame + burned into snapshot |
 | 10 | Intruder's items detection | ❌ | Phase 3 (optional): COCO `knife` / `scissors` / `baseball bat` near an unknown person |
 
@@ -171,13 +171,13 @@ orange, unknown red, static figure grey.
 - [x] `git init`, root `.gitignore` adds `node_modules/`, `dist/`, `.env.local`, `*.pt`; first commit; pushed to https://github.com/Arcane2798/vision_vault
 - [x] Owner reviews "Pending deletion" list, then delete confirmed items
 - [x] Backend: add `GET /api/status` (`running, fps, unknownCount, cameraName`); remove legacy `/status` and `/events` from `main.py`
-- [ ] Frontend rebrand: `VITE_APP_NAME=Vision Vault` (in `.env.local` and the `env.ts` fallback); sidebar subtitle
+- [x] Frontend rebrand: `VITE_APP_NAME=Vision Vault` (in `.env.local` and the `env.ts` fallback); sidebar subtitle
       "Smart township home security"; `index.html` title; remove all "theft" wording and "Township CCTV" names
       (`grep -rniE "township|theft" frontend/src frontend/index.html`); follow the Positioning wording rules
 - [x] Frontend: remove Cameras page from nav + routes (single fixed camera)
-- [ ] Frontend: event-type labels in `utils/format.ts` — `intrusion` → "Unknown person", `guest_outside_window` → "Visitor outside allowed time"
-- [ ] Frontend: incident detail shows identity; hide confidence for rule-based events
-- [ ] Frontend: dashboard / live page shows FPS + "unknown in view" from `/api/status`
+- [x] Frontend: event-type labels in `utils/format.ts` — `intrusion` → "Unknown person", `guest_outside_window` → "Visitor outside allowed time"
+- [x] Frontend: incident detail shows identity; hide confidence for rule-based events
+- [x] Frontend: dashboard / live page shows FPS + "unknown in view" from `/api/status`
 - [x] Rewrite root `README.md` to match reality; replace `frontend/README.md` (and `.env.example` now holds the live Vision Vault settings)
 - [x] README: "Why it matters for the Township of Tomorrow" section
 
@@ -209,9 +209,9 @@ orange, unknown red, static figure grey.
       The engine uses the **effective** level (re-check about once a second, not per frame) and draws it as `AWAY (night)` when the schedule applies.
       API: `GET /api/security` → `{level, effectiveLevel, night: {enabled, start, end}, updatedAt}`;
       `PUT /api/security` `{level?, night?: {enabled?, start?, end?}}` (400 on unknown level or bad "HH:MM"); `/api/status` adds `securityLevel` (= effective).
-- [ ] **Frontend `/people` page** ("Residents & Visitors"): list family + visitors (thumbnail, role, window, active badge, "last seen 14:32"),
+- [x] **Frontend `/people` page** ("Residents & Visitors"): list family + visitors (thumbnail, role, window, active badge, "last seen 14:32"),
       add person with photo upload, edit visitor window, delete with confirm. Types in `types/index.ts`, calls in `services/index.ts`.
-- [ ] **Frontend security level:** segmented control Home / Normal / Away (one-line description each) on the Live Monitoring page,
+- [x] **Frontend security level:** segmented control Home / Normal / Away (one-line description each) on the Live Monitoring page,
       plus a small badge with the **effective** level in the top bar. Below it, a "Night mode — auto Away" toggle with start/end
       time inputs; when it's active now, show "Away (night mode until 06:00)". Calls `GET/PUT /api/security`.
 
