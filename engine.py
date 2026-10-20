@@ -25,7 +25,8 @@ VERIFY_FAILS = 2          # consecutive mismatches before the lock is released
 # GRACE / MOVE_REQUIRED / MATCH_THRESH depend on the security level: see rules.security_params
 TG_COOLDOWN = 15.0        # min seconds between Telegram messages of the same event type
 FACE_REC_INTERVAL = 8     # frames between face-recognition attempts per person
-CLIP_FPS = 20             # set to your real FPS (shown on screen) so clips play at normal speed
+CLIP_PRE_SEC = 5          # seconds of video kept before an event
+CLIP_POST_SEC = 5         # seconds recorded after the (last) event; clips use the measured FPS
 IMG_EXT = {".jpg", ".jpeg", ".png"}
 
 PERSON_CONF = 0.55       # ignore weak "person" detections
@@ -77,7 +78,7 @@ class VisionEngine:
         self.params = security_params(DEFAULT_LEVEL)
         self._next_level_check = 0.0
 
-        self.recorder = ClipRecorder(fps=CLIP_FPS)
+        self.recorder = ClipRecorder(pre_sec=CLIP_PRE_SEC, post_sec=CLIP_POST_SEC)
         self.identity = {}        # track_id -> name (locked once recognized)
         self.last_faces = {}      # track_id -> [((x1,y1,x2,y2), name, score)]
         self.last_checked = {}    # track_id -> frame_count of last face check
@@ -565,8 +566,8 @@ class VisionEngine:
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             for tid, event_type, name in pending:
                 self._trigger_event(tid, frame, now, event_type, name,
-                                    len(current_unknown))
-            self.recorder.add(frame)
+                                    len(current_unknown), fps)
+            self.recorder.add(frame, now)
             last_frame = frame
 
             ok2, buf = cv2.imencode(".jpg", frame,
@@ -596,13 +597,13 @@ class VisionEngine:
         cv2.rectangle(frame, (x - 6, y - th - 6), (x + tw + 6, y + 8), (0, 0, 0), -1)
         cv2.putText(frame, text, (x, y), font, scale, LEVEL_COLOR[level], thick)
 
-    def _trigger_event(self, tid, frame, now, event_type, name, n_unknown):
+    def _trigger_event(self, tid, frame, now, event_type, name, n_unknown, fps):
         """Snapshot + clip + DB row + Telegram for an intrusion or a visitor outside their window."""
         stamp = time.strftime("%Y%m%d_%H%M%S")
         snap = str(SNAP_DIR / f"{stamp}_id{tid}.jpg")
         clip = str(CLIP_DIR / f"{stamp}_id{tid}.mp4")
         cv2.imwrite(snap, frame)
-        clip = self.recorder.trigger(clip)   # may be the clip already recording
+        clip = self.recorder.trigger(clip, fps)   # may be the clip already recording
         log_event(self.camera_name, tid, name, event_type, clip, snap)
         if now - self.last_tg.get(event_type, 0.0) <= TG_COOLDOWN:
             return

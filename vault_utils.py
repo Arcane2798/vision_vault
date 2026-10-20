@@ -11,6 +11,7 @@ DB_PATH = "vault.db"
 CLIP_DIR = Path("clips"); CLIP_DIR.mkdir(exist_ok=True)
 SNAP_DIR = Path("snapshots"); SNAP_DIR.mkdir(exist_ok=True)
 FACES_DIR = Path("faces")       # enrollment photos, one folder per person (never served publicly)
+STALE_CLIP_SEC = 120            # on startup, clips older than this are marked ready
 
 
 # ---------- event log ----------
@@ -23,9 +24,13 @@ def init_db():
     # review fields used by the frontend (added later, so migrate old databases)
     have = {r[1] for r in con.execute("PRAGMA table_info(events)")}
     for col, ddl in (("status", "TEXT DEFAULT 'new'"), ("notes", "TEXT"),
-                     ("reviewed_at", "REAL")):
+                     ("reviewed_at", "REAL"),
+                     ("clip_ready", "INTEGER DEFAULT 0")):   # 1 once the H.264 clip is playable
         if col not in have:
             con.execute(f"ALTER TABLE events ADD COLUMN {col} {ddl}")
+    # clips older than this were finished (or abandoned by a crash/restart): don't show "processing" forever
+    con.execute("UPDATE events SET clip_ready=1 WHERE clip_ready=0 AND clip_path IS NOT NULL"
+                " AND ts < ?", (time.time() - STALE_CLIP_SEC,))
     # residents and visitors; name = folder in faces/, window only for guests
     con.execute("""CREATE TABLE IF NOT EXISTS people (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,14 +99,28 @@ def load_people():
 
 def log_event(camera, track_id, identity, event_type,
               clip_path=None, snapshot_path=None):
+    """Insert an event row; returns its id."""
     con = sqlite3.connect(DB_PATH)
-    con.execute(
-        "INSERT INTO events (ts, camera, track_id, identity, event_type,"
-        " clip_path, snapshot_path) VALUES (?,?,?,?,?,?,?)",
-        (time.time(), camera, track_id, identity, event_type,
-         clip_path, snapshot_path))
-    con.commit()
-    con.close()
+    try:
+        cur = con.execute(
+            "INSERT INTO events (ts, camera, track_id, identity, event_type,"
+            " clip_path, snapshot_path) VALUES (?,?,?,?,?,?,?)",
+            (time.time(), camera, track_id, identity, event_type,
+             clip_path, snapshot_path))
+        con.commit()
+        return cur.lastrowid
+    finally:
+        con.close()
+
+
+def mark_clip_ready(clip_path):
+    """Flag every event that shares this clip as playable (called when H.264 conversion ends)."""
+    con = sqlite3.connect(DB_PATH, timeout=10)
+    try:
+        con.execute("UPDATE events SET clip_ready=1 WHERE clip_path=?", (clip_path,))
+        con.commit()
+    finally:
+        con.close()
 
 
 def _load_env():
@@ -165,7 +184,9 @@ def send_telegram(text, photo_path=None):
     # background thread so the video loop never freezes
     threading.Thread(target=_send, args=(text, photo_path), daemon=True).start()
 
-def convert_to_h264(path):
+def convert_to_h264(path, on_done=None):
+    """Re-encode `path` to browser-playable H.264 in a daemon thread, then call on_done(path).
+    on_done also runs if conversion fails (the mp4v file is kept), so a clip never stays "processing"."""
     def _run():
         tmp = path + ".h264.mp4"
         try:
@@ -177,40 +198,68 @@ def convert_to_h264(path):
             os.replace(tmp, path)
         except Exception as e:
             print("[ffmpeg] conversion failed:", e)
+        if on_done:
+            try:
+                on_done(path)
+            except Exception as e:
+                print("[ffmpeg] on_done failed:", e)
     threading.Thread(target=_run, daemon=True).start()
+
+
+def clip_fps(measured_fps):
+    """Frame rate to write a clip at: the engine's measured FPS, rounded, at least 1."""
+    try:
+        return max(1, int(round(float(measured_fps))))
+    except (TypeError, ValueError):
+        return 1
+
 
 # ---------- clip recorder (pre-roll + post-roll) ----------
 class ClipRecorder:
-    def __init__(self, fps=20, pre_sec=5, post_sec=5):
-        self.fps = fps
-        self.buffer = deque(maxlen=fps * pre_sec)
-        self.post_frames = fps * post_sec
+    """Keeps the last `pre_sec` seconds of frames; on trigger, writes them plus `post_sec`
+    seconds more at the engine's measured FPS, so the clip plays at real speed."""
+    MAX_BUFFER = 600     # safety cap on buffered frames (e.g. 5 s at 120 fps)
+
+    def __init__(self, pre_sec=5, post_sec=5, on_ready=mark_clip_ready):
+        self.pre_sec = pre_sec
+        self.post_sec = post_sec
+        self.on_ready = on_ready             # called with the path once the clip is playable
+        self.buffer = deque(maxlen=self.MAX_BUFFER)   # (time, frame)
+        self.fps = 1
+        self.post_frames = 0
         self.writer = None
         self.remaining = 0
+        self.path = None
 
-    def add(self, frame):
+    def add(self, frame, now=None):
         if self.writer is not None:
             self.writer.write(frame)
             self.remaining -= 1
             if self.remaining <= 0:
                 self.writer.release()
                 self.writer = None
-                convert_to_h264(self.path)
+                convert_to_h264(self.path, self.on_ready)
         else:
-            self.buffer.append(frame.copy())
+            now = time.time() if now is None else now
+            self.buffer.append((now, frame.copy()))
+            while self.buffer and now - self.buffer[0][0] > self.pre_sec:
+                self.buffer.popleft()
 
-    def trigger(self, path):
-        """Start (or extend) a clip. Returns the file that will hold it, or None."""
-        if self.writer is not None:        # already recording: extend it
+    def trigger(self, path, fps):
+        """Start (or extend) a clip at `fps` (the engine's measured FPS).
+        Returns the file that will hold it, or None if there are no frames yet."""
+        if self.writer is not None:        # already recording: extend it (keeps its fps)
             self.remaining = self.post_frames
             return self.path
         if not self.buffer:
             return None
-        h, w = self.buffer[-1].shape[:2]
+        self.fps = clip_fps(fps)
+        self.post_frames = self.fps * self.post_sec
+        h, w = self.buffer[-1][1].shape[:2]
         self.path = path
         self.writer = cv2.VideoWriter(
             path, cv2.VideoWriter_fourcc(*"mp4v"), self.fps, (w, h))
-        for f in self.buffer:
+        for _, f in self.buffer:
             self.writer.write(f)
         self.buffer.clear()
         self.remaining = self.post_frames

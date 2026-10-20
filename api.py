@@ -175,7 +175,9 @@ def _incident(r, base):
            "label": r["event_type"] or "intrusion",
            "identity": r["identity"] or "unknown",   # visitor name for guest_outside_window
            "confidence": 1.0,        # rule-based alert, no model score is logged
-           "status": r["status"] or "new", "detections": []}
+           "status": r["status"] or "new", "detections": [],
+           # clipUrl exists as soon as recording starts; play it only once this is true
+           "clipReady": bool(clip and r.get("clip_ready"))}
     if snap:
         out["snapshotUrl"] = snap
     if clip:

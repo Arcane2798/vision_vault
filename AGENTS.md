@@ -98,7 +98,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/video` | MJPEG stream (use `<img>`, not `<video>`) |
 | GET | `/clips/*`, `/snapshots/*` | Static evidence files |
 | GET | `/api/cameras` | Single camera `cam-01`; POST/PUT/DELETE return 501 |
-| GET | `/api/incidents` | `?search&cameraId&status&from&to&sort`; search also matches `identity`. Incident JSON includes `identity` (`unknown` or the visitor's name) |
+| GET | `/api/incidents` | `?search&cameraId&status&from&to&sort`; search also matches `identity`. Incident JSON includes `identity` (`unknown` or the visitor's name) and `clipReady: bool` — `clipUrl` appears as soon as recording starts, but play it only when `clipReady` is true (≈ 5–10 s after the alert; false when there is no clip) |
 | GET / PATCH | `/api/incidents/{id}` | PATCH `{status, notes}`; status ∈ new, under_review, confirmed, dismissed |
 | GET | `/api/dashboard/summary`, `/api/dashboard/trend?days=14` | |
 | WS | `/api/ws/events` | `{type:"alert", data: Incident}` and `{type:"camera_status", ...}` |
@@ -115,7 +115,9 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | PUT | `/api/source` | `{kind: "camera"}` or `{kind: "file", name}` → same shape as GET. Test videos play **once** in real time (frames skipped if the engine is slower), stamped `TEST VIDEO`, then hold the last frame. Same name again = restart. 404 unknown video |
 | POST | `/api/source/videos` | multipart `video` → 201 `{name, sizeBytes, modifiedAt}`, saved in `test_videos/` (renamed `_1`, `_2` if taken). 400 bad type, > 500 MB, or unreadable |
 
-**`events` table:** `id, ts (epoch), camera, track_id, identity, event_type, clip_path, snapshot_path, status, notes, reviewed_at`.
+**`events` table:** `id, ts (epoch), camera, track_id, identity, event_type, clip_path, snapshot_path, status, notes, reviewed_at, clip_ready`.
+`clip_ready` = 1 once H.264 conversion of `clip_path` ends (all events sharing that clip); on startup, rows older than 2 min are marked ready.
+Clips are written at the engine's measured FPS (`vault_utils.clip_fps`), with 5 s pre-roll (by time) + 5 s post-roll.
 `event_type` ∈ `intrusion` (identity `unknown`) | `guest_outside_window` (identity = visitor's name).
 
 Dates in: ISO 8601; with no offset (e.g. `datetime-local` "2026-10-24T14:00") they mean the server's local time.
@@ -161,7 +163,7 @@ orange, unknown red, static figure grey.
 - [x] **Guest whitelisting** — engine side done (people table + time windows); `/people` API and page below.
 
 ### Known issues
-- Alert WebSocket sends `clipUrl` ~10 s before the clip is finished/converted → clip fails if opened immediately.
+- ~~Alert WebSocket sends `clipUrl` before the clip is converted~~ — backend now exposes `clipReady`; frontend still has to wait for it.
 - Incident `confidence` is hard-coded `1.0` (alerts are rule-based).
 - Engine per-track dicts (`identity`, `track_age`, `first_pos`, …) grow forever on long runs.
 - Frontend still branded "Township CCTV / theft detection" with roles (camera management already removed).
@@ -242,14 +244,14 @@ orange, unknown red, static figure grey.
       "Done" or the error in the chat. Suggested prompts on an empty chat: "What happened at the door today?",
       "Who is at the door right now?", "Where is Azhad?", "Switch to Away mode".
       Live status strip may also list `peopleInView` names.
-- [ ] **Clip speed:** clips are written at a fixed `CLIP_FPS = 20` while the engine runs ~5 fps, so they play ~4× fast.
+- [x] **Clip speed:** clips are written at a fixed `CLIP_FPS = 20` while the engine runs ~5 fps, so they play ~4× fast.
       Write each clip at the engine's measured FPS (rounded, min 1) and size the pre-roll buffer in seconds, not frames.
 - [ ] **Guard-house alert** (small, ~1 h): `.env` gets `GUARD_TG_CHAT_ID` and `HOUSE_UNIT` (e.g. "No. 12, Jalan Elmina 3/1").
       On `intrusion` only, send a second Telegram message with the unit address + snapshot to the guard-house chat
       (same cooldown; skip silently if unset). Add `guard_notified` column; incident detail shows "Guard house notified".
       `guest_outside_window` goes to the homeowner only. Security level `home` skips the guard copy (`security_params` `guard_alert`).
       Incident JSON adds `guardNotified: bool`.
-- [ ] Fix clip race: add `clip_ready` column, set to 1 when H.264 conversion finishes; API exposes `clipReady`;
+- [ ] Fix clip race _(backend done: `clip_ready` + `clipReady`; frontend part open)_: add `clip_ready` column, set to 1 when H.264 conversion finishes; API exposes `clipReady`;
       frontend shows "Clip processing…" until ready (incident detail re-fetches every few seconds while `clipReady` is false).
 
 ### Phase 3 — Polish & demo (Fri 23, morning only)
