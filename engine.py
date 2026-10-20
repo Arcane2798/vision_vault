@@ -11,14 +11,17 @@ import numpy as np
 from ultralytics import YOLO
 from insightface.app import FaceAnalysis
 
-from vault_utils import (CAMERA_NAME, CLIP_DIR, SNAP_DIR, ClipRecorder,
-                         init_db, log_event, send_telegram)
+from rules import (FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, UNKNOWN,
+                   classify_person)
+from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
+                         ClipRecorder, init_db, load_people, log_event,
+                         send_telegram, sync_people)
 
 VERIFY_INTERVAL = 30      # frames between re-checks of an already-recognized person
 VERIFY_FAILS = 2          # consecutive mismatches before the lock is released
 
 GRACE = 3.0               # seconds an unknown must be seen before alerting
-TG_COOLDOWN = 15.0        # min seconds between Telegram messages
+TG_COOLDOWN = 15.0        # min seconds between Telegram messages of the same event type
 FACE_REC_INTERVAL = 8     # frames between face-recognition attempts per person
 CLIP_FPS = 20             # set to your real FPS (shown on screen) so clips play at normal speed
 IMG_EXT = {".jpg", ".jpeg", ".png"}
@@ -29,6 +32,15 @@ MOVE_REQUIRED = 0.08     # fraction of frame width an UNKNOWN must travel before
 MIN_FACE_PX = 40         # ignore faces smaller than this (garbage embeddings)
 MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
 MATCH_THRESH = 0.4
+
+# box colour (BGR) and label per decision; see rules.classify_person
+STYLE = {
+    FAMILY:        ((0, 255, 0),   "{name}"),                       # green
+    GUEST_ALLOWED: ((255, 255, 0), "guest:{name}"),                 # cyan
+    GUEST_OUTSIDE: ((0, 165, 255), "guest:{name} (outside time)"),  # orange
+    UNKNOWN:       ((0, 0, 255),   "unknown"),                      # red
+}
+FACE_BOX_COLOR = (255, 255, 255)
 
 
 class VisionEngine:
@@ -42,9 +54,11 @@ class VisionEngine:
         self.face_app = FaceAnalysis(name="buffalo_s")
         self.face_app.prepare(ctx_id=-1, det_size=(320, 320))
 
-        self.faces_path = Path("faces")
+        self.faces_path = Path(FACES_DIR)
         self.cache_file = self.faces_path / "embeddings.pkl"
-        self.known = self._load_known()
+        self.known = {}           # name -> (n, 512) embeddings; swapped whole under self.lock
+        self.people = {}          # name -> people row; swapped whole under self.lock
+        self._reload_lock = threading.Lock()   # serialises reload_people() calls
 
         self.recorder = ClipRecorder(fps=CLIP_FPS)
         self.identity = {}        # track_id -> name (locked once recognized)
@@ -52,8 +66,9 @@ class VisionEngine:
         self.last_checked = {}    # track_id -> frame_count of last face check
         self.verify_fail = {}     # track_id -> consecutive re-check mismatches
         self.unknown_since = {}   # track_id -> first time seen as unknown
-        self.alerted = set()
-        self.last_tg = 0.0
+        self.alerted = set()      # track_ids that raised an intrusion
+        self.guest_alerted = set()  # track_ids that raised guest_outside_window
+        self.last_tg = {}         # event_type -> time of last Telegram message
 
         self.lock = threading.Lock()
         self.latest_jpeg = None
@@ -148,9 +163,22 @@ class VisionEngine:
             print("[faces] no faces enrolled. Check the faces/ folder and photo formats.")
         return known
 
-    def _identify(self, emb, thresh=MATCH_THRESH):
+    def reload_people(self):
+        """Re-read faces/ and the people table (the API calls this after changes).
+
+        Slow embedding work happens outside self.lock; only the swap is locked.
+        """
+        with self._reload_lock:
+            sync_people(self.faces_path)
+            known = self._load_known()
+            people = load_people()
+            with self.lock:
+                self.known = known
+                self.people = people
+
+    def _identify(self, emb, known, thresh=MATCH_THRESH):
         best, best_score = "unknown", 0.0
-        for name, refs in self.known.items():   # dict is swapped whole, never mutated
+        for name, refs in known.items():
             score = float(np.max(refs @ emb))
             if score > best_score:
                 best, best_score = name, score
@@ -159,6 +187,7 @@ class VisionEngine:
     # ---------- control ----------
     def start(self):
         init_db()
+        self.reload_people()
         self.running = True
         self.thread = threading.Thread(target=self._loop, daemon=True)
         self.thread.start()
@@ -220,8 +249,10 @@ class VisionEngine:
                 frame = cv2.resize(frame, (640, int(h0 * 640 / w0)))
 
             current_unknown = set()
-            pending = []              # intrusions to trigger after drawing
+            pending = []              # (tid, event_type, name) to trigger after drawing
             now = time.time()
+            with self.lock:
+                known, people = self.known, self.people
             frame_count += 1
             frame_h, frame_w = frame.shape[:2]
 
@@ -272,7 +303,7 @@ class VisionEngine:
                                          ((d.bbox[1] + d.bbox[3]) / 2 - ay) ** 2))
                                 box = (int(f.bbox[0] + x1), int(f.bbox[1] + y1),
                                        int(f.bbox[2] + x1), int(f.bbox[3] + y1))
-                                n, s = self._identify(f.normed_embedding)
+                                n, s = self._identify(f.normed_embedding, known)
                                 print(f"[face] track {tid}: {n} {s:.2f} face={int(f.bbox[2]-f.bbox[0])}px")
                                 self.last_faces[tid] = [(box, n, s)]
 
@@ -291,6 +322,8 @@ class VisionEngine:
                                 self.last_faces[tid] = []
 
                     name = self.identity.get(tid, "unknown")
+                    if name != "unknown" and name not in known:
+                        name = self.identity[tid] = "unknown"   # person was deleted
                     if name == "unknown" and tid not in self.moved:
                         # hasn't moved: could be a poster or statue. Grey box, never alert.
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (150, 150, 150), 1)
@@ -303,21 +336,27 @@ class VisionEngine:
                         if (now - self.unknown_since[tid] >= GRACE
                                 and tid not in self.alerted):
                             self.alerted.add(tid)
-                            pending.append(tid)
+                            pending.append((tid, "intrusion", "unknown"))
                     else:
                         self.unknown_since.pop(tid, None)
 
-                    color = (0, 255, 0) if name != "unknown" else (0, 0, 255)
+                    kind = classify_person(name, people.get(name), now)
+                    if kind == GUEST_OUTSIDE and tid not in self.guest_alerted:
+                        self.guest_alerted.add(tid)
+                        pending.append((tid, GUEST_OUTSIDE, name))
+
+                    color, label = STYLE[kind]
                     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                    cv2.putText(frame, f"{name} #{tid}", (x1, max(20, y1 - 8)),
+                    cv2.putText(frame, f"{label.format(name=name)} #{tid}",
+                                (x1, max(20, y1 - 8)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
                     for (fx1, fy1, fx2, fy2), n, s in self.last_faces.get(tid, []):
                         cv2.rectangle(frame, (fx1, fy1), (fx2, fy2),
-                                      (255, 255, 0), 1)
+                                      FACE_BOX_COLOR, 1)
                         cv2.putText(frame, f"{n} {s:.2f}", (fx1, fy2 + 18),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                                    (255, 255, 0), 1)
+                                    FACE_BOX_COLOR, 1)
 
             # FPS (smoothed)
             curr = time.time()
@@ -331,8 +370,9 @@ class VisionEngine:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
             cv2.putText(frame, f"Unknown: {len(current_unknown)}", (15, 60),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
-            for tid in pending:
-                self._trigger_intrusion(tid, frame, now, len(current_unknown))
+            for tid, event_type, name in pending:
+                self._trigger_event(tid, frame, now, event_type, name,
+                                    len(current_unknown))
             self.recorder.add(frame)
 
             ok2, buf = cv2.imencode(".jpg", frame,
@@ -348,16 +388,23 @@ class VisionEngine:
 
         cap.release()
 
-    def _trigger_intrusion(self, tid, frame, now, n_unknown):
-        self.alerted.add(tid)
+    def _trigger_event(self, tid, frame, now, event_type, name, n_unknown):
+        """Snapshot + clip + DB row + Telegram for an intrusion or a visitor outside their window."""
         stamp = time.strftime("%Y%m%d_%H%M%S")
         snap = str(SNAP_DIR / f"{stamp}_id{tid}.jpg")
         clip = str(CLIP_DIR / f"{stamp}_id{tid}.mp4")
         cv2.imwrite(snap, frame)
-        self.recorder.trigger(clip)
-        log_event(self.camera_name, tid, "unknown", "intrusion", clip, snap)
-        if now - self.last_tg > TG_COOLDOWN:
-            self.last_tg = now
-            send_telegram(f"INTRUSION at {self.camera_name}\n"
-                          f"Unknown people in view: {n_unknown}\n"
-                          f"Time: {time.strftime('%H:%M:%S')}", snap)
+        clip = self.recorder.trigger(clip)   # may be the clip already recording
+        log_event(self.camera_name, tid, name, event_type, clip, snap)
+        if now - self.last_tg.get(event_type, 0.0) <= TG_COOLDOWN:
+            return
+        self.last_tg[event_type] = now
+        if event_type == GUEST_OUTSIDE:
+            text = (f"VISITOR OUTSIDE ALLOWED TIME at {self.camera_name}\n"
+                    f"Visitor: {name}\n"
+                    f"Time: {time.strftime('%H:%M:%S')}")
+        else:
+            text = (f"INTRUSION at {self.camera_name}\n"
+                    f"Unknown people in view: {n_unknown}\n"
+                    f"Time: {time.strftime('%H:%M:%S')}")
+        send_telegram(text, snap)

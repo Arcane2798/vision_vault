@@ -105,6 +105,12 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/api/status` | `{running, fps, unknownCount, cameraName}` — live engine state |
 
 **`events` table:** `id, ts (epoch), camera, track_id, identity, event_type, clip_path, snapshot_path, status, notes, reviewed_at`.
+`event_type` ∈ `intrusion` (identity `unknown`) | `guest_outside_window` (identity = visitor's name).
+
+**`people` table:** `id, name (= faces/ folder, unique, case-insensitive), role ('family'|'guest'), valid_from, valid_to, created_at`.
+Pure rules live in `rules.py` (`visitor_allowed`, `classify_person`, `valid_person_name`). A guest window bound that is
+NULL is open-ended. Live-frame colours: family green, visitor in window cyan (`guest:<name>`), visitor outside window
+orange, unknown red, static figure grey.
 
 ## Feature map (owner's list, Tue 20 Oct)
 | # | Feature | Status | Where in plan |
@@ -134,7 +140,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 - [x] Teammate's frontend wired to backend in live mode (incidents, dashboard, live feed, WebSocket alerts)
 
 ### Not done (previously mis-reported as done)
-- [ ] **Guest whitelisting** — no code exists. Everyone in `faces/` is treated as permanently allowed.
+- [x] **Guest whitelisting** — engine side done (people table + time windows); `/people` API and page below.
 
 ### Known issues
 - Alert WebSocket sends `clipUrl` ~10 s before the clip is finished/converted → clip fails if opened immediately.
@@ -162,10 +168,10 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 
 ### Phase 1 — People & guest whitelisting (Wed 21) — core feature
 - [x] **Embedding cache fix:** cache per person with a signature (file names + mtimes); recompute only changed folders
-- [ ] **`people` table** in `vault.db`: `id, name (= faces/ folder), role ('family'|'guest'), valid_from, valid_to (epoch, NULL for family), created_at`.
+- [x] **`people` table** in `vault.db`: `id, name (= faces/ folder), role ('family'|'guest'), valid_from, valid_to (epoch, NULL for family), created_at`.
       On startup and on reload, insert a `family` row for every `faces/` folder that has no row (back-compat, so every person has an id).
       Names must be folder-safe (letters, digits, space, `-`, `_`; reject anything else with 400).
-- [ ] **Engine:** `reload_people()` (thread-safe, under `self.lock`) called by the API after changes. After a face match:
+- [x] **Engine:** `reload_people()` (thread-safe, under `self.lock`) called by the API after changes. After a face match:
       family → allowed (green); guest inside window → allowed (cyan, label `guest:<name>`);
       guest outside window → event `guest_outside_window` + Telegram (orange); no match → `intrusion` (red).
       Window check is a pure function `visitor_allowed(role, valid_from, valid_to, now) -> bool`.

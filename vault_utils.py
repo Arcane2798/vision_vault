@@ -10,6 +10,7 @@ CAMERA_NAME = "Camera #1: Front Door"
 DB_PATH = "vault.db"
 CLIP_DIR = Path("clips"); CLIP_DIR.mkdir(exist_ok=True)
 SNAP_DIR = Path("snapshots"); SNAP_DIR.mkdir(exist_ok=True)
+FACES_DIR = Path("faces")       # enrollment photos, one folder per person (never served publicly)
 
 
 # ---------- event log ----------
@@ -25,8 +26,40 @@ def init_db():
                      ("reviewed_at", "REAL")):
         if col not in have:
             con.execute(f"ALTER TABLE events ADD COLUMN {col} {ddl}")
+    # residents and visitors; name = folder in faces/, window only for guests
+    con.execute("""CREATE TABLE IF NOT EXISTS people (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        role TEXT NOT NULL DEFAULT 'family',
+        valid_from REAL, valid_to REAL, created_at REAL)""")
     con.commit()
     con.close()
+
+
+# ---------- people (residents + visitors) ----------
+def sync_people(faces_dir=None):
+    """Insert a 'family' row for every faces/ folder that has no row yet (back-compat)."""
+    faces_dir = Path(faces_dir or FACES_DIR)
+    faces_dir.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(DB_PATH)
+    try:
+        for d in sorted(faces_dir.iterdir()):
+            if d.is_dir():
+                con.execute("INSERT OR IGNORE INTO people (name, role, created_at)"
+                            " VALUES (?, 'family', ?)", (d.name, time.time()))
+        con.commit()
+    finally:
+        con.close()
+
+
+def load_people():
+    """{name: {id, name, role, valid_from, valid_to, created_at}} from the people table."""
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    try:
+        return {r["name"]: dict(r) for r in con.execute("SELECT * FROM people")}
+    finally:
+        con.close()
 
 def log_event(camera, track_id, identity, event_type,
               clip_path=None, snapshot_path=None):
@@ -136,11 +169,12 @@ class ClipRecorder:
             self.buffer.append(frame.copy())
 
     def trigger(self, path):
+        """Start (or extend) a clip. Returns the file that will hold it, or None."""
         if self.writer is not None:        # already recording: extend it
             self.remaining = self.post_frames
-            return
+            return self.path
         if not self.buffer:
-            return
+            return None
         h, w = self.buffer[-1].shape[:2]
         self.path = path
         self.writer = cv2.VideoWriter(
@@ -149,3 +183,4 @@ class ClipRecorder:
             self.writer.write(f)
         self.buffer.clear()
         self.remaining = self.post_frames
+        return path
