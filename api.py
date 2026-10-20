@@ -221,7 +221,8 @@ def create_router(engine):
         s = engine.get_status()
         return {"running": s["running"], "fps": s["fps"],
                 "unknownCount": s["unknown_count"], "cameraName": s["camera"],
-                "securityLevel": s["security_level"]}
+                "securityLevel": s["security_level"],
+                "peopleInView": s.get("in_view", [])}
 
     # ---------- security level + night schedule ----------
     def security_json():

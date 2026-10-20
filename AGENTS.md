@@ -102,7 +102,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET / PATCH | `/api/incidents/{id}` | PATCH `{status, notes}`; status ∈ new, under_review, confirmed, dismissed |
 | GET | `/api/dashboard/summary`, `/api/dashboard/trend?days=14` | |
 | WS | `/api/ws/events` | `{type:"alert", data: Incident}` and `{type:"camera_status", ...}` |
-| GET | `/api/status` | `{running, fps, unknownCount, cameraName, securityLevel}` — live engine state; `securityLevel` = effective level |
+| GET | `/api/status` | `{running, fps, unknownCount, cameraName, securityLevel, peopleInView}` — live engine state; `securityLevel` = effective level; `peopleInView: [{name, kind}]` one entry per tracked person in the latest frame (static figures excluded), `kind` ∈ `family`, `guest_allowed`, `guest_outside`, `unknown` (name `unknown`) |
 | GET | `/api/security` | `{level, effectiveLevel, night: {enabled, start, end}, updatedAt: ISO\|null}` (`updatedAt` null until first change) |
 | PUT | `/api/security` | `{level?, night?: {enabled?, start?, end?}}` → same shape as GET. 400 on unknown level or bad "HH:MM" (24-hour, zero-padded) |
 | GET | `/api/people` | `Person[]`, family first then by name (Person JSON in Phase 1 spec; `id` is a number) |

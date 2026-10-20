@@ -46,6 +46,8 @@ STYLE = {
     UNKNOWN:       ((0, 0, 255),   "unknown"),                      # red
 }
 FACE_BOX_COLOR = (255, 255, 255)
+# kind names in get_status()["in_view"] / peopleInView: family, guest_allowed, guest_outside, unknown
+VIEW_KIND = {GUEST_OUTSIDE: "guest_outside"}
 
 
 class VisionEngine:
@@ -92,6 +94,7 @@ class VisionEngine:
         self.lock = threading.Lock()
         self.latest_jpeg = None
         self.unknown_count = 0
+        self.in_view = []         # [{name, kind}] for the latest frame (self.lock)
         self.fps = 0.0
         self.running = False
         self.thread = None
@@ -306,6 +309,7 @@ class VisionEngine:
             return {"camera": self.camera_name,
                     "running": self.running,
                     "unknown_count": self.unknown_count,
+                    "in_view": [dict(p) for p in self.in_view],
                     "fps": round(self.fps, 1),
                     "security_level": self.level}
 
@@ -416,6 +420,7 @@ class VisionEngine:
                         self.finished = True
                         self.progress = 1.0
                         self.unknown_count = 0
+                        self.in_view = []
                     continue
                 failed_reads += 1
                 if failed_reads % 100 == 1:
@@ -433,6 +438,7 @@ class VisionEngine:
             current_unknown = set()
             pending = []              # (tid, event_type, name) to trigger after drawing
             seen_known = set()        # recognised people in this frame
+            in_view = []              # [{name, kind}] for /api/status (static figures excluded)
             now = time.time()
             if now >= self._next_level_check:
                 self._refresh_level(now)
@@ -530,6 +536,7 @@ class VisionEngine:
                         self.unknown_since.pop(tid, None)
 
                     kind = classify_person(name, people.get(name), now)
+                    in_view.append({"name": name, "kind": VIEW_KIND.get(kind, kind)})
                     if kind != UNKNOWN:
                         seen_known.add(name)
                     if kind == GUEST_OUTSIDE and tid not in self.guest_alerted:
@@ -577,6 +584,7 @@ class VisionEngine:
                 with self.lock:
                     self.latest_jpeg = buf.tobytes()
                     self.unknown_count = len(current_unknown)
+                    self.in_view = in_view
                     self.fps = fps
                     if self.is_file and total_frames > 0:
                         self.progress = min(1.0, cap.get(cv2.CAP_PROP_POS_FRAMES) / total_frames)
