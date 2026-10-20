@@ -6,7 +6,7 @@ import { useAsync } from '@/hooks/useAsync';
 import { useDataVersion } from '@/hooks/useDataVersion';
 import { incidentService } from '@/services';
 import type { Incident, IncidentStatus } from '@/types';
-import { clipProcessing, eventTypeLabel, formatConfidence, formatDateTime, incidentIdentity, incidentStatusLabel, isRuleBased } from '@/utils/format';
+import { clipProcessing, eventTypeLabel, formatConfidence, formatDateTime, formatGuardAck, incidentIdentity, incidentStatusLabel, isRuleBased } from '@/utils/format';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/Modal';
@@ -19,6 +19,8 @@ import { GuardNotifiedBadge } from '@/components/incidents/GuardNotifiedBadge';
 const CLIP_POLL_MS = 3000;
 /** Stop polling after this long: the conversion most likely failed. */
 const CLIP_WAIT_MS = 3 * 60000;
+/** Keep checking for the guard house's acknowledgement this long after the alert. */
+const GUARD_WAIT_MS = 30 * 60000;
 
 export default function IncidentDetailPage() {
   const { id = '' } = useParams();
@@ -33,13 +35,16 @@ export default function IncidentDetailPage() {
   // clip fields always come from the latest fetch (local only holds the review result)
   const fresh = incident.data;
   const processing = !!fresh && clipProcessing(fresh);
-  const gaveUp = processing && Date.now() - new Date(fresh.timestamp).getTime() > CLIP_WAIT_MS;
+  const age = fresh ? Date.now() - new Date(fresh.timestamp).getTime() : 0;
+  const gaveUp = processing && age > CLIP_WAIT_MS;
+  // the guard house acknowledges on its own screen; null (not undefined) = backend supports it, not acked yet
+  const awaitingGuard = !!fresh?.guardNotified && fresh.guardAcknowledgedAt === null && age < GUARD_WAIT_MS;
   const { reload } = incident;
   useEffect(() => {
-    if (!processing || gaveUp) return;
+    if ((!processing || gaveUp) && !awaitingGuard) return;
     const t = window.setInterval(reload, CLIP_POLL_MS);
     return () => clearInterval(t);
-  }, [processing, gaveUp, reload]);
+  }, [processing, gaveUp, awaitingGuard, reload]);
 
   if (incident.initialLoading) return <LoadingState label="Loading incident…" />;
   if (incident.error || !inc) {
@@ -140,6 +145,20 @@ export default function IncidentDetailPage() {
                 <Row label="Guard house">
                   {inc.guardNotified ? <GuardNotifiedBadge /> : <span className="text-ink-3">{inc.label === 'intrusion' ? 'Not notified' : 'Not notified (homeowner only)'}</span>}
                 </Row>
+              )}
+              {fresh?.guardAcknowledgedAt ? (
+                <Row label="Guard response">
+                  <span className="inline-flex items-start gap-1.5">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-ok" aria-hidden />
+                    Guard house acknowledged at {formatGuardAck(fresh.guardAcknowledgedAt, fresh.guardAckNote)}
+                  </span>
+                </Row>
+              ) : (
+                awaitingGuard && (
+                  <Row label="Guard response">
+                    <span className="text-ink-3">Waiting for the guard house to acknowledge…</span>
+                  </Row>
+                )
               )}
               <Row label="Camera">{inc.cameraName}</Row>
               <Row label="Location">{inc.location}</Row>

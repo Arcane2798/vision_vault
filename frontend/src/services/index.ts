@@ -5,7 +5,7 @@
  */
 import { isMock } from '@/config/env';
 import { mockApi } from '@/mocks/mockApi';
-import type { AuthSession, Camera, CameraInput, ChatRequest, ChatResponse, DashboardSummary, Incident, IncidentQuery, IncidentStatus, LiveStatus, Person, PersonInput, PersonUpdate, SecuritySettings, SecurityUpdate, TestVideo, TrendPoint, User, VideoSource, VideoSourceUpdate } from '@/types';
+import type { AuthSession, Camera, CameraInput, ChatRequest, ChatResponse, DashboardSummary, GuardAckRequest, GuardAlert, Incident, IncidentQuery, IncidentStatus, LiveStatus, Person, PersonInput, PersonUpdate, SecuritySettings, SecurityUpdate, TestVideo, TrendPoint, User, VideoSource, VideoSourceUpdate } from '@/types';
 import { api, backendUrl } from './apiClient';
 
 export const authService = {
@@ -82,6 +82,12 @@ const CHAT_TIMEOUT_MS = 90000; // the assistant may call several tools before it
 /** AI assistant (live mode only). Proposed changes come back as pendingAction and are never applied by the backend. */
 export const chatService = {
   send: (body: ChatRequest): Promise<ChatResponse> => api('/chat', { method: 'POST', body, timeoutMs: CHAT_TIMEOUT_MS }),
+};
+
+/** Guard-house screen (/guard, live mode only). Alerts carry no identity or people data. */
+export const guardService = {
+  list: (limit = 50): Promise<GuardAlert[]> => api('/guard/alerts', { query: { limit: String(limit) }, timeoutMs: 5000 }),
+  acknowledge: (id: string, body: GuardAckRequest = {}): Promise<GuardAlert> => api(`/guard/alerts/${id}/ack`, { method: 'POST', body }),
 };
 
 export const incidentService = {

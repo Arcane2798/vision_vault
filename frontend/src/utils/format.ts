@@ -113,6 +113,12 @@ export function formatWindow(from: string | null, to: string | null): string {
   return `${shortDateTime.format(a)} - ${sameDay(a, b) ? hourMinute.format(b) : shortDateTime.format(b)}`;
 }
 
+/** "21:14" in the configured timezone. */
+export const formatHourMinute = (iso: string) => hourMinute.format(new Date(iso));
+
+/** "21:14 — Guard dispatched" (or just "21:14" without a note); prefix it with "Acknowledged" / "Guard house acknowledged at". */
+export const formatGuardAck = (at: string, note?: string | null) => (note?.trim() ? `${formatHourMinute(at)} — ${note.trim()}` : formatHourMinute(at));
+
 /** One camera, so "where" is always the front door: "Last seen at the front door at 14:32". */
 export function formatLastSeen(iso: string | null): string {
   if (!iso) return 'Not seen yet';

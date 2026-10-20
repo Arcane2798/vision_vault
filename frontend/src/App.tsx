@@ -12,6 +12,7 @@ const IncidentsPage = lazy(() => import('@/pages/IncidentsPage'));
 const IncidentDetailPage = lazy(() => import('@/pages/IncidentDetailPage'));
 const PeoplePage = lazy(() => import('@/pages/PeoplePage'));
 const TestVideoPage = lazy(() => import('@/pages/TestVideoPage'));
+const GuardPage = lazy(() => import('@/pages/GuardPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 export default function App() {
@@ -19,6 +20,8 @@ export default function App() {
     <Suspense fallback={<LoadingState />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        {/* the guard house's own screen: outside AppLayout (no sidebar, top bar or assistant) */}
+        <Route path="/guard" element={<ProtectedRoute><GuardPage /></ProtectedRoute>} />
         <Route
           element={
             <ProtectedRoute>

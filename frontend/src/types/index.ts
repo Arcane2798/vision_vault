@@ -71,8 +71,12 @@ export interface Incident {
   clipUrl?: string;
   /** true once the H.264 clip is playable; false while recording/converting and when there is no clip. Missing (older backends) = ready. */
   clipReady?: boolean;
-  /** the township guard house got a Telegram copy (intrusion only). Missing on older backends. */
+  /** the alert was shown to the township guard house (intrusion only; /guard screen, plus Telegram when configured). Missing on older backends. */
   guardNotified?: boolean;
+  /** when the guard house acknowledged the alert on the /guard screen (ISO), null until then. Missing on older backends. */
+  guardAcknowledgedAt?: string | null;
+  /** the guard's note, e.g. "Guard dispatched" */
+  guardAckNote?: string | null;
   detections: Detection[];
   reviewedBy?: string;
   reviewedAt?: string;
@@ -238,6 +242,31 @@ export type PendingAction =
 export interface ChatResponse {
   reply: string;
   pendingAction: PendingAction | null;
+}
+
+/**
+ * GET /api/guard/alerts item - what the township guard house sees.
+ * Deliberately has no identity, people or face data: only the address and the stranger's snapshot/clip.
+ */
+export interface GuardAlert {
+  id: string;
+  timestamp: string;
+  /** HOUSE_UNIT on the backend, e.g. "No. 12, Jalan Elmina 3/1" (fallback "This home") */
+  houseUnit: string;
+  cameraName: string;
+  snapshotUrl: string | null;
+  clipUrl: string | null;
+  /** play clipUrl only when true */
+  clipReady: boolean;
+  /** first acknowledgement time (ISO), null while unacknowledged */
+  acknowledgedAt: string | null;
+  ackNote: string | null;
+}
+
+/** POST /api/guard/alerts/{id}/ack */
+export interface GuardAckRequest {
+  /** at most 200 characters */
+  note?: string;
 }
 
 export type RealtimeEvent =

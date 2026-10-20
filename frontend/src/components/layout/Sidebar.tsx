@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Cctv, Film, LayoutDashboard, ListChecks, MonitorPlay, Users, X } from 'lucide-react';
+import { Building2, Cctv, ExternalLink, Film, LayoutDashboard, ListChecks, MonitorPlay, Users, X } from 'lucide-react';
 import { config } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/utils/format';
@@ -57,6 +57,19 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               {label}
             </NavLink>
           ))}
+          {/* the guard house's own screen - opens in a new tab so it can sit in a second window or on a phone */}
+          <a
+            href="/guard"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onClose}
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-3 hover:text-ink-1"
+          >
+            <Building2 className="h-4 w-4" aria-hidden />
+            <span className="flex-1">Guard House view</span>
+            <ExternalLink className="h-3.5 w-3.5 text-ink-3" aria-hidden />
+            <span className="sr-only">(opens in a new tab)</span>
+          </a>
         </nav>
         <p className="border-t border-line p-4 text-[11px] leading-relaxed text-ink-3">
           AI results are <b className="text-ink-2">potential</b> incidents until reviewed by an authorised person.
