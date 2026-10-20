@@ -89,6 +89,9 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python requests imageio-ffmpeg python-multipart google-genai
 ```
 - Backend (from `vision_vault/`): `py -m uvicorn main:app --port 8000`
+  - Guard House view on a phone (same Wi-Fi): run the backend with `--host 0.0.0.0` and the frontend with `npm run dev -- --host`,
+    point the frontend's API/stream URLs at the laptop's LAN IP, and open `http://<laptop-ip>:5173/guard`. CORS allows
+    `localhost`, `127.0.0.1` and private-LAN origins (`192.168.x.x`, `10.x.x.x`, `172.16–31.x.x`) on port 5173 only.
   - On Azhad's laptop use `py` (Python 3.14 has the packages); `python` there is only the Microsoft Store stub.
   - Test video instead of webcam: set `VIDEO_SOURCE=test_videos/test1.mp4` in `.env`
 - Frontend (from `vision_vault/frontend/`): `npm install` once, then `npm run dev` → http://localhost:5173
