@@ -3,6 +3,7 @@
 AI-powered home intrusion detection: a CCTV/webcam feed is watched by YOLOv8 + InsightFace;
 unknown people trigger a recorded incident, a snapshot, and a Telegram alert, reviewed in a web dashboard.
 
+**Hackathon:** Sime Darby Property University Hackathon 2026 — theme "Township of Tomorrow".
 **Deadline: Friday 23 Oct 2026.** Owner / lead: Azhad (backend + vision). Frontend was built by a teammate.
 
 > This file is the single source of truth for status and plan. It is read by Antigravity (`AGENTS.md`)

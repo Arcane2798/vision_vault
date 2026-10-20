@@ -4,7 +4,7 @@
 recognises enrolled family members by face, and when an unknown person stays in view it records evidence
 and alerts the owner on Telegram and on a live web dashboard.
 
-Built for the ISP634 Software Development Practicum Hackathon 2026.
+Built for the **Sime Darby Property University Hackathon 2026 — Township of Tomorrow**.
 
 ## Features
 
