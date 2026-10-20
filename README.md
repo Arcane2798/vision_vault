@@ -1,212 +1,128 @@
-# Vision Vault 🏠
+# Vision Vault
 
-An AI-powered home intrusion detection system using CCTV footage and deep learning for real-time person detection, face recognition, and security alerts.
+**AI-powered home intrusion detection.** A webcam watches the entrance; Vision Vault detects and tracks every person,
+recognises enrolled family members by face, and when an unknown person stays in view it records evidence
+and alerts the owner on Telegram and on a live web dashboard.
+
+Built for the ISP634 Software Development Practicum Hackathon 2026.
 
 ## Features
 
-- **Real-time Person Detection** — YOLOv8-based person detection with 99%+ accuracy
-- **Face Recognition** — InsightFace-powered facial recognition to identify family members and guests
-- **Intrusion Detection** — Automatic detection of unauthorized individuals
-- **Guest Whitelisting** — Safely allow known guests during specific time windows
-- **Event Logging** — Detailed database of all detected events with timestamps
-- **Clip Recording** — Automatic recording of intrusion events for review
-- **Telegram Alerts** — Real-time push notifications on mobile devices
-- **Web Dashboard** — Modern React UI for monitoring and event management
+| Feature | Status |
+|---|---|
+| Real-time person detection and tracking (YOLOv8n + ByteTrack) | ✅ |
+| Face recognition of enrolled family members (InsightFace) | ✅ |
+| Intrusion rules that cut false alarms: minimum track age, movement check (ignores posters/statues), 3 s grace period | ✅ |
+| Evidence: snapshot + 10 s clip (5 s before, 5 s after), re-encoded to H.264 for browser playback | ✅ |
+| Telegram alert with photo | ✅ |
+| Web dashboard: live feed, real-time alerts, incident history with filters, incident review (confirm / dismiss + notes), 14-day trend | ✅ |
+| Guest whitelisting with time windows (e.g. "allow Ali Saturday 2–6 pm") | 🚧 in progress |
+| AI assistant: ask about incidents and manage guests in plain language (LLM tool calling) | 🚧 in progress |
+| Weapon detection, liveness / anti-spoofing, ESP32 buzzer, guard-house alerts, login | 📋 planned |
 
-## Tech Stack
+## How it works
 
-### Backend
-- **Python 3.9+** with FastAPI web framework
-- **YOLOv8** for person detection
-- **InsightFace** for face recognition and embedding
-- **OpenCV** for video processing
-- **SQLite** for event logging
-- **Telegram API** for alerts
+```
+ Webcam / video file
+        │
+        ▼
+ VisionEngine (engine.py, background thread)
+   1. YOLOv8n detects people, ByteTrack gives each a stable ID
+   2. InsightFace checks the head area against enrolled faces
+   3. Rules decide: family → green | unknown, moving, in view ≥ 3 s → INTRUSION
+        │ annotated frames                     │ intrusion
+        ▼                                      ▼
+   MJPEG live stream               snapshot + clip → SQLite event log → Telegram alert
+        │                                      │
+        └────────────── FastAPI ───────────────┘
+                    REST + WebSocket
+                          │
+                          ▼
+              React dashboard (frontend/)
+```
 
-### Frontend
-- **React 18** with Vite build tooling
-- **Modern JavaScript** (ES6+)
-- **Simple CSS** styling
+## Tech stack
 
-### Hardware
-- USB webcam or connected camera
-- Telegram bot (optional, for alerts)
+- **Vision:** Ultralytics YOLOv8n, ByteTrack, InsightFace (`buffalo_s`), OpenCV — runs on CPU
+- **Backend:** Python, FastAPI, SQLite, ffmpeg (via imageio-ffmpeg), Telegram Bot API
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Recharts
 
-## Quick Start
+## Getting started
 
-### Prerequisites
-- Python 3.9 or higher
-- Node.js v20 or higher
-- A USB webcam connected to your system
+**Requirements:** Python 3.9+, Node.js 18+, a USB webcam (or a video file).
 
-### Installation
+### 1. Backend
 
-1. **Clone/download the project:**
-   ```bash
-   cd vision_vault
-   ```
+```bash
+pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python requests imageio-ffmpeg
+```
 
-2. **Install Python dependencies:**
-   ```bash
-   pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python requests imageio-ffmpeg
-   ```
+Create a `.env` file in the project root:
 
-3. **Install Node.js dependencies:**
-   ```bash
-   cd dashboard
-   npm install
-   cd ..
-   ```
+```env
+TG_TOKEN=your_telegram_bot_token      # optional, for Telegram alerts
+TG_CHAT_ID=your_chat_id               # optional
+# VIDEO_SOURCE=path/to/video.mp4      # optional, default 0 = first webcam
+```
 
-4. **Enroll family members** — Create a `faces/` directory and organize photos:
-   ```
-   faces/
-   ├── john/
-   │   ├── photo1.jpg
-   │   └── photo2.jpg
-   └── alice/
-       ├── photo1.jpg
-       └── photo2.jpg
-   ```
+Enroll family members — one folder per person, 3–5 clear face photos each:
 
-5. **Configure Telegram** (optional for alerts):
-   - Create a `.env` file in the root directory
-   - Add your Telegram bot token and chat ID:
-     ```env
-     TG_TOKEN=your_telegram_bot_token
-     TG_CHAT_ID=your_chat_id
-     ```
+```
+faces/
+├── alice/  photo1.jpg  photo2.jpg ...
+└── bob/    photo1.jpg  ...
+```
 
-### Running the System
+Start the server (YOLOv8n weights download automatically on first run):
 
-**Terminal 1 — Start the backend server:**
 ```bash
 python -m uvicorn main:app --port 8000
 ```
 
-**Terminal 2 — Start the frontend dashboard:**
+### 2. Dashboard
+
 ```bash
-cd dashboard
+cd frontend
+npm install
+copy .env.example .env.local
 npm run dev
 ```
 
-The dashboard will be available at `http://localhost:5173`
+Open http://localhost:5173.
 
-## Project Structure
+## API
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/video` | Live annotated MJPEG stream |
+| GET | `/api/cameras` | Camera info and status |
+| GET | `/api/incidents` | Incident list (`search`, `status`, `from`, `to`, `sort`) |
+| GET / PATCH | `/api/incidents/{id}` | Incident details / review (`status`, `notes`) |
+| GET | `/api/dashboard/summary` | Counters for the dashboard |
+| GET | `/api/dashboard/trend?days=14` | Daily incident trend |
+| WS | `/api/ws/events` | Real-time intrusion alerts and camera status |
+| GET | `/clips/*`, `/snapshots/*` | Evidence files |
+
+## Project structure
 
 ```
 vision_vault/
-├── main.py              # FastAPI server entry point
-├── engine.py            # Core vision pipeline and detection logic
-├── api.py               # API endpoints for dashboard
-├── vault_utils.py       # Utilities: logging, recording, Telegram alerts
-├── dashboard/           # React frontend
-│   ├── src/
-│   ├── public/
-│   └── package.json
-├── faces/               # Enrolled family member photos
-├── vault.db             # SQLite event database
-└── yolov8n.pt          # Pre-trained YOLOv8 model weights
+├── engine.py        # vision pipeline: detection, tracking, face recognition, intrusion rules
+├── vault_utils.py   # event database, clip recorder, H.264 conversion, Telegram
+├── api.py           # REST + WebSocket API for the dashboard
+├── main.py          # FastAPI app, live video stream, static evidence files
+├── frontend/        # React + TypeScript dashboard
+├── AGENTS.md        # development plan and status
+└── faces/, clips/, snapshots/, vault.db   # local data (not in the repo)
 ```
 
-### Key Files
+## Privacy
 
-- **`engine.py`** — Vision pipeline: person detection, face recognition, tracking
-- **`main.py`** — FastAPI server with core endpoints
-- **`api.py`** — REST API endpoints for the dashboard
-- **`vault_utils.py`** — Event logging, clip recording, Telegram notifications
-- **`dashboard/`** — React-based web interface for monitoring
+Face photos, recorded clips, snapshots, the event database and API keys are stored locally only and are excluded
+from this repository by `.gitignore`.
 
-## Development Status
+## Known limitations
 
-### ✅ Completed (Days 1–3)
-- Real-time person detection (YOLOv8)
-- Face recognition and family member identification
-- Guest whitelisting with time windows
-- Event database with SQLite
-- Web dashboard with live monitoring
-- Event filtering and search
-- Intrusion detection logic
-
-### 🚀 In Progress (Day 4)
-- AI chatbot with tool calling for natural language queries
-- Clip playback conversion (convert recordings for browser playback)
-
-### 📋 Future Enhancements (KIV)
-- Weapon detection using secondary model
-- ESP32 buzzer/siren integration
-- Guard house alert notifications
-- Path tracking and trajectory analysis
-- Liveness detection to prevent photo/video spoofing
-
-## API Endpoints
-
-### Core Endpoints
-- `GET /` — Health check
-- `GET /events` — Fetch logged events
-- `POST /events` — Create a new event
-- `GET /events/{event_id}` — Get event details
-- `DELETE /events/{event_id}` — Delete an event
-
-### Recognition
-- `POST /recognize` — Recognize person from image
-- `POST /enroll` — Enroll new face from image
-
-### Configuration
-- `GET /config` — Current system configuration
-- `POST /config` — Update system settings
-
-## Development Conventions
-
-### Python
-- 8-space indentation
-- Type hints where helpful
-- Clear variable naming
-
-### React/JavaScript
-- Functional components with hooks
-- Simple, maintainable styling
-- No unnecessary abstractions
-
-### Git
-- One commit per feature
-- Descriptive commit messages
-- Clear branch naming
-
-## Troubleshooting
-
-**Camera not detected:**
-- Ensure the USB camera is connected and accessible
-- Check device permissions on Windows/Linux
-- Try reconnecting the camera
-
-**Face recognition not working:**
-- Verify photos in `faces/` directory are clear and well-lit
-- Use multiple angles and expressions for each person
-- Ensure face takes up at least 50% of the image
-
-**Telegram alerts not sending:**
-- Verify `TG_TOKEN` and `TG_CHAT_ID` are correct in `.env`
-- Test the bot token independently
-- Check internet connectivity
-
-**Performance issues:**
-- The system uses CPU-based inference by default
-- For faster detection, consider running on a machine with GPU support
-- Reduce frame processing rate if needed
-
-## Contributing
-
-When contributing to this project:
-1. Follow the coding conventions listed above
-2. Write clear commit messages
-3. Test changes locally before committing
-4. Update this README if adding new features
-
-## License
-
-This project is part of the ISP634 Software Development Practicum Hackathon 2026.
-
----
-
-**Need help?** Check the CLAUDE.md file for additional project context and architecture notes.
+- **No liveness check yet:** a printed photo of an enrolled person can be accepted as that person.
+- Single camera; everything runs on CPU at 640×480, so frame rate depends on the laptop (shown live on the feed).
+- Recognition needs a reasonably clear, front-facing view of the face.

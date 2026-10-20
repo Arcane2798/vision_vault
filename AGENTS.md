@@ -105,7 +105,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 ## Plan to Friday
 
 ### Phase 0 — Clean-up & frontend adaptation (Tue 20)
-- [ ] `git init`, root `.gitignore` adds `node_modules/`, `dist/`, `.env.local`, `*.pt`; first commit; push to a private GitHub repo
+- [x] `git init`, root `.gitignore` adds `node_modules/`, `dist/`, `.env.local`, `*.pt`; first commit; pushed to https://github.com/Arcane2798/vision_vault
 - [x] Owner reviews "Pending deletion" list, then delete confirmed items
 - [ ] Backend: add `GET /api/status` (`running, fps, unknownCount, cameraName`); remove legacy `/status` and `/events` from `main.py`
 - [ ] Frontend rebrand: `VITE_APP_NAME=Vision Vault`; sidebar subtitle "Home intrusion detection"; `index.html` title;
@@ -114,7 +114,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 - [ ] Frontend: event-type labels in `utils/format.ts` — `intrusion` → "Unknown person", `guest_outside_window` → "Guest outside allowed time"
 - [ ] Frontend: incident detail shows identity; hide confidence for rule-based events
 - [ ] Frontend: dashboard / live page shows FPS + "unknown in view" from `/api/status`
-- [ ] Rewrite root `README.md` to match reality (it lists endpoints that don't exist); replace `frontend/README.md` with a short pointer
+- [x] Rewrite root `README.md` to match reality; replace `frontend/README.md` (and `.env.example` now holds the live Vision Vault settings)
 
 ### Phase 1 — People & guest whitelisting (Wed 21) — core feature
 - [ ] **Embedding cache fix:** cache per person with a signature (file names + mtimes); recompute only changed folders
