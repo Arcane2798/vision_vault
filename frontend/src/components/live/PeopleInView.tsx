@@ -14,17 +14,21 @@ export function PeopleInView({ people }: { people: PersonInView[] }) {
   if (!people.length) return <p className="text-sm text-ink-3">Nobody in view right now.</p>;
   return (
     <ul className="flex flex-wrap gap-2">
-      {people.map((p, i) => (
-        <li
-          key={`${p.kind}-${p.name}-${i}`}
-          title={inViewKindLabel[p.kind]}
-          className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium', IN_VIEW_STYLE[p.kind].chip)}
-        >
-          <span className={cn('h-2 w-2 rounded-full', IN_VIEW_STYLE[p.kind].dot)} aria-hidden />
-          {inViewName(p)}
-          <span className="sr-only">({inViewKindLabel[p.kind]})</span>
-        </li>
-      ))}
+      {people.map((p, i) => {
+        const style = IN_VIEW_STYLE[p.kind] ?? IN_VIEW_STYLE.unknown;
+        const label = inViewKindLabel[p.kind] ?? p.kind;
+        return (
+          <li
+            key={`${p.kind}-${p.name}-${i}`}
+            title={label}
+            className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium', style.chip)}
+          >
+            <span className={cn('h-2 w-2 rounded-full', style.dot)} aria-hidden />
+            {inViewName(p)}
+            <span className="sr-only">({label})</span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
