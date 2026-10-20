@@ -10,7 +10,7 @@ import sqlite3
 import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 import cv2
 import numpy as np
@@ -57,6 +57,15 @@ class PersonUpdate(BaseModel):
     role: Optional[str] = None
     validFrom: Optional[str] = None
     validTo: Optional[str] = None
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]     # plain-text history, newest last (server keeps the last 20)
 
 
 def _rows(sql, args=()):
@@ -189,6 +198,39 @@ def _incident(r, base):
         out["reviewedBy"] = "Dashboard user"
         out["reviewedAt"] = _iso(r["reviewed_at"])
     return out
+
+
+def dashboard_summary(running):
+    """Counts for the dashboard cards (also used by the chat assistant)."""
+    rows = _rows("SELECT ts, status FROM events")
+    today = date.today()
+    return {"activeCameras": 1 if running else 0, "totalCameras": 1,
+            "incidentsToday": sum(_local_day(r["ts"]) == today for r in rows),
+            "totalIncidents": len(rows),
+            "unresolvedAlerts": sum((r["status"] or "new") in ("new", "under_review")
+                                    for r in rows)}
+
+
+def person_json(r, last_seen, now, faces_dir):
+    """people row -> Person JSON (also used by the chat assistant)."""
+    seen = last_seen.get(r["name"])
+    return {"id": r["id"], "name": r["name"], "role": r["role"],
+            "validFrom": _iso(r["valid_from"]) if r["valid_from"] is not None else None,
+            "validTo": _iso(r["valid_to"]) if r["valid_to"] is not None else None,
+            "active": visitor_allowed(r["role"], r["valid_from"], r["valid_to"], now),
+            "photoCount": len(_photo_files(Path(faces_dir) / r["name"])),
+            "photoUrl": f"/api/people/{r['id']}/photo",
+            "lastSeen": _iso(seen) if seen else None,
+            "createdAt": _iso(r["created_at"] or 0)}
+
+
+def people_list(engine, faces_dir):
+    """All people as Person JSON, family first then by name."""
+    sync_people(faces_dir)
+    last_seen, now = engine.get_last_seen(), time.time()
+    rows = _rows("SELECT * FROM people")
+    rows.sort(key=lambda r: (r["role"] != FAMILY, r["name"].lower()))
+    return [person_json(r, last_seen, now, faces_dir) for r in rows]
 
 
 def create_router(engine):
@@ -339,13 +381,7 @@ def create_router(engine):
     # ---------- dashboard ----------
     @router.get("/dashboard/summary")
     def summary():
-        rows = _rows("SELECT ts, status FROM events")
-        today = date.today()
-        return {"activeCameras": 1 if engine.running else 0, "totalCameras": 1,
-                "incidentsToday": sum(_local_day(r["ts"]) == today for r in rows),
-                "totalIncidents": len(rows),
-                "unresolvedAlerts": sum((r["status"] or "new") in ("new", "under_review")
-                                        for r in rows)}
+        return dashboard_summary(engine.running)
 
     @router.get("/dashboard/trend")
     def trend(days: int = 14):
@@ -370,19 +406,9 @@ def create_router(engine):
             raise HTTPException(404, f"Person {person_id} was not found.")
         return rows[0]
 
-    def person_json(r, last_seen, now):
-        seen = last_seen.get(r["name"])
-        return {"id": r["id"], "name": r["name"], "role": r["role"],
-                "validFrom": _iso(r["valid_from"]) if r["valid_from"] is not None else None,
-                "validTo": _iso(r["valid_to"]) if r["valid_to"] is not None else None,
-                "active": visitor_allowed(r["role"], r["valid_from"], r["valid_to"], now),
-                "photoCount": len(_photo_files(faces_dir / r["name"])),
-                "photoUrl": f"/api/people/{r['id']}/photo",
-                "lastSeen": _iso(seen) if seen else None,
-                "createdAt": _iso(r["created_at"] or 0)}
-
     def one_person(person_id):
-        return person_json(person_row(person_id), engine.get_last_seen(), time.time())
+        return person_json(person_row(person_id), engine.get_last_seen(), time.time(),
+                           faces_dir)
 
     def check_faces(images):
         """400 unless every uploaded photo has a detectable face (else it can never match)."""
@@ -406,11 +432,7 @@ def create_router(engine):
 
     @router.get("/people")
     def list_people():
-        sync_people(faces_dir)
-        last_seen, now = engine.get_last_seen(), time.time()
-        rows = _rows("SELECT * FROM people")
-        rows.sort(key=lambda r: (r["role"] != FAMILY, r["name"].lower()))
-        return [person_json(r, last_seen, now) for r in rows]
+        return people_list(engine, faces_dir)
 
     @router.post("/people", status_code=201)
     async def create_person(name: str = Form(...), role: str = Form(FAMILY),
@@ -513,6 +535,30 @@ def create_router(engine):
                 return Response(buf.tobytes(), media_type="image/jpeg",
                                 headers={"Cache-Control": "no-cache"})
         raise HTTPException(404, f"{r['name']} has no photo.")
+
+    # ---------- AI assistant (tools + loop live in chat.py) ----------
+    @router.post("/chat")
+    def chat(body: ChatRequest):
+        import chat as chat_mod      # imported here: chat.py imports this module
+        try:
+            client = chat_mod.make_client()
+        except chat_mod.ChatNotConfigured as e:
+            raise HTTPException(503, str(e))
+        model = chat_mod.env("CHAT_MODEL", chat_mod.DEFAULT_MODEL)
+        try:
+            return chat_mod.run_chat(
+                [m.model_dump() for m in body.messages], engine,
+                generate=lambda h, s: chat_mod._generate(client, model, h, s))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        except Exception as e:
+            mapped = chat_mod.provider_error(e)   # quota -> 200 busy reply, others -> 502
+            if mapped is None:
+                raise
+            status, payload = mapped
+            if status == 200:
+                return payload
+            raise HTTPException(status, payload["detail"])
 
     # ---------- real-time: new intrusions + camera status ----------
     @router.websocket("/ws/events")

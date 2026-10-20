@@ -67,6 +67,7 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 - **Backend:** Python, FastAPI, Ultralytics YOLOv8n, InsightFace (`buffalo_s`, CPU), OpenCV, SQLite, imageio-ffmpeg
 - **Frontend:** `frontend/` — React 18, TypeScript, Vite 5, Tailwind 3, React Router 6, Recharts, lucide-react
 - **Alerts:** Telegram bot (`TG_TOKEN`, `TG_CHAT_ID` in `.env`)
+- **AI assistant:** Google Gemini API via the `google-genai` SDK (free-tier Flash model, `GEMINI_API_KEY`); text only, never camera frames
 - **Hardware:** USB webcam
 
 ## Key files
@@ -76,15 +77,16 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 | `vault_utils.py` | DB schema/migrations, `log_event`, `ClipRecorder`, H.264 conversion, Telegram |
 | `api.py` | `/api/*` router used by `frontend/` (maps `events` rows → frontend `Incident` shape) |
 | `main.py` | App setup, CORS, `/video` MJPEG stream, static `/clips` and `/snapshots` |
+| `chat.py` | AI assistant: tool functions, PendingAction builders, bounded tool loop; only `_generate` / `make_client` / `provider_error` know about Gemini |
 | `faces/<name>/` | Enrollment photos (one folder per person). `faces/embeddings.pkl` = cache |
 | `frontend/src/types/index.ts` | Frontend data types = API contract |
 | `frontend/src/services/` | The only place the frontend fetches data |
 | `frontend/.env.local` | Frontend settings (live mode, websocket, auth off) |
-| `.env` | `TG_TOKEN`, `TG_CHAT_ID`, optional `VIDEO_SOURCE`; optional `GUARD_TG_CHAT_ID` (guard-house chat, unset = no guard copy) and `HOUSE_UNIT` (e.g. `No. 12, Jalan Elmina 3/1`) (later: `ANTHROPIC_API_KEY`). There is no backend `.env.example`; copy these lines:<br>`# GUARD_TG_CHAT_ID=-1001234567890`<br>`# HOUSE_UNIT=No. 12, Jalan Elmina 3/1` |
+| `.env` | `TG_TOKEN`, `TG_CHAT_ID`, optional `VIDEO_SOURCE`; optional `GUARD_TG_CHAT_ID` (guard-house chat, unset = no guard copy) and `HOUSE_UNIT` (e.g. `No. 12, Jalan Elmina 3/1`); `GEMINI_API_KEY` (AI assistant; unset = `/api/chat` returns 503) and optional `CHAT_MODEL` (default `gemini-3.8-flash`, set in `chat.DEFAULT_MODEL`). There is no backend `.env.example`; copy these lines:<br>`# GUARD_TG_CHAT_ID=-1001234567890`<br>`# HOUSE_UNIT=No. 12, Jalan Elmina 3/1`<br>`# GEMINI_API_KEY=your-key-from-aistudio.google.com`<br>`# CHAT_MODEL=gemini-3.8-flash` |
 
 ## Setup & run
 ```bash
-pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python requests imageio-ffmpeg python-multipart
+pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python requests imageio-ffmpeg python-multipart google-genai
 ```
 - Backend (from `vision_vault/`): `py -m uvicorn main:app --port 8000`
   - On Azhad's laptop use `py` (Python 3.14 has the packages); `python` there is only the Microsoft Store stub.
@@ -105,6 +107,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/api/status` | `{running, fps, unknownCount, cameraName, securityLevel, peopleInView}` — live engine state; `securityLevel` = effective level; `peopleInView: [{name, kind}]` one entry per tracked person in the latest frame (static figures excluded), `kind` ∈ `family`, `guest_allowed`, `guest_outside`, `unknown` (name `unknown`) |
 | GET | `/api/security` | `{level, effectiveLevel, night: {enabled, start, end}, updatedAt: ISO\|null}` (`updatedAt` null until first change) |
 | PUT | `/api/security` | `{level?, night?: {enabled?, start?, end?}}` → same shape as GET. 400 on unknown level or bad "HH:MM" (24-hour, zero-padded) |
+| POST | `/api/chat` | `{messages: [{role: "user"\|"assistant", content}]}` (last 20 kept) → `{reply, pendingAction: PendingAction\|null}` (shape in Phase 2). 503 `{detail: "Chat is not configured: add GEMINI_API_KEY to .env"}` without a key; free-tier quota → 200 with reply "The assistant is busy (free-tier limit). Try again in a minute."; other AI errors → 502 `{detail}`; 400 no user message; 422 bad role. PendingAction dates are ISO UTC `Z` (the model works in Asia/Kuala_Lumpur time). Takes a few seconds: use a long client timeout |
 | GET | `/api/people` | `Person[]`, family first then by name (Person JSON in Phase 1 spec; `id` is a number) |
 | POST | `/api/people` | multipart `name, role (default family), validFrom?, validTo?, photos` (repeat `photos` per file) → 201 `Person`. 400 bad name/role/date, from > to, no photo, unreadable image or **no face found**; 409 name taken (case-insensitive) |
 | PATCH | `/api/people/{id}` | JSON `{role?, validFrom?, validTo?}` → `Person`. Omitted = unchanged, `null` = clear (open-ended). Role `family` clears the window |
@@ -170,6 +173,7 @@ orange, unknown red, static figure grey.
 - Frontend still branded "Township CCTV / theft detection" with roles (camera management already removed).
 - Project sits in OneDrive — push to GitHub after every feature.
 - **Security limitation (state it in the demo):** a printed photo of a family member is accepted (no liveness check).
+- **AI assistant privacy:** on the Gemini free tier, Google may use prompts to improve its products. Only text metadata (incident times/status, names, security level) is sent, never camera frames or photos.
 
 ## Plan to Friday
 
@@ -222,19 +226,21 @@ orange, unknown red, static figure grey.
       time inputs; when it's active now, show "Away (night mode until 06:00)". Calls `GET/PUT /api/security`.
 
 ### Phase 2 — Chatbot with tool calling + guard-house alert (Thu 22)
-- [ ] `POST /api/chat` `{messages}` → `{reply, pendingAction?}` using the `anthropic` Python SDK, model `claude-sonnet-5-5`,
-      key `ANTHROPIC_API_KEY` in `.env`. System prompt includes current local time (Asia/Kuala_Lumpur).
-      Code lives in a new `chat.py` (tool functions + loop); `api.py` only adds the route. No key → 503 `{detail: "Chat is not configured: add ANTHROPIC_API_KEY to .env"}`.
+- [x] `POST /api/chat` `{messages}` → `{reply, pendingAction?}` using the **Google Gemini API** (`google-genai` SDK; owner switched from
+      Anthropic for a free tier), key `GEMINI_API_KEY` in `.env`, model from `CHAT_MODEL` (default `gemini-3.8-flash`, the stable free-tier Flash).
+      Manual tool loop, automatic function calling **off**, max 6 model calls per request. System prompt includes current local time (Asia/Kuala_Lumpur).
+      Code lives in a new `chat.py` (tool functions + loop); `api.py` only adds the route. No key → 503 `{detail: "Chat is not configured: add GEMINI_API_KEY to .env"}`.
+      Free-tier quota (429) → normal reply "The assistant is busy (free-tier limit). Try again in a minute." (never a 500).
       **Request:** `{messages: [{role: "user"|"assistant", content: string}]}` (plain text history, newest last; server caps at the last 20).
       **Response:** `{reply: string, pendingAction: PendingAction | null}`.
-- [ ] Tools are plain Python functions reusing existing queries:
+- [x] Tools are plain Python functions reusing existing queries:
       read — `get_summary`, `list_incidents(from, to, status, limit)`, `get_incident(id)`, `get_live_status`, `list_people`,
       `where_is(name)` (answers from `lastSeen`: "last seen at the front door at 14:32");
       write — `review_incident(id, status, notes)`, `add_or_update_guest(name, valid_from, valid_to)`, `set_security_level(level)`.
       `get_live_status` includes **who is in view right now**: engine `get_status()` adds `in_view: [{name, kind}]`
       (kind = family / guest_allowed / guest_outside / unknown) and `/api/status` adds `peopleInView: [{name, kind}]`.
       Text only — **no camera frames are sent to the AI** (keeps the "footage stays in the home" promise).
-- [ ] Write tools are **never executed by the model**: they return `pendingAction`; the frontend shows a Confirm button,
+- [x] Write tools are **never executed by the model** _(backend done; Confirm card is frontend)_: they return `pendingAction`; the frontend shows a Confirm button,
       and on confirm calls the normal REST endpoint itself. **PendingAction** (one per reply, the latest wins):
       `{summary: string, kind: "request", method: "PATCH"|"PUT", path: string, body: object}` — e.g.
       `PATCH /api/incidents/12 {status, notes}`, `PUT /api/security {level}`, `PATCH /api/people/3 {role:"guest", validFrom, validTo}`;
