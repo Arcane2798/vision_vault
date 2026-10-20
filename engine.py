@@ -11,16 +11,18 @@ import numpy as np
 from ultralytics import YOLO
 from insightface.app import FaceAnalysis
 
-from rules import (FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, UNKNOWN,
-                   classify_person)
+from rules import (DEFAULT_LEVEL, DEFAULT_NIGHT_END, DEFAULT_NIGHT_START,
+                   FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, SECURITY_LEVELS,
+                   UNKNOWN, classify_person, effective_level, security_params,
+                   valid_hhmm)
 from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
-                         ClipRecorder, init_db, load_people, log_event,
-                         send_telegram, sync_people)
+                         ClipRecorder, get_settings, init_db, load_people,
+                         log_event, send_telegram, set_settings, sync_people)
 
 VERIFY_INTERVAL = 30      # frames between re-checks of an already-recognized person
 VERIFY_FAILS = 2          # consecutive mismatches before the lock is released
 
-GRACE = 3.0               # seconds an unknown must be seen before alerting
+# GRACE / MOVE_REQUIRED / MATCH_THRESH depend on the security level: see rules.security_params
 TG_COOLDOWN = 15.0        # min seconds between Telegram messages of the same event type
 FACE_REC_INTERVAL = 8     # frames between face-recognition attempts per person
 CLIP_FPS = 20             # set to your real FPS (shown on screen) so clips play at normal speed
@@ -28,10 +30,11 @@ IMG_EXT = {".jpg", ".jpeg", ".png"}
 
 PERSON_CONF = 0.55       # ignore weak "person" detections
 MIN_TRACK_FRAMES = 10    # a track must exist this many frames before it counts
-MOVE_REQUIRED = 0.08     # fraction of frame width an UNKNOWN must travel before it can alert
 MIN_FACE_PX = 40         # ignore faces smaller than this (garbage embeddings)
 MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
-MATCH_THRESH = 0.4
+
+LEVEL_COLOR = {"home": (0, 200, 0), "normal": (0, 255, 255), "away": (0, 0, 255)}  # BGR
+LEVEL_CHECK_INTERVAL = 1.0   # seconds between night-schedule re-checks
 
 # box colour (BGR) and label per decision; see rules.classify_person
 STYLE = {
@@ -60,6 +63,14 @@ class VisionEngine:
         self.people = {}          # name -> people row; swapped whole under self.lock
         self._reload_lock = threading.Lock()   # serialises reload_people() calls
         self.last_seen = {}       # name -> epoch of last frame a known person was in view (self.lock)
+
+        # security level + night schedule (all under self.lock); loaded from settings in start()
+        self.security = {"level": DEFAULT_LEVEL, "night_enabled": False,
+                         "night_start": DEFAULT_NIGHT_START,
+                         "night_end": DEFAULT_NIGHT_END, "updated_at": None}
+        self.level = DEFAULT_LEVEL           # effective level used by the rules
+        self.params = security_params(DEFAULT_LEVEL)
+        self._next_level_check = 0.0
 
         self.recorder = ClipRecorder(fps=CLIP_FPS)
         self.identity = {}        # track_id -> name (locked once recognized)
@@ -181,7 +192,78 @@ class VisionEngine:
                 self.known = known
                 self.people = people
 
-    def _identify(self, emb, known, thresh=MATCH_THRESH):
+    # ---------- security level ----------
+    def _load_security(self):
+        stored = get_settings()
+        sec = dict(self.security)
+        level = stored.get("security_level", (None,))[0]
+        if level in SECURITY_LEVELS:
+            sec["level"] = level
+        sec["night_enabled"] = stored.get("night_enabled", ("0",))[0] == "1"
+        for key in ("night_start", "night_end"):
+            if valid_hhmm(stored.get(key, (None,))[0]):
+                sec[key] = stored[key][0]
+        times = [t for _, t in stored.values() if t]
+        sec["updated_at"] = max(times) if times else None
+        with self.lock:
+            self.security = sec
+        self._refresh_level(time.time())
+
+    def _refresh_level(self, now):
+        """Recompute the effective level (night schedule) and its rule thresholds."""
+        with self.lock:
+            s = self.security
+            level = effective_level(s["level"], s["night_enabled"],
+                                    s["night_start"], s["night_end"], now)
+            if level != self.level:
+                print(f"[security] effective level -> {level}")
+            self.level = level
+            self.params = security_params(level)
+            self._next_level_check = now + LEVEL_CHECK_INTERVAL
+
+    def set_security(self, level=None, night_enabled=None, night_start=None,
+                     night_end=None):
+        """Change the level and/or night schedule, persist it, apply it at once.
+        Raises ValueError on an unknown level or a bad "HH:MM"."""
+        if level is not None and level not in SECURITY_LEVELS:
+            raise ValueError(f"level must be one of {', '.join(SECURITY_LEVELS)}")
+        for t in (night_start, night_end):
+            if t is not None and not valid_hhmm(t):
+                raise ValueError(f"bad time {t!r}: use 24-hour HH:MM")
+        changes = {}
+        if level is not None:
+            changes["security_level"] = level
+        if night_enabled is not None:
+            changes["night_enabled"] = "1" if night_enabled else "0"
+        if night_start is not None:
+            changes["night_start"] = night_start
+        if night_end is not None:
+            changes["night_end"] = night_end
+        if changes:
+            updated = set_settings(changes)
+            with self.lock:
+                s = self.security
+                if level is not None:
+                    s["level"] = level
+                if night_enabled is not None:
+                    s["night_enabled"] = bool(night_enabled)
+                if night_start is not None:
+                    s["night_start"] = night_start
+                if night_end is not None:
+                    s["night_end"] = night_end
+                s["updated_at"] = updated
+            self._refresh_level(time.time())
+        return self.get_security()
+
+    def set_security_level(self, level):
+        return self.set_security(level=level)
+
+    def get_security(self):
+        """{level, effective_level, night_enabled, night_start, night_end, updated_at}."""
+        with self.lock:
+            return dict(self.security, effective_level=self.level)
+
+    def _identify(self, emb, known, thresh):
         best, best_score = "unknown", 0.0
         for name, refs in known.items():
             score = float(np.max(refs @ emb))
@@ -193,6 +275,7 @@ class VisionEngine:
     def start(self):
         init_db()
         self.reload_people()
+        self._load_security()
         self.running = True
         self.thread = threading.Thread(target=self._loop, daemon=True)
         self.thread.start()
@@ -216,7 +299,8 @@ class VisionEngine:
             return {"camera": self.camera_name,
                     "running": self.running,
                     "unknown_count": self.unknown_count,
-                    "fps": round(self.fps, 1)}
+                    "fps": round(self.fps, 1),
+                    "security_level": self.level}
 
     # ---------- main loop ----------
     def _loop(self):
@@ -262,8 +346,12 @@ class VisionEngine:
             pending = []              # (tid, event_type, name) to trigger after drawing
             seen_known = set()        # recognised people in this frame
             now = time.time()
+            if now >= self._next_level_check:
+                self._refresh_level(now)
             with self.lock:
                 known, people = self.known, self.people
+                params, level = self.params, self.level
+                night = level != self.security["level"]
             frame_count += 1
             frame_h, frame_w = frame.shape[:2]
 
@@ -283,7 +371,7 @@ class VisionEngine:
                         continue
                     cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
                     fx, fy = self.first_pos.setdefault(tid, (cx, cy))
-                    if abs(cx - fx) + abs(cy - fy) > MOVE_REQUIRED * frame_w:
+                    if abs(cx - fx) + abs(cy - fy) > params["move_required"] * frame_w:
                         self.moved.add(tid)
                     self.track_age[tid] = self.track_age.get(tid, 0) + 1
                     if self.track_age[tid] < MIN_TRACK_FRAMES:
@@ -314,7 +402,8 @@ class VisionEngine:
                                          ((d.bbox[1] + d.bbox[3]) / 2 - ay) ** 2))
                                 box = (int(f.bbox[0] + x1), int(f.bbox[1] + y1),
                                        int(f.bbox[2] + x1), int(f.bbox[3] + y1))
-                                n, s = self._identify(f.normed_embedding, known)
+                                n, s = self._identify(f.normed_embedding, known,
+                                                      params["match_thresh"])
                                 print(f"[face] track {tid}: {n} {s:.2f} face={int(f.bbox[2]-f.bbox[0])}px")
                                 self.last_faces[tid] = [(box, n, s)]
 
@@ -335,7 +424,8 @@ class VisionEngine:
                     name = self.identity.get(tid, "unknown")
                     if name != "unknown" and name not in known:
                         name = self.identity[tid] = "unknown"   # person was deleted
-                    if name == "unknown" and tid not in self.moved:
+                    moved = tid in self.moved or params["move_required"] <= 0
+                    if name == "unknown" and not moved:
                         # hasn't moved: could be a poster or statue. Grey box, never alert.
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (150, 150, 150), 1)
                         cv2.putText(frame, "static?", (x1, max(20, y1 - 8)),
@@ -344,7 +434,7 @@ class VisionEngine:
                     if name == "unknown":
                         current_unknown.add(tid)
                         self.unknown_since.setdefault(tid, now)
-                        if (now - self.unknown_since[tid] >= GRACE
+                        if (now - self.unknown_since[tid] >= params["grace"]
                                 and tid not in self.alerted):
                             self.alerted.add(tid)
                             pending.append((tid, "intrusion", "unknown"))
@@ -383,6 +473,7 @@ class VisionEngine:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
             cv2.putText(frame, f"Unknown: {len(current_unknown)}", (15, 60),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+            self._draw_level(frame, level, night)
             for tid, event_type, name in pending:
                 self._trigger_event(tid, frame, now, event_type, name,
                                     len(current_unknown))
@@ -402,6 +493,16 @@ class VisionEngine:
                 time.sleep(max(0, frame_delay - (time.time() - now)))
 
         cap.release()
+
+    @staticmethod
+    def _draw_level(frame, level, night):
+        """Security level in the top-right corner, e.g. "AWAY (night)"."""
+        text = level.upper() + (" (night)" if night else "")
+        font, scale, thick = cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2
+        (tw, th), _ = cv2.getTextSize(text, font, scale, thick)
+        x, y = frame.shape[1] - tw - 15, 30
+        cv2.rectangle(frame, (x - 6, y - th - 6), (x + tw + 6, y + 8), (0, 0, 0), -1)
+        cv2.putText(frame, text, (x, y), font, scale, LEVEL_COLOR[level], thick)
 
     def _trigger_event(self, tid, frame, now, event_type, name, n_unknown):
         """Snapshot + clip + DB row + Telegram for an intrusion or a visitor outside their window."""

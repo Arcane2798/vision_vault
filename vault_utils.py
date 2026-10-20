@@ -32,8 +32,38 @@ def init_db():
         name TEXT NOT NULL UNIQUE COLLATE NOCASE,
         role TEXT NOT NULL DEFAULT 'family',
         valid_from REAL, valid_to REAL, created_at REAL)""")
+    # key/value settings (security level, night schedule); updated_at = epoch of last change
+    con.execute("""CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY, value TEXT, updated_at REAL)""")
     con.commit()
     con.close()
+
+
+# ---------- settings ----------
+def get_settings():
+    """{key: (value, updated_at)} for every stored setting."""
+    con = sqlite3.connect(DB_PATH)
+    try:
+        return {k: (v, t) for k, v, t in
+                con.execute("SELECT key, value, updated_at FROM settings")}
+    finally:
+        con.close()
+
+
+def set_settings(values):
+    """Upsert {key: value} (values stored as text). Returns the update time (epoch)."""
+    now = time.time()
+    con = sqlite3.connect(DB_PATH)
+    try:
+        con.executemany(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?,?,?)"
+            " ON CONFLICT(key) DO UPDATE SET value=excluded.value,"
+            " updated_at=excluded.updated_at",
+            [(k, str(val), now) for k, val in values.items()])
+        con.commit()
+    finally:
+        con.close()
+    return now
 
 
 # ---------- people (residents + visitors) ----------

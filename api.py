@@ -34,6 +34,17 @@ class StatusUpdate(BaseModel):
     notes: Optional[str] = None
 
 
+class NightUpdate(BaseModel):
+    enabled: Optional[bool] = None
+    start: Optional[str] = None
+    end: Optional[str] = None
+
+
+class SecurityUpdate(BaseModel):
+    level: Optional[str] = None
+    night: Optional[NightUpdate] = None
+
+
 class PersonUpdate(BaseModel):
     role: Optional[str] = None
     validFrom: Optional[str] = None
@@ -160,7 +171,30 @@ def create_router(engine):
     def status():
         s = engine.get_status()
         return {"running": s["running"], "fps": s["fps"],
-                "unknownCount": s["unknown_count"], "cameraName": s["camera"]}
+                "unknownCount": s["unknown_count"], "cameraName": s["camera"],
+                "securityLevel": s["security_level"]}
+
+    # ---------- security level + night schedule ----------
+    def security_json():
+        s = engine.get_security()
+        return {"level": s["level"], "effectiveLevel": s["effective_level"],
+                "night": {"enabled": s["night_enabled"], "start": s["night_start"],
+                          "end": s["night_end"]},
+                "updatedAt": _iso(s["updated_at"]) if s["updated_at"] else None}
+
+    @router.get("/security")
+    def get_security():
+        return security_json()
+
+    @router.put("/security")
+    def put_security(body: SecurityUpdate):
+        night = body.night or NightUpdate()
+        try:
+            engine.set_security(level=body.level, night_enabled=night.enabled,
+                                night_start=night.start, night_end=night.end)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return security_json()
 
     # ---------- incidents ----------
     @router.get("/incidents")

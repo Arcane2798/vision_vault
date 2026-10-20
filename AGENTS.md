@@ -102,7 +102,9 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET / PATCH | `/api/incidents/{id}` | PATCH `{status, notes}`; status ∈ new, under_review, confirmed, dismissed |
 | GET | `/api/dashboard/summary`, `/api/dashboard/trend?days=14` | |
 | WS | `/api/ws/events` | `{type:"alert", data: Incident}` and `{type:"camera_status", ...}` |
-| GET | `/api/status` | `{running, fps, unknownCount, cameraName}` — live engine state |
+| GET | `/api/status` | `{running, fps, unknownCount, cameraName, securityLevel}` — live engine state; `securityLevel` = effective level |
+| GET | `/api/security` | `{level, effectiveLevel, night: {enabled, start, end}, updatedAt: ISO\|null}` (`updatedAt` null until first change) |
+| PUT | `/api/security` | `{level?, night?: {enabled?, start?, end?}}` → same shape as GET. 400 on unknown level or bad "HH:MM" (24-hour, zero-padded) |
 | GET | `/api/people` | `Person[]`, family first then by name (Person JSON in Phase 1 spec; `id` is a number) |
 | POST | `/api/people` | multipart `name, role (default family), validFrom?, validTo?, photos` (repeat `photos` per file) → 201 `Person`. 400 bad name/role/date, from > to, no photo, unreadable image or **no face found**; 409 name taken (case-insensitive) |
 | PATCH | `/api/people/{id}` | JSON `{role?, validFrom?, validTo?}` → `Person`. Omitted = unchanged, `null` = clear (open-ended). Role `family` clears the window |
@@ -115,6 +117,10 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 
 Dates in: ISO 8601; with no offset (e.g. `datetime-local` "2026-10-24T14:00") they mean the server's local time.
 Dates out: ISO UTC with `Z`. Uploads take ~1 s per photo (face embedding), so use a long client timeout.
+
+**`settings` table:** `key, value, updated_at` — keys `security_level`, `night_enabled` ("0"/"1"), `night_start`, `night_end`.
+Pure security rules: `rules.security_params`, `rules.effective_level`, `rules.in_night_window`, `rules.valid_hhmm`.
+The frame's top-right corner shows the effective level (`NORMAL`, `HOME`, `AWAY`, or `AWAY (night)`).
 
 **`people` table:** `id, name (= faces/ folder, unique, case-insensitive), role ('family'|'guest'), valid_from, valid_to, created_at`.
 Pure rules live in `rules.py` (`visitor_allowed`, `classify_person`, `valid_person_name`). A guest window bound that is
@@ -191,7 +197,7 @@ orange, unknown red, static figure grey.
       `POST /api/people/{id}/photos` (multipart photos[]), `GET /api/people/{id}/photo` (first photo as JPEG; `faces/` is never mounted publicly).
       **Person JSON:** `{id, name, role: "family"|"guest", validFrom: ISO|null, validTo: ISO|null, active: bool, photoCount: int,
       photoUrl: "/api/people/{id}/photo", lastSeen: ISO|null, createdAt: ISO}`. `active` = family, or guest whose window contains now.
-- [ ] **Security level (feature 5.1):** levels `home` | `normal` | `away`, stored in a `settings` table (`key, value`), default `normal`.
+- [x] **Security level (feature 5.1):** levels `home` | `normal` | `away`, stored in a `settings` table (`key, value`), default `normal`.
       Pure function `security_params(level) -> dict` gives the rule thresholds:
       `home` — GRACE 5 s, MOVE_REQUIRED 0.08, no guard-house copy;
       `normal` — current defaults (GRACE 3 s, MOVE_REQUIRED 0.08);
