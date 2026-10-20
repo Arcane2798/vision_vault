@@ -82,7 +82,7 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 | `frontend/src/types/index.ts` | Frontend data types = API contract |
 | `frontend/src/services/` | The only place the frontend fetches data |
 | `frontend/.env.local` | Frontend settings (live mode, websocket, auth off) |
-| `.env` | `TG_TOKEN`, `TG_CHAT_ID`, optional `VIDEO_SOURCE`; optional `GUARD_TG_TOKEN` (separate guard bot; with no `GUARD_TG_CHAT_ID` it messages `TG_CHAT_ID`, so one account gets two bot chats) and `GUARD_TG_CHAT_ID` (guard-house chat; with neither set there is no guard Telegram copy) and `HOUSE_UNIT` (e.g. `No. 12, Jalan Elmina 3/1`); `GEMINI_API_KEY` (AI assistant; unset = `/api/chat` returns 503) and optional `CHAT_MODEL` (default `gemini-3.8-flash`, set in `chat.DEFAULT_MODEL`). There is no backend `.env.example`; copy these lines:<br>`# GUARD_TG_CHAT_ID=-1001234567890`<br>`# HOUSE_UNIT=No. 12, Jalan Elmina 3/1`<br>`# GEMINI_API_KEY=your-key-from-aistudio.google.com`<br>`# CHAT_MODEL=gemini-3.8-flash` |
+| `.env` | `TG_TOKEN`, `TG_CHAT_ID`, optional `VIDEO_SOURCE`; optional `GUARD_TG_TOKEN` (separate guard bot; with no `GUARD_TG_CHAT_ID` it messages `TG_CHAT_ID`, so one account gets two bot chats) and `GUARD_TG_CHAT_ID` (guard-house chat; with neither set there is no guard Telegram copy) and `HOUSE_UNIT` (e.g. `No. 12, Jalan Elmina 3/1`); `GEMINI_API_KEY` (AI assistant; unset = `/api/chat` returns 503) and optional `CHAT_MODEL` (default `gemini-3.5-flash-lite`, set in `chat.DEFAULT_MODEL`; `gemini-3.8-flash` allows only 20 free requests/day). There is no backend `.env.example`; copy these lines:<br>`# GUARD_TG_CHAT_ID=-1001234567890`<br>`# HOUSE_UNIT=No. 12, Jalan Elmina 3/1`<br>`# GEMINI_API_KEY=your-key-from-aistudio.google.com`<br>`# CHAT_MODEL=gemini-3.5-flash-lite` |
 
 ## Setup & run
 ```bash
@@ -148,7 +148,7 @@ orange, unknown red, static figure grey.
 | 2 | Face recognition, homeowner registers faces | ✅ done (register via Residents & Visitors page) | Phase 1: cache fix + `/people` page with upload |
 | 3 | Intrusion snapshot + clip | ✅ done (clip race + speed fixed) | Phase 2: `clip_ready` |
 | 4 | Telegram alert | ✅ done | Phase 2: guard-house copy, weapon note |
-| 5 | Web dashboard (live, history, analytics) | ✅ done (still old branding) | Phase 0: rebrand, `/api/status` |
+| 5 | Web dashboard (live, history, analytics) | ✅ done (rebranded to Vision Vault) | Phase 0: rebrand, `/api/status` |
 | 5.1 | Security level control | ✅ done (incl. night auto-Away) | Phase 1: `security_level` (Home / Normal / Away) |
 | 6 | Visitor registration | ✅ done | Phase 1: `people` table + `/people` page — **core** |
 | 7 | Guard-house alert & dashboard | ✅ Telegram copy + mock Guard House view (/guard) with acknowledge | Phase 2: alert to guard-house Telegram. Dashboard for many homes = KIV (pitch only) |
@@ -168,14 +168,13 @@ orange, unknown red, static figure grey.
 - [x] Telegram alerts with photo
 - [x] Teammate's frontend wired to backend in live mode (incidents, dashboard, live feed, WebSocket alerts)
 
-### Not done (previously mis-reported as done)
-- [x] **Guest whitelisting** — engine side done (people table + time windows); `/people` API and page below.
+### Previously mis-reported, now done
+- [x] **Guest whitelisting** — done: people table, visitor time windows, `/api/people` and the Residents & Visitors page.
 
 ### Known issues
-- ~~Alert WebSocket sends `clipUrl` before the clip is converted~~ — backend now exposes `clipReady`; frontend still has to wait for it.
+- ~~Alert WebSocket sends `clipUrl` before the clip is converted~~ — fixed: backend exposes `clipReady`, incident detail and Guard House show "Clip processing…" until ready.
 - Incident `confidence` is hard-coded `1.0` (alerts are rule-based).
 - Engine per-track dicts (`identity`, `track_age`, `first_pos`, …) grow forever on long runs.
-- Frontend still branded "Township CCTV / theft detection" with roles (camera management already removed).
 - Project sits in OneDrive — push to GitHub after every feature.
 - **Security limitation (state it in the demo):** a printed photo of a family member is accepted (no liveness check).
 - **AI assistant privacy:** on the Gemini free tier, Google may use prompts to improve its products. Only text metadata (incident times/status, names, security level) is sent, never camera frames or photos.
