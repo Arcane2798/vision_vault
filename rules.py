@@ -87,6 +87,13 @@ def security_params(level: str) -> dict:
     return params
 
 
+def should_alert_guard(event_type: str, guard_alert: bool, guard_chat_id) -> bool:
+    """True if the guard house gets a copy of this alert: intrusions only, only when the
+    security level allows it (`security_params(level)["guard_alert"]`) and a guard chat is set.
+    Visitors outside their window go to the homeowner only."""
+    return event_type == "intrusion" and bool(guard_alert) and bool(guard_chat_id)
+
+
 def valid_hhmm(value) -> bool:
     """True for a 24-hour "HH:MM" string such as "23:00" or "06:30"."""
     return isinstance(value, str) and bool(_HHMM_RE.match(value))

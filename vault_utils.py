@@ -25,7 +25,8 @@ def init_db():
     have = {r[1] for r in con.execute("PRAGMA table_info(events)")}
     for col, ddl in (("status", "TEXT DEFAULT 'new'"), ("notes", "TEXT"),
                      ("reviewed_at", "REAL"),
-                     ("clip_ready", "INTEGER DEFAULT 0")):   # 1 once the H.264 clip is playable
+                     ("clip_ready", "INTEGER DEFAULT 0"),    # 1 once the H.264 clip is playable
+                     ("guard_notified", "INTEGER DEFAULT 0")):   # 1 once the guard house got it
         if col not in have:
             con.execute(f"ALTER TABLE events ADD COLUMN {col} {ddl}")
     # clips older than this were finished (or abandoned by a crash/restart): don't show "processing" forever
@@ -113,6 +114,16 @@ def log_event(camera, track_id, identity, event_type,
         con.close()
 
 
+def mark_guard_notified(event_id):
+    """Flag an event as delivered to the guard-house Telegram chat."""
+    con = sqlite3.connect(DB_PATH, timeout=10)
+    try:
+        con.execute("UPDATE events SET guard_notified=1 WHERE id=?", (event_id,))
+        con.commit()
+    finally:
+        con.close()
+
+
 def mark_clip_ready(clip_path):
     """Flag every event that shares this clip as playable (called when H.264 conversion ends)."""
     con = sqlite3.connect(DB_PATH, timeout=10)
@@ -159,30 +170,60 @@ _load_env()
 
 
 # ---------- telegram ----------
-def _send(text, photo_path):
-    token, chat = os.getenv("TG_TOKEN"), os.getenv("TG_CHAT_ID")
-    if not token or not chat:
+def env(key, default=None):
+    """os.getenv, re-reading .env once if the key is missing."""
+    value = os.getenv(key)
+    if not value:
         _load_env()
-        token, chat = os.getenv("TG_TOKEN"), os.getenv("TG_CHAT_ID")
+        value = os.getenv(key)
+    return value or default
+
+
+def guard_chat_id():
+    """Guard-house Telegram chat (GUARD_TG_CHAT_ID), or None if unset."""
+    return env("GUARD_TG_CHAT_ID")
+
+
+def house_unit():
+    """This home's address for the guard house (HOUSE_UNIT)."""
+    return env("HOUSE_UNIT", "Unit address not set (HOUSE_UNIT)")
+
+
+def _send(text, photo_path, chat_id=None):
+    """Send to `chat_id` (default TG_CHAT_ID). Returns True if Telegram accepted it."""
+    token, chat = env("TG_TOKEN"), chat_id or env("TG_CHAT_ID")
     if not token or not chat:
-        print("[telegram] TG_TOKEN / TG_CHAT_ID not set, skipping")
-        return
+        print("[telegram] TG_TOKEN / chat id not set, skipping")
+        return False
     try:
         base = f"https://api.telegram.org/bot{token}"
         if photo_path:
             with open(photo_path, "rb") as f:
-                requests.post(f"{base}/sendPhoto",
-                              data={"chat_id": chat, "caption": text},
-                              files={"photo": f}, timeout=15)
+                r = requests.post(f"{base}/sendPhoto",
+                                  data={"chat_id": chat, "caption": text},
+                                  files={"photo": f}, timeout=15)
         else:
-            requests.post(f"{base}/sendMessage",
-                          data={"chat_id": chat, "text": text}, timeout=15)
+            r = requests.post(f"{base}/sendMessage",
+                              data={"chat_id": chat, "text": text}, timeout=15)
     except Exception as e:
         print("[telegram] failed:", e)
+        return False
+    if not r.ok:
+        print(f"[telegram] failed: HTTP {r.status_code}")
+        return False
+    return True
 
-def send_telegram(text, photo_path=None):
-    # background thread so the video loop never freezes
-    threading.Thread(target=_send, args=(text, photo_path), daemon=True).start()
+
+def send_telegram(text, photo_path=None, chat_id=None, on_sent=None):
+    """Send in a background thread so the video loop never freezes.
+    on_sent() runs only if Telegram accepted the message."""
+    def _run():
+        if _send(text, photo_path, chat_id) and on_sent:
+            try:
+                on_sent()
+            except Exception as e:
+                print("[telegram] on_sent failed:", e)
+    threading.Thread(target=_run, daemon=True).start()
 
 def convert_to_h264(path, on_done=None):
     """Re-encode `path` to browser-playable H.264 in a daemon thread, then call on_done(path).

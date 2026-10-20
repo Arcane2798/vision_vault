@@ -177,7 +177,8 @@ def _incident(r, base):
            "confidence": 1.0,        # rule-based alert, no model score is logged
            "status": r["status"] or "new", "detections": [],
            # clipUrl exists as soon as recording starts; play it only once this is true
-           "clipReady": bool(clip and r.get("clip_ready"))}
+           "clipReady": bool(clip and r.get("clip_ready")),
+           "guardNotified": bool(r.get("guard_notified"))}   # guard-house Telegram accepted it
     if snap:
         out["snapshotUrl"] = snap
     if clip:

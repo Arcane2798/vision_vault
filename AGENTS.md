@@ -80,7 +80,7 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 | `frontend/src/types/index.ts` | Frontend data types = API contract |
 | `frontend/src/services/` | The only place the frontend fetches data |
 | `frontend/.env.local` | Frontend settings (live mode, websocket, auth off) |
-| `.env` | `TG_TOKEN`, `TG_CHAT_ID`, optional `VIDEO_SOURCE` (later: `ANTHROPIC_API_KEY`) |
+| `.env` | `TG_TOKEN`, `TG_CHAT_ID`, optional `VIDEO_SOURCE`; optional `GUARD_TG_CHAT_ID` (guard-house chat, unset = no guard copy) and `HOUSE_UNIT` (e.g. `No. 12, Jalan Elmina 3/1`) (later: `ANTHROPIC_API_KEY`). There is no backend `.env.example`; copy these lines:<br>`# GUARD_TG_CHAT_ID=-1001234567890`<br>`# HOUSE_UNIT=No. 12, Jalan Elmina 3/1` |
 
 ## Setup & run
 ```bash
@@ -98,7 +98,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/video` | MJPEG stream (use `<img>`, not `<video>`) |
 | GET | `/clips/*`, `/snapshots/*` | Static evidence files |
 | GET | `/api/cameras` | Single camera `cam-01`; POST/PUT/DELETE return 501 |
-| GET | `/api/incidents` | `?search&cameraId&status&from&to&sort`; search also matches `identity`. Incident JSON includes `identity` (`unknown` or the visitor's name) and `clipReady: bool` — `clipUrl` appears as soon as recording starts, but play it only when `clipReady` is true (≈ 5–10 s after the alert; false when there is no clip) |
+| GET | `/api/incidents` | `?search&cameraId&status&from&to&sort`; search also matches `identity`. Incident JSON includes `identity` (`unknown` or the visitor's name) `guardNotified: bool` (guard-house Telegram accepted the copy) and `clipReady: bool` — `clipUrl` appears as soon as recording starts, but play it only when `clipReady` is true (≈ 5–10 s after the alert; false when there is no clip) |
 | GET / PATCH | `/api/incidents/{id}` | PATCH `{status, notes}`; status ∈ new, under_review, confirmed, dismissed |
 | GET | `/api/dashboard/summary`, `/api/dashboard/trend?days=14` | |
 | WS | `/api/ws/events` | `{type:"alert", data: Incident}` and `{type:"camera_status", ...}` |
@@ -115,7 +115,8 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | PUT | `/api/source` | `{kind: "camera"}` or `{kind: "file", name}` → same shape as GET. Test videos play **once** in real time (frames skipped if the engine is slower), stamped `TEST VIDEO`, then hold the last frame. Same name again = restart. 404 unknown video |
 | POST | `/api/source/videos` | multipart `video` → 201 `{name, sizeBytes, modifiedAt}`, saved in `test_videos/` (renamed `_1`, `_2` if taken). 400 bad type, > 500 MB, or unreadable |
 
-**`events` table:** `id, ts (epoch), camera, track_id, identity, event_type, clip_path, snapshot_path, status, notes, reviewed_at, clip_ready`.
+**`events` table:** `id, ts (epoch), camera, track_id, identity, event_type, clip_path, snapshot_path, status, notes, reviewed_at, clip_ready, guard_notified`.
+`guard_notified` = 1 only after Telegram accepted the guard-house copy (intrusions only; never at level `home`, within the 15 s cooldown, or without `GUARD_TG_CHAT_ID`). Pure rule: `rules.should_alert_guard`.
 `clip_ready` = 1 once H.264 conversion of `clip_path` ends (all events sharing that clip); on startup, rows older than 2 min are marked ready.
 Clips are written at the engine's measured FPS (`vault_utils.clip_fps`), with 5 s pre-roll (by time) + 5 s post-roll.
 `event_type` ∈ `intrusion` (identity `unknown`) | `guest_outside_window` (identity = visitor's name).
@@ -246,7 +247,7 @@ orange, unknown red, static figure grey.
       Live status strip may also list `peopleInView` names.
 - [x] **Clip speed:** clips are written at a fixed `CLIP_FPS = 20` while the engine runs ~5 fps, so they play ~4× fast.
       Write each clip at the engine's measured FPS (rounded, min 1) and size the pre-roll buffer in seconds, not frames.
-- [ ] **Guard-house alert** (small, ~1 h): `.env` gets `GUARD_TG_CHAT_ID` and `HOUSE_UNIT` (e.g. "No. 12, Jalan Elmina 3/1").
+- [ ] **Guard-house alert** _(backend done: env vars, second Telegram, `guard_notified` + `guardNotified`; frontend label open)_ (small, ~1 h): `.env` gets `GUARD_TG_CHAT_ID` and `HOUSE_UNIT` (e.g. "No. 12, Jalan Elmina 3/1").
       On `intrusion` only, send a second Telegram message with the unit address + snapshot to the guard-house chat
       (same cooldown; skip silently if unset). Add `guard_notified` column; incident detail shows "Guard house notified".
       `guest_outside_window` goes to the homeowner only. Security level `home` skips the guard copy (`security_params` `guard_alert`).
