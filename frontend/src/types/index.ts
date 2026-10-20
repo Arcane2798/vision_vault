@@ -69,7 +69,7 @@ export interface Incident {
   status: IncidentStatus;
   snapshotUrl?: string;
   clipUrl?: string;
-  /** false while the clip is still being recorded / converted to H.264. Missing (older backends) = ready. */
+  /** true once the H.264 clip is playable; false while recording/converting and when there is no clip. Missing (older backends) = ready. */
   clipReady?: boolean;
   /** the township guard house got a Telegram copy (intrusion only). Missing on older backends. */
   guardNotified?: boolean;

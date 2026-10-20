@@ -56,8 +56,11 @@ export function incidentIdentity(i: Pick<Incident, 'label' | 'identity'>): strin
   return 'Not recorded';
 }
 
-/** The backend is still recording / converting the clip (older backends omit clipReady = ready). */
-export const clipProcessing = (i: Pick<Incident, 'clipReady'>) => i.clipReady === false;
+/**
+ * The backend is still recording / converting the clip. clipUrl appears as soon as recording starts and
+ * clipReady is also false when there is no clip at all, so both are checked. Older backends omit clipReady (= ready).
+ */
+export const clipProcessing = (i: Pick<Incident, 'clipUrl' | 'clipReady'>) => !!i.clipUrl && i.clipReady === false;
 
 export const incidentStatusLabel: Record<IncidentStatus, string> = {
   new: 'Potential - not reviewed',
