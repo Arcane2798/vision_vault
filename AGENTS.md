@@ -146,13 +146,13 @@ orange, unknown red, static figure grey.
 |---|---|---|---|
 | 1 | Real-time person detection & tracking | ✅ done | Phase 3: prune per-track state |
 | 2 | Face recognition, homeowner registers faces | ✅ done (register via Residents & Visitors page) | Phase 1: cache fix + `/people` page with upload |
-| 3 | Intrusion snapshot + clip | ✅ done (clip race open) | Phase 2: `clip_ready` |
+| 3 | Intrusion snapshot + clip | ✅ done (clip race + speed fixed) | Phase 2: `clip_ready` |
 | 4 | Telegram alert | ✅ done | Phase 2: guard-house copy, weapon note |
 | 5 | Web dashboard (live, history, analytics) | ✅ done (still old branding) | Phase 0: rebrand, `/api/status` |
 | 5.1 | Security level control | ✅ done (incl. night auto-Away) | Phase 1: `security_level` (Home / Normal / Away) |
 | 6 | Visitor registration | ✅ done | Phase 1: `people` table + `/people` page — **core** |
-| 7 | Guard-house alert & dashboard | ❌ | Phase 2: alert to guard-house Telegram. Dashboard for many homes = KIV (pitch only) |
-| 8 | AI assistant (live feed, locate family) | ⏳ lastSeen done; chatbot next | Phase 1: `lastSeen` per person. Phase 2: chatbot + tools |
+| 7 | Guard-house alert & dashboard | ✅ Telegram copy + mock Guard House view (/guard) with acknowledge | Phase 2: alert to guard-house Telegram. Dashboard for many homes = KIV (pitch only) |
+| 8 | AI assistant (live feed, locate family) | ✅ Gemini chat with tools + confirm (needs GEMINI_API_KEY) | Phase 1: `lastSeen` per person. Phase 2: chatbot + tools |
 | 9 | Path tracking | ❌ | Phase 3: trail drawn on live frame + burned into snapshot |
 | 10 | Intruder's items detection | ❌ | Phase 3 (optional): COCO `knife` / `scissors` / `baseball bat` near an unknown person |
 
@@ -179,6 +179,7 @@ orange, unknown red, static figure grey.
 - Project sits in OneDrive — push to GitHub after every feature.
 - **Security limitation (state it in the demo):** a printed photo of a family member is accepted (no liveness check).
 - **AI assistant privacy:** on the Gemini free tier, Google may use prompts to improve its products. Only text metadata (incident times/status, names, security level) is sent, never camera frames or photos.
+- **AI assistant limits:** the free tier has a per-model daily request cap (resets midnight Pacific = 3 pm Malaysia) and is slow under load (10–30 s per reply). Each question uses 2–3 requests. Don't burn the quota on the day; check limits in AI Studio. Gemini function responses go in a `user` turn (role `tool` is rejected).
 
 ## Plan to Friday
 
@@ -232,10 +233,10 @@ orange, unknown red, static figure grey.
 
 ### Phase 2 — Chatbot with tool calling + guard-house alert (Thu 22)
 - [x] `POST /api/chat` `{messages}` → `{reply, pendingAction?}` using the **Google Gemini API** (`google-genai` SDK; owner switched from
-      Anthropic for a free tier), key `GEMINI_API_KEY` in `.env`, model from `CHAT_MODEL` (default `gemini-3.8-flash`, the stable free-tier Flash).
+      Anthropic for a free tier), key `GEMINI_API_KEY` in `.env`, model from `CHAT_MODEL` (default `gemini-3.5-flash-lite`; `gemini-3.8-flash` allows only 20 free requests/day).
       Manual tool loop, automatic function calling **off**, max 6 model calls per request. System prompt includes current local time (Asia/Kuala_Lumpur).
       Code lives in a new `chat.py` (tool functions + loop); `api.py` only adds the route. No key → 503 `{detail: "Chat is not configured: add GEMINI_API_KEY to .env"}`.
-      Free-tier quota (429) → normal reply "The assistant is busy (free-tier limit). Try again in a minute." (never a 500).
+      Free-tier quota (429), overload (503) or a 40 s timeout → normal reply "The assistant is busy right now (Gemini free tier). Try again in a minute." (no silent retries) (never a 500).
       **Request:** `{messages: [{role: "user"|"assistant", content: string}]}` (plain text history, newest last; server caps at the last 20).
       **Response:** `{reply: string, pendingAction: PendingAction | null}`.
 - [x] Tools are plain Python functions reusing existing queries:
@@ -245,25 +246,25 @@ orange, unknown red, static figure grey.
       `get_live_status` includes **who is in view right now**: engine `get_status()` adds `in_view: [{name, kind}]`
       (kind = family / guest_allowed / guest_outside / unknown) and `/api/status` adds `peopleInView: [{name, kind}]`.
       Text only — **no camera frames are sent to the AI** (keeps the "footage stays in the home" promise).
-- [x] Write tools are **never executed by the model** _(backend done; Confirm card is frontend)_: they return `pendingAction`; the frontend shows a Confirm button,
+- [x] Write tools are **never executed by the model**: they return `pendingAction`; the frontend shows a Confirm button,
       and on confirm calls the normal REST endpoint itself. **PendingAction** (one per reply, the latest wins):
       `{summary: string, kind: "request", method: "PATCH"|"PUT", path: string, body: object}` — e.g.
       `PATCH /api/incidents/12 {status, notes}`, `PUT /api/security {level}`, `PATCH /api/people/3 {role:"guest", validFrom, validTo}`;
       or `{summary, kind: "add_person", prefill: {name, role, validFrom, validTo}}` when the visitor is **not enrolled yet**
       (a new person needs photos, so the frontend opens the Add-person form prefilled instead of calling an endpoint).
-- [ ] Frontend chat panel (slide-over from the top bar), works from every page. Shows the PendingAction as a card with
+- [x] Frontend chat panel (slide-over from the top bar), works from every page. Shows the PendingAction as a card with
       Confirm / Cancel; Confirm runs it through the normal services (or opens the prefilled Add-person modal), then shows
       "Done" or the error in the chat. Suggested prompts on an empty chat: "What happened at the door today?",
       "Who is at the door right now?", "Where is Azhad?", "Switch to Away mode".
       Live status strip may also list `peopleInView` names.
 - [x] **Clip speed:** clips are written at a fixed `CLIP_FPS = 20` while the engine runs ~5 fps, so they play ~4× fast.
       Write each clip at the engine's measured FPS (rounded, min 1) and size the pre-roll buffer in seconds, not frames.
-- [ ] **Guard-house alert** _(backend done: env vars, second Telegram, `guard_notified` + `guardNotified`; frontend label open)_ (small, ~1 h): `.env` gets `GUARD_TG_CHAT_ID` and `HOUSE_UNIT` (e.g. "No. 12, Jalan Elmina 3/1").
+- [x] **Guard-house alert** (small, ~1 h): `.env` gets `GUARD_TG_CHAT_ID` and `HOUSE_UNIT` (e.g. "No. 12, Jalan Elmina 3/1").
       On `intrusion` only, send a second Telegram message with the unit address + snapshot to the guard-house chat
       (same cooldown; skip silently if unset). Add `guard_notified` column; incident detail shows "Guard house notified".
       `guest_outside_window` goes to the homeowner only. Security level `home` skips the guard copy (`security_params` `guard_alert`).
       Incident JSON adds `guardNotified: bool`.
-- [ ] Fix clip race _(backend done: `clip_ready` + `clipReady`; frontend part open)_: add `clip_ready` column, set to 1 when H.264 conversion finishes; API exposes `clipReady`;
+- [x] Fix clip race: add `clip_ready` column, set to 1 when H.264 conversion finishes; API exposes `clipReady`;
       frontend shows "Clip processing…" until ready (incident detail re-fetches every few seconds while `clipReady` is false).
 
 ### Phase 2b — Guard House view (owner-approved Tue 20 Oct, ~2–3 h)
@@ -278,7 +279,7 @@ Real deployment = a separate township server for many homes (KIV); the demo is o
       `POST /api/guard/alerts/{id}/ack` `{note?: string (≤ 200 chars)}` → that alert. 404 if it's not a guard alert. The first ack time is kept, and a repeat only updates the note.
       On the first ack, send the homeowner a Telegram text: "🛡 Guard house acknowledged the alert at HH:MM — <note>" (skip silently if Telegram is unset).
       Incident JSON adds `guardAcknowledgedAt: ISO|null`, `guardAckNote: string|null`. `houseUnit` comes from `HOUSE_UNIT` (fallback "This home").
-- [ ] **Frontend `/guard` page** — rendered **outside** `AppLayout` (no sidebar, nav or chat: it is a different party's screen).
+- [x] **Frontend `/guard` page** — rendered **outside** `AppLayout` (no sidebar, nav or chat: it is a different party's screen).
       - Full-screen and high-contrast: a "Guard House — Township Security" header, a live clock, and a count of unacknowledged alerts.
       - Polls `GET /api/guard/alerts` every 2 s.
       - Unacknowledged alerts sit on top with a pulsing red border. Each shows the snapshot, the **house address in large text**, the time and "x min ago".
@@ -286,7 +287,7 @@ Real deployment = a separate township server for many homes (KIV); the demo is o
       - Acknowledged alerts are greyed out, with "Acknowledged 21:14 — Guard dispatched".
       - A new alert shows a red banner and a short beep (Web Audio, enabled after the first click).
       - Loading, empty ("All quiet") and error states.
-      - The sidebar gets a "Guard House view" link that opens `/guard` in a new tab.
+      - Bottom-left switch buttons: "Switch to Guard House view" in the sidebar and "Homeowner dashboard" on `/guard` (same tab).
       - Incident detail shows "Guard house acknowledged at 21:14 — Guard dispatched" when `guardAcknowledgedAt` is set.
 
 ### Phase 3 — Polish & demo (Fri 23, morning only)

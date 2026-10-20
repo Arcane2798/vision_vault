@@ -18,12 +18,13 @@ from api import (STATUSES, _incident, _iso, _rows, dashboard_summary,
 from rules import FAMILY, GUEST, SECURITY_LEVELS, valid_person_name
 from vault_utils import FACES_DIR, env
 
-DEFAULT_MODEL = "gemini-3.8-flash"   # free-tier stable Flash; override with CHAT_MODEL in .env
+DEFAULT_MODEL = "gemini-3.5-flash-lite"   # free tier; 3.8-flash allows only 20 requests/day. Override with CHAT_MODEL in .env
 MAX_OUTPUT_TOKENS = 8192
 MAX_ROUNDS = 6                       # model calls per chat request (bounds the tool loop)
+GEMINI_TIMEOUT_MS = 40000           # per Gemini call, no retries; then a "busy" reply
 MAX_HISTORY = 20                     # messages kept from the client's history
 NOT_CONFIGURED = "Chat is not configured: add GEMINI_API_KEY to .env"
-BUSY_REPLY = "The assistant is busy (free-tier limit). Try again in a minute."
+BUSY_REPLY = "The assistant is busy right now (Gemini free tier). Try again in a minute."
 
 try:
     from zoneinfo import ZoneInfo
@@ -324,9 +325,12 @@ def make_client():
         raise ChatNotConfigured(NOT_CONFIGURED)
     try:
         from google import genai
+        from google.genai import types
     except ImportError:
         raise ChatNotConfigured(NOT_CONFIGURED + " (and run: py -m pip install google-genai)")
-    return genai.Client(api_key=key)
+    # fail fast when the free tier is overloaded: the SDK default (5 attempts, no timeout) hangs for minutes
+    return genai.Client(api_key=key, http_options=types.HttpOptions(
+        timeout=GEMINI_TIMEOUT_MS, retry_options=types.HttpRetryOptions(attempts=1)))
 
 
 def _to_contents(history):
@@ -336,7 +340,8 @@ def _to_contents(history):
     contents = []
     for h in history:
         if h["role"] == "tool":
-            contents.append(types.Content(role="tool", parts=[
+            # Gemini takes function responses in a "user" turn ("tool" is rejected with 400)
+            contents.append(types.Content(role="user", parts=[
                 types.Part(function_response=types.FunctionResponse(
                     id=r["id"], name=r["name"], response=r["response"]))
                 for r in h["results"]]))
@@ -381,12 +386,14 @@ def provider_error(e):
     import httpx
     from google.genai import errors
     if isinstance(e, errors.APIError):
-        if e.code == 429 or e.status == "RESOURCE_EXHAUSTED":
+        if e.code in (429, 503) or e.status in ("RESOURCE_EXHAUSTED", "UNAVAILABLE"):
             return 200, {"reply": BUSY_REPLY, "pendingAction": None}
         if isinstance(e, errors.ClientError):
             return 502, {"detail": f"The AI service rejected the request ({e.code} {e.status}): "
                                    f"{e.message} Check GEMINI_API_KEY and CHAT_MODEL in .env."}
         return 502, {"detail": f"The AI service is unavailable ({e.code}). Try again later."}
+    if isinstance(e, httpx.TimeoutException):
+        return 200, {"reply": BUSY_REPLY, "pendingAction": None}
     if isinstance(e, httpx.HTTPError):
         return 502, {"detail": "Could not reach the AI service. Check the internet connection."}
     return None
