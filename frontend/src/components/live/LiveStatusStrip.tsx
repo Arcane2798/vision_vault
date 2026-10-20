@@ -43,7 +43,7 @@ export function LiveStatusStrip({ status, loading, error }: Props) {
         <Tile
           label="Unknown in view"
           icon={<UserX className="h-4 w-4" />}
-          tone={unknown > 0 ? 'danger' : 'ok'}
+          tone="danger"
           loading={loading && !status}
           value={status ? String(unknown) : '-'}
           hint={unknown > 0 ? 'Unrecognised person at the door now' : 'No unknown people right now'}
