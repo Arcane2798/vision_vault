@@ -1,24 +1,38 @@
 # Vision Vault
 
-**AI-powered home intrusion detection.** A webcam watches the entrance; Vision Vault detects and tracks every person,
-recognises enrolled family members by face, and when an unknown person stays in view it records evidence
-and alerts the owner on Telegram and on a live web dashboard.
+**Smart home security that plugs into the township.** A camera at the door watches who arrives. Vision Vault
+recognises residents by face, lets registered visitors in during their allowed time, and when an unknown person
+stays in view it records evidence and alerts **both the homeowner and the township guard house** — in seconds,
+with a photo.
 
 Built for the **Sime Darby Property University Hackathon 2026 — Township of Tomorrow**.
+
+## Why it matters for the Township of Tomorrow
+
+- **Guard houses see the gate, not the home.** Most township security stops at the entrance. Vision Vault gives every
+  home its own AI watcher and connects it back to the guard house, so a break-in at one house is known township-wide
+  immediately.
+- **Fewer false alarms, less alarm fatigue.** Residents and registered visitors never trigger alerts; posters, statues and
+  people just passing by are filtered out by tracking and movement rules. Guards only hear about real unknowns.
+- **Visitor registration that the camera understands.** Homeowners register a visitor with a time window — the same idea
+  as a gated community's visitor pass — and the system enforces it automatically.
+- **Privacy by design.** Faces, footage and logs stay on the home's own machine. Only alerts leave the house.
+- **Built to scale.** One home today; the same alert stream can feed a township-wide guard dashboard tomorrow.
 
 ## Features
 
 | Feature | Status |
 |---|---|
 | Real-time person detection and tracking (YOLOv8n + ByteTrack) | ✅ |
-| Face recognition of enrolled family members (InsightFace) | ✅ |
+| Face recognition of enrolled residents (InsightFace) | ✅ |
 | Intrusion rules that cut false alarms: minimum track age, movement check (ignores posters/statues), 3 s grace period | ✅ |
 | Evidence: snapshot + 10 s clip (5 s before, 5 s after), re-encoded to H.264 for browser playback | ✅ |
-| Telegram alert with photo | ✅ |
+| Telegram alert to the homeowner with photo | ✅ |
 | Web dashboard: live feed, real-time alerts, incident history with filters, incident review (confirm / dismiss + notes), 14-day trend | ✅ |
-| Guest whitelisting with time windows (e.g. "allow Ali Saturday 2–6 pm") | 🚧 in progress |
-| AI assistant: ask about incidents and manage guests in plain language (LLM tool calling) | 🚧 in progress |
-| Weapon detection, liveness / anti-spoofing, ESP32 buzzer, guard-house alerts, login | 📋 planned |
+| Visitor registration with time windows (e.g. "allow Ali Saturday 2–6 pm") | 🚧 in progress |
+| Guard-house alert with house address and photo | 🚧 in progress |
+| AI assistant: ask about incidents and register visitors in plain language (LLM tool calling) | 🚧 in progress |
+| Township-wide guard dashboard, weapon detection, liveness / anti-spoofing, ESP32 buzzer, login | 📋 planned |
 
 ## How it works
 
@@ -29,7 +43,7 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
  VisionEngine (engine.py, background thread)
    1. YOLOv8n detects people, ByteTrack gives each a stable ID
    2. InsightFace checks the head area against enrolled faces
-   3. Rules decide: family → green | unknown, moving, in view ≥ 3 s → INTRUSION
+   3. Rules decide: resident → green | unknown, moving, in view ≥ 3 s → INTRUSION
         │ annotated frames                     │ intrusion
         ▼                                      ▼
    MJPEG live stream               snapshot + clip → SQLite event log → Telegram alert
@@ -65,7 +79,7 @@ TG_CHAT_ID=your_chat_id               # optional
 # VIDEO_SOURCE=path/to/video.mp4      # optional, default 0 = first webcam
 ```
 
-Enroll family members — one folder per person, 3–5 clear face photos each:
+Enroll residents — one folder per person, 3–5 clear face photos each:
 
 ```
 faces/

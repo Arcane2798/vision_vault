@@ -1,10 +1,20 @@
 # Vision Vault
 
-AI-powered home intrusion detection: a CCTV/webcam feed is watched by YOLOv8 + InsightFace;
-unknown people trigger a recorded incident, a snapshot, and a Telegram alert, reviewed in a web dashboard.
+AI-powered smart township home security: a CCTV/webcam feed is watched by YOLOv8 + InsightFace;
+unknown people trigger a recorded incident, a snapshot, and Telegram alerts to the homeowner and guard house.
 
 **Hackathon:** Sime Darby Property University Hackathon 2026 — theme "Township of Tomorrow".
 **Deadline: Friday 23 Oct 2026.** Owner / lead: Azhad (backend + vision). Frontend was built by a teammate.
+
+## Positioning — "Township of Tomorrow" (decided Tue 20 Oct)
+**Vision Vault is smart home security that plugs into the township.** Each home runs its own camera + AI.
+Recognised residents pass silently; registered **visitors** are allowed inside their time window (like a gated
+community's visitor registration); an unknown person alerts **both the homeowner and the township guard house**
+with a snapshot and clip. Footage and face data stay inside the home (privacy by design).
+
+- UI wording: "residents" / "family", **"visitors"** (never "guests"), "guard house". No "theft" wording.
+  The word "township" is fine where it means the community. Backend role names stay `family` / `guest`.
+- Scope stays one home, one camera. A township-wide guard dashboard (many homes) is KIV — pitch it, don't build it.
 
 > This file is the single source of truth for status and plan. It is read by Antigravity (`AGENTS.md`)
 > and by Claude Code (via `CLAUDE.md` → `@AGENTS.md`). **When you finish a task, tick it here.**
@@ -99,8 +109,8 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 - Alert WebSocket sends `clipUrl` ~10 s before the clip is finished/converted → clip fails if opened immediately.
 - Incident `confidence` is hard-coded `1.0` (alerts are rule-based).
 - Engine per-track dicts (`identity`, `track_age`, `first_pos`, …) grow forever on long runs.
-- Frontend still branded "Township CCTV / theft detection" with roles + camera management.
-- Not a git repo yet; project sits in OneDrive.
+- Frontend still branded "Township CCTV / theft detection" with roles (camera management already removed).
+- Project sits in OneDrive — push to GitHub after every feature.
 - **Security limitation (state it in the demo):** a printed photo of a family member is accepted (no liveness check).
 
 ## Plan to Friday
@@ -109,13 +119,15 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 - [x] `git init`, root `.gitignore` adds `node_modules/`, `dist/`, `.env.local`, `*.pt`; first commit; pushed to https://github.com/Arcane2798/vision_vault
 - [x] Owner reviews "Pending deletion" list, then delete confirmed items
 - [ ] Backend: add `GET /api/status` (`running, fps, unknownCount, cameraName`); remove legacy `/status` and `/events` from `main.py`
-- [ ] Frontend rebrand: `VITE_APP_NAME=Vision Vault`; sidebar subtitle "Home intrusion detection"; `index.html` title;
-      replace every "Township"/"theft" wording (`grep -rniE "township|theft" frontend/src frontend/index.html`)
+- [ ] Frontend rebrand: `VITE_APP_NAME=Vision Vault` (in `.env.local` and the `env.ts` fallback); sidebar subtitle
+      "Smart township home security"; `index.html` title; remove all "theft" wording and "Township CCTV" names
+      (`grep -rniE "township|theft" frontend/src frontend/index.html`); follow the Positioning wording rules
 - [x] Frontend: remove Cameras page from nav + routes (single fixed camera)
-- [ ] Frontend: event-type labels in `utils/format.ts` — `intrusion` → "Unknown person", `guest_outside_window` → "Guest outside allowed time"
+- [ ] Frontend: event-type labels in `utils/format.ts` — `intrusion` → "Unknown person", `guest_outside_window` → "Visitor outside allowed time"
 - [ ] Frontend: incident detail shows identity; hide confidence for rule-based events
 - [ ] Frontend: dashboard / live page shows FPS + "unknown in view" from `/api/status`
 - [x] Rewrite root `README.md` to match reality; replace `frontend/README.md` (and `.env.example` now holds the live Vision Vault settings)
+- [x] README: "Why it matters for the Township of Tomorrow" section
 
 ### Phase 1 — People & guest whitelisting (Wed 21) — core feature
 - [ ] **Embedding cache fix:** cache per person with a signature (file names + mtimes); recompute only changed folders
@@ -128,10 +140,10 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
       `GET /api/people`, `POST /api/people` (multipart: name, role, validFrom?, validTo?, photos[]),
       `PATCH /api/people/{id}` (role / window), `DELETE /api/people/{id}` (row + folder),
       `POST /api/people/{id}/photos`, `GET /api/people/{id}/photo` (thumbnail; `faces/` is never mounted publicly)
-- [ ] **Frontend `/people` page:** list family + guests (thumbnail, role, window, active badge), add person with photo upload,
-      edit guest window, delete with confirm. Types in `types/index.ts`, calls in `services/index.ts`.
+- [ ] **Frontend `/people` page** ("Residents & Visitors"): list family + visitors (thumbnail, role, window, active badge),
+      add person with photo upload, edit visitor window, delete with confirm. Types in `types/index.ts`, calls in `services/index.ts`.
 
-### Phase 2 — Chatbot with tool calling (Thu 22)
+### Phase 2 — Chatbot with tool calling + guard-house alert (Thu 22)
 - [ ] `POST /api/chat` `{messages}` → `{reply, pendingAction?}` using the `anthropic` Python SDK, model `claude-sonnet-5-5`,
       key `ANTHROPIC_API_KEY` in `.env`. System prompt includes current local time (Asia/Kuala_Lumpur).
 - [ ] Tools are plain Python functions reusing existing queries:
@@ -140,6 +152,10 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 - [ ] Write tools are **never executed by the model**: they return `pendingAction`; the frontend shows a Confirm button,
       and on confirm calls the normal REST endpoint itself.
 - [ ] Frontend chat panel (slide-over from the top bar), works from every page.
+- [ ] **Guard-house alert** (small, ~1 h): `.env` gets `GUARD_TG_CHAT_ID` and `HOUSE_UNIT` (e.g. "No. 12, Jalan Elmina 3/1").
+      On `intrusion` only, send a second Telegram message with the unit address + snapshot to the guard-house chat
+      (same cooldown; skip silently if unset). Add `guard_notified` column; incident detail shows "Guard house notified".
+      `guest_outside_window` goes to the homeowner only.
 - [ ] Fix clip race: add `clip_ready` column, set to 1 when H.264 conversion finishes; API exposes `clipReady`;
       frontend shows "Clip processing…" until ready.
 
@@ -149,13 +165,14 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 - [ ] Demo rehearsal with `test_videos/test1.mp4` and live webcam; tidy sample data in `vault.db`
 - [ ] Final README, final commit, tag `v1.0-demo`
 
-**Demo script:** family member walks in (green, no alert) → guest inside window (cyan) → same guest after window (orange alert)
-→ stranger (red, Telegram photo arrives, incident appears live) → open incident, play clip, mark confirmed
-→ ask chatbot "what happened at the door today?" and "let Ali in Saturday 2–6pm" (confirm).
+**Demo script:** resident walks in (green, no alert) → visitor inside their window (cyan) → same visitor after the window
+(orange, homeowner alerted) → stranger (red: homeowner **and guard house** get Telegram photos, incident appears live)
+→ open incident, play clip, mark confirmed → ask chatbot "what happened at the door today?" and
+"register Ali as a visitor Saturday 2–6pm" (confirm). Close with the township-wide vision slide.
 
 ## KIV (after Friday)
-Login & roles · liveness / anti-spoofing · dedicated weapon model (guns) · ESP32 buzzer · guard-house alerts ·
-path/trajectory trails · multi-camera · remove frontend mock mode (`src/mocks/`).
+Login & roles · liveness / anti-spoofing · dedicated weapon model (guns) · ESP32 buzzer · township-wide guard dashboard
+(many homes) · path/trajectory trails · multi-camera · remove frontend mock mode (`src/mocks/`).
 
 ## Pending deletion (awaiting owner check — do not delete yet)
 | Item | Why |
