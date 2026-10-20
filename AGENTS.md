@@ -106,6 +106,23 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 
 **`events` table:** `id, ts (epoch), camera, track_id, identity, event_type, clip_path, snapshot_path, status, notes, reviewed_at`.
 
+## Feature map (owner's list, Tue 20 Oct)
+| # | Feature | Status | Where in plan |
+|---|---|---|---|
+| 1 | Real-time person detection & tracking | ✅ done | Phase 3: prune per-track state |
+| 2 | Face recognition, homeowner registers faces | ⚠️ recognition done; registering = dropping photos in `faces/` + deleting the cache | Phase 1: cache fix + `/people` page with upload |
+| 3 | Intrusion snapshot + clip | ✅ done (clip race open) | Phase 2: `clip_ready` |
+| 4 | Telegram alert | ✅ done | Phase 2: guard-house copy, weapon note |
+| 5 | Web dashboard (live, history, analytics) | ✅ done (still old branding) | Phase 0: rebrand, `/api/status` |
+| 5.1 | Security level control | ❌ new | Phase 1: `security_level` (Home / Normal / Away) |
+| 6 | Visitor registration | ❌ | Phase 1: `people` table + `/people` page — **core** |
+| 7 | Guard-house alert & dashboard | ❌ | Phase 2: alert to guard-house Telegram. Dashboard for many homes = KIV (pitch only) |
+| 8 | AI assistant (live feed, locate family) | ❌ | Phase 1: `lastSeen` per person. Phase 2: chatbot + tools |
+| 9 | Path tracking | ❌ | Phase 3: trail drawn on live frame + burned into snapshot |
+| 10 | Intruder's items detection | ❌ | Phase 3 (optional): COCO `knife` / `scissors` / `baseball bat` near an unknown person |
+
+"Locate family members" is honest only as **"last seen at the front door at 14:32"** because there is one camera. Say it that way in the UI and chatbot.
+
 ## Status (as of Tue 20 Oct 2026)
 
 ### Done
@@ -147,23 +164,38 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 ### Phase 1 — People & guest whitelisting (Wed 21) — core feature
 - [ ] **Embedding cache fix:** cache per person with a signature (file names + mtimes); recompute only changed folders
 - [ ] **`people` table** in `vault.db`: `id, name (= faces/ folder), role ('family'|'guest'), valid_from, valid_to (epoch, NULL for family), created_at`.
-      Folders in `faces/` with no row are treated as `family` (back-compat).
+      On startup and on reload, insert a `family` row for every `faces/` folder that has no row (back-compat, so every person has an id).
+      Names must be folder-safe (letters, digits, space, `-`, `_`; reject anything else with 400).
 - [ ] **Engine:** `reload_people()` (thread-safe, under `self.lock`) called by the API after changes. After a face match:
       family → allowed (green); guest inside window → allowed (cyan, label `guest:<name>`);
-      guest outside window → event `guest_outside_window` + Telegram (orange); no match → `intrusion` (red)
+      guest outside window → event `guest_outside_window` + Telegram (orange); no match → `intrusion` (red).
+      Window check is a pure function `visitor_allowed(role, valid_from, valid_to, now) -> bool`.
+- [ ] **Engine:** `last_seen: {name: epoch}` updated whenever a known person is matched (under `self.lock`); exposed as `lastSeen` on people.
 - [ ] **API** (needs `pip install python-multipart`):
       `GET /api/people`, `POST /api/people` (multipart: name, role, validFrom?, validTo?, photos[]),
-      `PATCH /api/people/{id}` (role / window), `DELETE /api/people/{id}` (row + folder),
-      `POST /api/people/{id}/photos`, `GET /api/people/{id}/photo` (thumbnail; `faces/` is never mounted publicly)
-- [ ] **Frontend `/people` page** ("Residents & Visitors"): list family + visitors (thumbnail, role, window, active badge),
+      `PATCH /api/people/{id}` (JSON `{role?, validFrom?, validTo?}`), `DELETE /api/people/{id}` (row + folder),
+      `POST /api/people/{id}/photos` (multipart photos[]), `GET /api/people/{id}/photo` (first photo as JPEG; `faces/` is never mounted publicly).
+      **Person JSON:** `{id, name, role: "family"|"guest", validFrom: ISO|null, validTo: ISO|null, active: bool, photoCount: int,
+      photoUrl: "/api/people/{id}/photo", lastSeen: ISO|null, createdAt: ISO}`. `active` = family, or guest whose window contains now.
+- [ ] **Security level (feature 5.1):** levels `home` | `normal` | `away`, stored in a `settings` table (`key, value`), default `normal`.
+      Pure function `security_params(level) -> dict` gives the rule thresholds:
+      `home` — GRACE 5 s, MOVE_REQUIRED 0.08, no guard-house copy;
+      `normal` — current defaults (GRACE 3 s, MOVE_REQUIRED 0.08);
+      `away` — GRACE 1 s, MOVE_REQUIRED 0 (a standing stranger also alerts), MATCH_THRESH raised by 0.05 (stricter face match).
+      Engine `set_security_level(level)` under `self.lock`; the current level is drawn in the frame corner.
+      API: `GET /api/security` → `{level, updatedAt}`, `PUT /api/security` `{level}` (400 on unknown level); `/api/status` adds `securityLevel`.
+- [ ] **Frontend `/people` page** ("Residents & Visitors"): list family + visitors (thumbnail, role, window, active badge, "last seen 14:32"),
       add person with photo upload, edit visitor window, delete with confirm. Types in `types/index.ts`, calls in `services/index.ts`.
+- [ ] **Frontend security level:** segmented control Home / Normal / Away (one-line description each) on the Live Monitoring page,
+      plus a small badge with the current level in the top bar. Calls `GET/PUT /api/security`.
 
 ### Phase 2 — Chatbot with tool calling + guard-house alert (Thu 22)
 - [ ] `POST /api/chat` `{messages}` → `{reply, pendingAction?}` using the `anthropic` Python SDK, model `claude-sonnet-5-5`,
       key `ANTHROPIC_API_KEY` in `.env`. System prompt includes current local time (Asia/Kuala_Lumpur).
 - [ ] Tools are plain Python functions reusing existing queries:
-      read — `get_summary`, `list_incidents(from, to, status, limit)`, `get_incident(id)`, `get_live_status`, `list_people`;
-      write — `review_incident(id, status, notes)`, `add_or_update_guest(name, valid_from, valid_to)`.
+      read — `get_summary`, `list_incidents(from, to, status, limit)`, `get_incident(id)`, `get_live_status`, `list_people`,
+      `where_is(name)` (answers from `lastSeen`: "last seen at the front door at 14:32");
+      write — `review_incident(id, status, notes)`, `add_or_update_guest(name, valid_from, valid_to)`, `set_security_level(level)`.
 - [ ] Write tools are **never executed by the model**: they return `pendingAction`; the frontend shows a Confirm button,
       and on confirm calls the normal REST endpoint itself.
 - [ ] Frontend chat panel (slide-over from the top bar), works from every page.
@@ -175,8 +207,12 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
       frontend shows "Clip processing…" until ready.
 
 ### Phase 3 — Polish & demo (Fri 23, morning only)
-- [ ] Prune engine per-track state for tracks unseen > 30 s
-- [ ] Optional quick win: weapon flag using YOLOv8n's existing COCO classes (`knife`, `scissors`, `baseball bat`)
+- [ ] Prune engine per-track state for tracks unseen > 30 s (do this together with path trails, which share the same state)
+- [ ] **Path tracking (feature 9):** keep a `deque(maxlen=60)` of foot points per track; draw the trail as a polyline on the
+      live frame (red for unknown, faded for others) and burn the unknown's trail into the intrusion snapshot.
+- [ ] Optional quick win **(feature 10):** run YOLO on classes person + `knife`, `scissors`, `baseball bat`; if one overlaps an
+      unknown person's box, store it in a new `items` column, add "⚠ carrying knife" to the Telegram text, and show it on the incident.
+      YOLOv8n finds knives poorly, so present this as a prototype.
 - [ ] Demo rehearsal with `test_videos/test1.mp4` and live webcam; tidy sample data in `vault.db`
 - [ ] Final README, final commit, tag `v1.0-demo`
 
@@ -187,7 +223,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 
 ## KIV (after Friday)
 Login & roles · liveness / anti-spoofing · dedicated weapon model (guns) · ESP32 buzzer · township-wide guard dashboard
-(many homes) · path/trajectory trails · multi-camera · remove frontend mock mode (`src/mocks/`).
+(many homes) · scheduled security levels (auto Away at night) · multi-camera · remove frontend mock mode (`src/mocks/`).
 
 ## Pending deletion (awaiting owner check — do not delete yet)
 | Item | Why |
