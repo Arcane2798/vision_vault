@@ -26,7 +26,9 @@ def init_db():
     for col, ddl in (("status", "TEXT DEFAULT 'new'"), ("notes", "TEXT"),
                      ("reviewed_at", "REAL"),
                      ("clip_ready", "INTEGER DEFAULT 0"),    # 1 once the H.264 clip is playable
-                     ("guard_notified", "INTEGER DEFAULT 0")):   # 1 once the guard house got it
+                     ("guard_notified", "INTEGER DEFAULT 0"),   # 1 = shown to the guard house
+                     ("guard_ack_at", "REAL"),                   # epoch of the guard's first ack
+                     ("guard_ack_note", "TEXT")):
         if col not in have:
             con.execute(f"ALTER TABLE events ADD COLUMN {col} {ddl}")
     # clips older than this were finished (or abandoned by a crash/restart): don't show "processing" forever
@@ -99,27 +101,17 @@ def load_people():
         con.close()
 
 def log_event(camera, track_id, identity, event_type,
-              clip_path=None, snapshot_path=None):
+              clip_path=None, snapshot_path=None, guard_notified=False):
     """Insert an event row; returns its id."""
     con = sqlite3.connect(DB_PATH)
     try:
         cur = con.execute(
             "INSERT INTO events (ts, camera, track_id, identity, event_type,"
-            " clip_path, snapshot_path) VALUES (?,?,?,?,?,?,?)",
+            " clip_path, snapshot_path, guard_notified) VALUES (?,?,?,?,?,?,?,?)",
             (time.time(), camera, track_id, identity, event_type,
-             clip_path, snapshot_path))
+             clip_path, snapshot_path, int(bool(guard_notified))))
         con.commit()
         return cur.lastrowid
-    finally:
-        con.close()
-
-
-def mark_guard_notified(event_id):
-    """Flag an event as delivered to the guard-house Telegram chat."""
-    con = sqlite3.connect(DB_PATH, timeout=10)
-    try:
-        con.execute("UPDATE events SET guard_notified=1 WHERE id=?", (event_id,))
-        con.commit()
     finally:
         con.close()
 
@@ -186,7 +178,7 @@ def guard_chat_id():
 
 def house_unit():
     """This home's address for the guard house (HOUSE_UNIT)."""
-    return env("HOUSE_UNIT", "Unit address not set (HOUSE_UNIT)")
+    return env("HOUSE_UNIT", "This home")
 
 
 def _send(text, photo_path, chat_id=None):

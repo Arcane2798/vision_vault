@@ -87,11 +87,25 @@ def security_params(level: str) -> dict:
     return params
 
 
+def guard_alert_due(event_type: str, guard_alert: bool) -> bool:
+    """True if the guard house is alerted (Guard House view, `guard_notified`): intrusions only,
+    and only when the security level allows it (`security_params(level)["guard_alert"]`, off at
+    `home`). Visitors outside their window go to the homeowner only."""
+    return event_type == "intrusion" and bool(guard_alert)
+
+
 def should_alert_guard(event_type: str, guard_alert: bool, guard_chat_id) -> bool:
-    """True if the guard house gets a copy of this alert: intrusions only, only when the
-    security level allows it (`security_params(level)["guard_alert"]`) and a guard chat is set.
-    Visitors outside their window go to the homeowner only."""
-    return event_type == "intrusion" and bool(guard_alert) and bool(guard_chat_id)
+    """True if the guard house also gets a Telegram copy: a due guard alert and a guard chat set."""
+    return guard_alert_due(event_type, guard_alert) and bool(guard_chat_id)
+
+
+MAX_ACK_NOTE = 200
+
+
+def guard_ack_message(hhmm: str, note=None) -> str:
+    """Homeowner Telegram text when the guard house acknowledges an alert."""
+    text = f"\U0001F6E1 Guard house acknowledged the alert at {hhmm}"
+    return f"{text} \u2014 {note}" if note else text
 
 
 def valid_hhmm(value) -> bool:

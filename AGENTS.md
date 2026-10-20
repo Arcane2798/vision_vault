@@ -100,7 +100,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/video` | MJPEG stream (use `<img>`, not `<video>`) |
 | GET | `/clips/*`, `/snapshots/*` | Static evidence files |
 | GET | `/api/cameras` | Single camera `cam-01`; POST/PUT/DELETE return 501 |
-| GET | `/api/incidents` | `?search&cameraId&status&from&to&sort`; search also matches `identity`. Incident JSON includes `identity` (`unknown` or the visitor's name) `guardNotified: bool` (guard-house Telegram accepted the copy) and `clipReady: bool` — `clipUrl` appears as soon as recording starts, but play it only when `clipReady` is true (≈ 5–10 s after the alert; false when there is no clip) |
+| GET | `/api/incidents` | `?search&cameraId&status&from&to&sort`; search also matches `identity`. Incident JSON includes `identity` (`unknown` or the visitor's name) `guardNotified: bool` (alert reached the guard house: intrusion at a level other than `home`), `guardAcknowledgedAt: ISO|null`, `guardAckNote: string|null`, and `clipReady: bool` — `clipUrl` appears as soon as recording starts, but play it only when `clipReady` is true (≈ 5–10 s after the alert; false when there is no clip) |
 | GET / PATCH | `/api/incidents/{id}` | PATCH `{status, notes}`; status ∈ new, under_review, confirmed, dismissed |
 | GET | `/api/dashboard/summary`, `/api/dashboard/trend?days=14` | |
 | WS | `/api/ws/events` | `{type:"alert", data: Incident}` and `{type:"camera_status", ...}` |
@@ -114,12 +114,14 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | DELETE | `/api/people/{id}` | → 204; removes the row and `faces/<name>/` |
 | POST | `/api/people/{id}/photos` | multipart `photos` → `Person` (same photo checks as create) |
 | GET | `/api/people/{id}/photo` | first photo as a JPEG thumbnail (≤ 320 px); 404 if none. `faces/` itself is never served |
+| GET | `/api/guard/alerts` | `?limit=50` (1–200) → newest first, only events with `guard_notified = 1`: `[{id: string, timestamp, houseUnit, cameraName, snapshotUrl: string\|null, clipUrl: string\|null, clipReady, acknowledgedAt: ISO\|null, ackNote: string\|null}]`. **No identity or people data.** `houseUnit` = `HOUSE_UNIT` (fallback "This home") |
+| POST | `/api/guard/alerts/{id}/ack` | JSON `{note?: string}` (≤ 200 chars, body optional) → that alert. The first ack sets `acknowledgedAt` and sends the homeowner a Telegram text ("🛡 Guard house acknowledged the alert at HH:MM — note"); a repeat keeps the time and only updates the note (if given). 404 if not a guard alert; 400 note too long |
 | GET | `/api/source` | `{kind: "camera"\|"file", name, finished, progress: 0..1\|null, videos: [{name, sizeBytes, modifiedAt}]}` — what the engine watches |
 | PUT | `/api/source` | `{kind: "camera"}` or `{kind: "file", name}` → same shape as GET. Test videos play **once** in real time (frames skipped if the engine is slower), stamped `TEST VIDEO`, then hold the last frame. Same name again = restart. 404 unknown video |
 | POST | `/api/source/videos` | multipart `video` → 201 `{name, sizeBytes, modifiedAt}`, saved in `test_videos/` (renamed `_1`, `_2` if taken). 400 bad type, > 500 MB, or unreadable |
 
-**`events` table:** `id, ts (epoch), camera, track_id, identity, event_type, clip_path, snapshot_path, status, notes, reviewed_at, clip_ready, guard_notified`.
-`guard_notified` = 1 only after Telegram accepted the guard-house copy (intrusions only; never at level `home`, within the 15 s cooldown, or without `GUARD_TG_CHAT_ID`). Pure rule: `rules.should_alert_guard`.
+**`events` table:** `id, ts (epoch), camera, track_id, identity, event_type, clip_path, snapshot_path, status, notes, reviewed_at, clip_ready, guard_notified, guard_ack_at, guard_ack_note`.
+`guard_notified` = 1 for every `intrusion` raised while the effective level is not `home` (the Guard House view is a channel), even inside the Telegram cooldown and without `GUARD_TG_CHAT_ID`. The guard Telegram copy still needs `GUARD_TG_CHAT_ID` and respects the cooldown. Pure rules: `rules.guard_alert_due`, `rules.should_alert_guard`, `rules.guard_ack_message`. `guard_ack_at` = epoch of the first guard ack.
 `clip_ready` = 1 once H.264 conversion of `clip_path` ends (all events sharing that clip); on startup, rows older than 2 min are marked ready.
 Clips are written at the engine's measured FPS (`vault_utils.clip_fps`), with 5 s pre-roll (by time) + 5 s post-roll.
 `event_type` ∈ `intrusion` (identity `unknown`) | `guest_outside_window` (identity = visitor's name).
@@ -260,6 +262,29 @@ orange, unknown red, static figure grey.
       Incident JSON adds `guardNotified: bool`.
 - [ ] Fix clip race _(backend done: `clip_ready` + `clipReady`; frontend part open)_: add `clip_ready` column, set to 1 when H.264 conversion finishes; API exposes `clipReady`;
       frontend shows "Clip processing…" until ready (incident detail re-fetches every few seconds while `clipReady` is false).
+
+### Phase 2b — Guard House view (owner-approved Tue 20 Oct, ~2–3 h)
+A mock guard-house screen on the same backend that shows the township loop: intrusion → guard sees it → guard acknowledges → homeowner sees the acknowledgement.
+Real deployment = a separate township server for many homes (KIV); the demo is one page, opened in a second window or on a phone on the same Wi-Fi.
+- [x] **Backend:** `guard_notified` = 1 for every `intrusion` raised while the effective level is not `home`. The guard view counts as a channel,
+      so this no longer depends on `GUARD_TG_CHAT_ID`; the Telegram guard copy is still sent only when it is configured.
+      New `events` columns `guard_ack_at` (epoch), `guard_ack_note`.
+      `GET /api/guard/alerts?limit=50` → newest first, only rows with `guard_notified = 1`:
+      `[{id, timestamp, houseUnit, cameraName, snapshotUrl, clipUrl, clipReady, acknowledgedAt: ISO|null, ackNote: string|null}]`.
+      **No identity, no people data, no faces** — the guard only sees the stranger's snapshot/clip and the address.
+      `POST /api/guard/alerts/{id}/ack` `{note?: string (≤ 200 chars)}` → that alert. 404 if it's not a guard alert. The first ack time is kept, and a repeat only updates the note.
+      On the first ack, send the homeowner a Telegram text: "🛡 Guard house acknowledged the alert at HH:MM — <note>" (skip silently if Telegram is unset).
+      Incident JSON adds `guardAcknowledgedAt: ISO|null`, `guardAckNote: string|null`. `houseUnit` comes from `HOUSE_UNIT` (fallback "This home").
+- [ ] **Frontend `/guard` page** — rendered **outside** `AppLayout` (no sidebar, nav or chat: it is a different party's screen).
+      - Full-screen and high-contrast: a "Guard House — Township Security" header, a live clock, and a count of unacknowledged alerts.
+      - Polls `GET /api/guard/alerts` every 2 s.
+      - Unacknowledged alerts sit on top with a pulsing red border. Each shows the snapshot, the **house address in large text**, the time and "x min ago".
+      - Acknowledge button with quick-note chips ("Guard dispatched", "Checking CCTV", "False alarm") plus a free-text note.
+      - Acknowledged alerts are greyed out, with "Acknowledged 21:14 — Guard dispatched".
+      - A new alert shows a red banner and a short beep (Web Audio, enabled after the first click).
+      - Loading, empty ("All quiet") and error states.
+      - The sidebar gets a "Guard House view" link that opens `/guard` in a new tab.
+      - Incident detail shows "Guard house acknowledged at 21:14 — Guard dispatched" when `guardAcknowledgedAt` is set.
 
 ### Phase 3 — Polish & demo (Fri 23, morning only)
 - [ ] Prune engine per-track state for tracks unseen > 30 s (do this together with path trails, which share the same state)

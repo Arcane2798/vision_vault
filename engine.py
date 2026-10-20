@@ -13,12 +13,12 @@ from insightface.app import FaceAnalysis
 
 from rules import (DEFAULT_LEVEL, DEFAULT_NIGHT_END, DEFAULT_NIGHT_START,
                    FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, SECURITY_LEVELS,
-                   UNKNOWN, classify_person, effective_level, security_params,
-                   should_alert_guard, valid_hhmm)
+                   UNKNOWN, classify_person, effective_level, guard_alert_due,
+                   security_params, should_alert_guard, valid_hhmm)
 from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
                          ClipRecorder, get_settings, guard_chat_id, house_unit,
-                         init_db, load_people, log_event, mark_guard_notified,
-                         send_telegram, set_settings, sync_people)
+                         init_db, load_people, log_event, send_telegram,
+                         set_settings, sync_people)
 
 VERIFY_INTERVAL = 30      # frames between re-checks of an already-recognized person
 VERIFY_FAILS = 2          # consecutive mismatches before the lock is released
@@ -613,7 +613,11 @@ class VisionEngine:
         clip = str(CLIP_DIR / f"{stamp}_id{tid}.mp4")
         cv2.imwrite(snap, frame)
         clip = self.recorder.trigger(clip, fps)   # may be the clip already recording
-        event_id = log_event(self.camera_name, tid, name, event_type, clip, snap)
+        with self.lock:
+            guard_alert = self.params["guard_alert"]    # False at level "home"
+        # every due intrusion reaches the Guard House view, even inside the Telegram cooldown
+        log_event(self.camera_name, tid, name, event_type, clip, snap,
+                  guard_notified=guard_alert_due(event_type, guard_alert))
         if now - self.last_tg.get(event_type, 0.0) <= TG_COOLDOWN:
             return
         self.last_tg[event_type] = now
@@ -627,15 +631,12 @@ class VisionEngine:
                     f"Time: {time.strftime('%H:%M:%S')}")
         send_telegram(text, snap)
 
-        # guard-house copy: intrusions only, not at level "home", only if GUARD_TG_CHAT_ID is set
+        # guard-house Telegram copy: as above, and only if GUARD_TG_CHAT_ID is set
         guard_chat = guard_chat_id()
-        with self.lock:
-            guard_alert = self.params["guard_alert"]
         if should_alert_guard(event_type, guard_alert, guard_chat):
             guard_text = (f"GUARD HOUSE ALERT: unknown person\n"
                           f"Unit: {house_unit()}\n"
                           f"Camera: {self.camera_name}\n"
                           f"Unknown people in view: {n_unknown}\n"
                           f"Time: {time.strftime('%H:%M:%S')}")
-            send_telegram(guard_text, snap, chat_id=guard_chat,
-                          on_sent=lambda: mark_guard_notified(event_id))
+            send_telegram(guard_text, snap, chat_id=guard_chat)

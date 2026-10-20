@@ -18,8 +18,9 @@ from fastapi import (APIRouter, File, Form, HTTPException, Query, Request,
                      Response, UploadFile, WebSocket, WebSocketDisconnect)
 from pydantic import BaseModel
 
-from rules import FAMILY, ROLES, valid_person_name, visitor_allowed
-from vault_utils import DB_PATH, FACES_DIR, sync_people
+from rules import (FAMILY, MAX_ACK_NOTE, ROLES, guard_ack_message,
+                   valid_person_name, visitor_allowed)
+from vault_utils import DB_PATH, FACES_DIR, house_unit, send_telegram, sync_people
 
 CAMERA_ID = "cam-01"
 STATUSES = {"new", "under_review", "confirmed", "dismissed"}
@@ -57,6 +58,10 @@ class PersonUpdate(BaseModel):
     role: Optional[str] = None
     validFrom: Optional[str] = None
     validTo: Optional[str] = None
+
+
+class GuardAck(BaseModel):
+    note: Optional[str] = None
 
 
 class ChatMessage(BaseModel):
@@ -187,7 +192,9 @@ def _incident(r, base):
            "status": r["status"] or "new", "detections": [],
            # clipUrl exists as soon as recording starts; play it only once this is true
            "clipReady": bool(clip and r.get("clip_ready")),
-           "guardNotified": bool(r.get("guard_notified"))}   # guard-house Telegram accepted it
+           "guardNotified": bool(r.get("guard_notified")),   # shown to the guard house
+           "guardAcknowledgedAt": _iso(r["guard_ack_at"]) if r.get("guard_ack_at") else None,
+           "guardAckNote": r.get("guard_ack_note")}
     if snap:
         out["snapshotUrl"] = snap
     if clip:
@@ -198,6 +205,19 @@ def _incident(r, base):
         out["reviewedBy"] = "Dashboard user"
         out["reviewedAt"] = _iso(r["reviewed_at"])
     return out
+
+
+def _guard_alert(r, base):
+    """events row -> guard alert JSON. No identity or people data: the guard house only sees
+    the address, time and the stranger's snapshot/clip."""
+    clip = f"{base}/clips/{Path(r['clip_path']).name}" if r["clip_path"] else None
+    snap = (f"{base}/snapshots/{Path(r['snapshot_path']).name}"
+            if r["snapshot_path"] else None)
+    return {"id": str(r["id"]), "timestamp": _iso(r["ts"]), "houseUnit": house_unit(),
+            "cameraName": r["camera"] or "", "snapshotUrl": snap, "clipUrl": clip,
+            "clipReady": bool(clip and r.get("clip_ready")),
+            "acknowledgedAt": _iso(r["guard_ack_at"]) if r.get("guard_ack_at") else None,
+            "ackNote": r.get("guard_ack_note")}
 
 
 def dashboard_summary(running):
@@ -535,6 +555,43 @@ def create_router(engine):
                 return Response(buf.tobytes(), media_type="image/jpeg",
                                 headers={"Cache-Control": "no-cache"})
         raise HTTPException(404, f"{r['name']} has no photo.")
+
+    # ---------- Guard House view (mock township guard screen) ----------
+    def guard_row(alert_id):
+        rows = _rows("SELECT * FROM events WHERE id=? AND guard_notified=1", (alert_id,))
+        if not rows:
+            raise HTTPException(404, f"Guard alert {alert_id} was not found.")
+        return rows[0]
+
+    @router.get("/guard/alerts")
+    def guard_alerts(request: Request, limit: int = 50):
+        limit = max(1, min(limit, 200))
+        rows = _rows("SELECT * FROM events WHERE guard_notified=1 ORDER BY ts DESC, id DESC"
+                     " LIMIT ?", (limit,))
+        base = base_url(request)
+        return [_guard_alert(r, base) for r in rows]
+
+    @router.post("/guard/alerts/{alert_id}/ack")
+    def guard_ack(alert_id: int, request: Request, body: Optional[GuardAck] = None):
+        note = ((body.note if body else None) or "").strip() or None
+        if note and len(note) > MAX_ACK_NOTE:
+            raise HTTPException(400, f"note must be at most {MAX_ACK_NOTE} characters.")
+        guard_row(alert_id)
+        now = time.time()
+        con = sqlite3.connect(DB_PATH)
+        try:
+            # the first ack wins its time; a repeat only updates the note
+            first = con.execute("UPDATE events SET guard_ack_at=?, guard_ack_note=?"
+                                " WHERE id=? AND guard_ack_at IS NULL",
+                                (now, note, alert_id)).rowcount == 1
+            if not first and note is not None:
+                con.execute("UPDATE events SET guard_ack_note=? WHERE id=?", (note, alert_id))
+            con.commit()
+        finally:
+            con.close()
+        if first:
+            send_telegram(guard_ack_message(datetime.fromtimestamp(now).strftime("%H:%M"), note))
+        return _guard_alert(guard_row(alert_id), base_url(request))
 
     # ---------- AI assistant (tools + loop live in chat.py) ----------
     @router.post("/chat")
