@@ -5,8 +5,8 @@
  */
 import { isMock } from '@/config/env';
 import { mockApi } from '@/mocks/mockApi';
-import type { AuthSession, Camera, CameraInput, DashboardSummary, Incident, IncidentQuery, IncidentStatus, LiveStatus, TrendPoint, User } from '@/types';
-import { api } from './apiClient';
+import type { AuthSession, Camera, CameraInput, DashboardSummary, Incident, IncidentQuery, IncidentStatus, LiveStatus, Person, PersonInput, PersonUpdate, TrendPoint, User } from '@/types';
+import { api, backendUrl } from './apiClient';
 
 export const authService = {
   login: (email: string, password: string): Promise<AuthSession> =>
@@ -30,6 +30,32 @@ export const cameraService = {
 /** Live mode only (mock mode is not maintained for new endpoints). */
 export const statusService = {
   get: (): Promise<LiveStatus> => api('/status', { timeoutMs: 5000 }),
+};
+
+const UPLOAD_TIMEOUT_MS = 60000; // the backend computes face embeddings for new photos
+
+function photoForm(photos: File[], fields: Record<string, string | undefined> = {}) {
+  const form = new FormData();
+  Object.entries(fields).forEach(([k, v]) => v !== undefined && form.append(k, v));
+  photos.forEach((p) => form.append('photos', p, p.name));
+  return form;
+}
+
+/** Residents & visitors (live mode only). */
+export const peopleService = {
+  list: (): Promise<Person[]> => api('/people'),
+  create: ({ photos, ...fields }: PersonInput): Promise<Person> =>
+    api('/people', { method: 'POST', body: photoForm(photos, { ...fields }), timeoutMs: UPLOAD_TIMEOUT_MS }),
+  update: (id: number, patch: PersonUpdate): Promise<Person> => api(`/people/${id}`, { method: 'PATCH', body: patch }),
+  remove: (id: number): Promise<void> => api(`/people/${id}`, { method: 'DELETE' }),
+  addPhotos: (id: number, photos: File[]): Promise<Person> =>
+    api(`/people/${id}/photos`, { method: 'POST', body: photoForm(photos), timeoutMs: UPLOAD_TIMEOUT_MS }),
+  /** thumbnail URL on the backend host; photoCount busts the browser cache after uploads */
+  photoSrc: (p: Person): string => {
+    const url = new URL(backendUrl(p.photoUrl));
+    url.searchParams.set('v', String(p.photoCount));
+    return url.href;
+  },
 };
 
 export const incidentService = {

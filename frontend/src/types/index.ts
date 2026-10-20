@@ -111,6 +111,42 @@ export interface LiveStatus {
   securityLevel?: SecurityLevel;
 }
 
+/** Backend role values. Display text: family -> "Resident", guest -> "Visitor" (see utils/format.ts). */
+export type PersonRole = 'family' | 'guest';
+
+/** GET /api/people item. Names double as the faces/<name>/ folder. */
+export interface Person {
+  id: number;
+  name: string;
+  role: PersonRole;
+  validFrom: string | null; // ISO, visitors only
+  validTo: string | null;
+  /** family, or a visitor whose window contains now */
+  active: boolean;
+  photoCount: number;
+  /** backend path, e.g. "/api/people/3/photo" - resolve with backendUrl() */
+  photoUrl: string;
+  /** last time the camera recognised this person (ISO) */
+  lastSeen: string | null;
+  createdAt: string;
+}
+
+/** POST /api/people (multipart) */
+export interface PersonInput {
+  name: string;
+  role: PersonRole;
+  validFrom?: string;
+  validTo?: string;
+  photos: File[];
+}
+
+/** PATCH /api/people/{id} (JSON) */
+export interface PersonUpdate {
+  role?: PersonRole;
+  validFrom?: string | null;
+  validTo?: string | null;
+}
+
 export type RealtimeEvent =
   | { type: 'alert'; data: Incident }
   | { type: 'detection'; data: Detection }

@@ -1,5 +1,5 @@
 import { config } from '@/config/env';
-import type { CameraStatus, Incident, IncidentStatus, Role } from '@/types';
+import type { CameraStatus, Incident, IncidentStatus, PersonRole, Role } from '@/types';
 
 const dateTime = new Intl.DateTimeFormat('en-GB', {
   timeZone: config.timezone,
@@ -68,6 +68,41 @@ export const cameraStatusLabel: Record<CameraStatus, string> = {
   degraded: 'Unstable',
   offline: 'Offline',
 };
+
+/** Backend keeps family / guest; the UI says Resident / Visitor (never "guest"). */
+export const personRoleLabel: Record<PersonRole, string> = { family: 'Resident', guest: 'Visitor' };
+
+const shortDateTime = new Intl.DateTimeFormat('en-GB', { timeZone: config.timezone, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+const hourMinute = new Intl.DateTimeFormat('en-GB', { timeZone: config.timezone, hour: '2-digit', minute: '2-digit', hour12: false });
+const dayKey = new Intl.DateTimeFormat('en-CA', { timeZone: config.timezone, year: 'numeric', month: '2-digit', day: '2-digit' });
+const sameDay = (a: Date, b: Date) => dayKey.format(a) === dayKey.format(b);
+
+/** "21 Oct, 14:00 - 18:00" (same day) or "21 Oct, 14:00 - 22 Oct, 10:00" */
+export function formatWindow(from: string | null, to: string | null): string {
+  if (!from && !to) return 'No time window set';
+  if (!from) return `Until ${shortDateTime.format(new Date(to!))}`;
+  if (!to) return `From ${shortDateTime.format(new Date(from))}`;
+  const a = new Date(from);
+  const b = new Date(to);
+  return `${shortDateTime.format(a)} - ${sameDay(a, b) ? hourMinute.format(b) : shortDateTime.format(b)}`;
+}
+
+/** One camera, so "where" is always the front door: "Last seen at the front door at 14:32". */
+export function formatLastSeen(iso: string | null): string {
+  if (!iso) return 'Not seen yet';
+  const d = new Date(iso);
+  return `Last seen at the front door ${sameDay(d, new Date()) ? `at ${hourMinute.format(d)}` : `on ${shortDateTime.format(d)}`}`;
+}
+
+/** ISO -> value for <input type="datetime-local"> in the browser's local time. */
+export function toDateTimeLocal(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+/** <input type="datetime-local"> value -> ISO (UTC), or undefined when empty. */
+export const fromDateTimeLocal = (value: string): string | undefined => (value ? new Date(value).toISOString() : undefined);
 
 export const roleLabel: Record<Role, string> = { admin: 'Administrator', operator: 'Security operator', viewer: 'Viewer' };
 

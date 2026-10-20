@@ -1,11 +1,11 @@
 import type { Role, User } from '@/types';
 
 /** What each role may do. The backend must enforce the same rules - this only hides controls. */
-export type Permission = 'view:dashboard' | 'view:live' | 'view:incidents' | 'view:evidence' | 'review:incidents' | 'manage:cameras';
+export type Permission = 'view:dashboard' | 'view:live' | 'view:incidents' | 'view:evidence' | 'review:incidents' | 'manage:cameras' | 'manage:people';
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
-  admin: ['view:dashboard', 'view:live', 'view:incidents', 'view:evidence', 'review:incidents', 'manage:cameras'],
-  operator: ['view:dashboard', 'view:live', 'view:incidents', 'view:evidence', 'review:incidents'],
+  admin: ['view:dashboard', 'view:live', 'view:incidents', 'view:evidence', 'review:incidents', 'manage:cameras', 'manage:people'],
+  operator: ['view:dashboard', 'view:live', 'view:incidents', 'view:evidence', 'review:incidents', 'manage:people'],
   viewer: ['view:dashboard', 'view:incidents'],
 };
 
