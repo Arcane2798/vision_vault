@@ -16,7 +16,7 @@ from rules import (DEFAULT_LEVEL, DEFAULT_NIGHT_END, DEFAULT_NIGHT_START,
                    UNKNOWN, classify_person, effective_level, guard_alert_due,
                    security_params, should_alert_guard, valid_hhmm)
 from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
-                         ClipRecorder, get_settings, guard_chat_id, house_unit,
+                         ClipRecorder, get_settings, guard_chat_id, guard_token, house_unit,
                          init_db, load_people, log_event, send_telegram,
                          set_settings, sync_people)
 
@@ -631,7 +631,8 @@ class VisionEngine:
                     f"Time: {time.strftime('%H:%M:%S')}")
         send_telegram(text, snap)
 
-        # guard-house Telegram copy: as above, and only if GUARD_TG_CHAT_ID is set
+        # guard-house Telegram copy: as above, and only if a guard chat is configured
+        # (GUARD_TG_CHAT_ID, or a separate guard bot GUARD_TG_TOKEN)
         guard_chat = guard_chat_id()
         if should_alert_guard(event_type, guard_alert, guard_chat):
             guard_text = (f"GUARD HOUSE ALERT: unknown person\n"
@@ -639,4 +640,4 @@ class VisionEngine:
                           f"Camera: {self.camera_name}\n"
                           f"Unknown people in view: {n_unknown}\n"
                           f"Time: {time.strftime('%H:%M:%S')}")
-            send_telegram(guard_text, snap, chat_id=guard_chat)
+            send_telegram(guard_text, snap, chat_id=guard_chat, token=guard_token())

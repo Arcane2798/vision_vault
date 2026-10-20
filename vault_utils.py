@@ -172,8 +172,15 @@ def env(key, default=None):
 
 
 def guard_chat_id():
-    """Guard-house Telegram chat (GUARD_TG_CHAT_ID), or None if unset."""
-    return env("GUARD_TG_CHAT_ID")
+    """Guard-house Telegram chat (GUARD_TG_CHAT_ID), or None if unset.
+    With a separate guard bot (GUARD_TG_TOKEN) and no chat id, the homeowner's chat is used,
+    so one Telegram account gets two separate bot chats."""
+    return env("GUARD_TG_CHAT_ID") or (env("TG_CHAT_ID") if env("GUARD_TG_TOKEN") else None)
+
+
+def guard_token():
+    """Bot token for guard-house messages: GUARD_TG_TOKEN, else the homeowner's bot."""
+    return env("GUARD_TG_TOKEN") or env("TG_TOKEN")
 
 
 def house_unit():
@@ -181,9 +188,10 @@ def house_unit():
     return env("HOUSE_UNIT", "This home")
 
 
-def _send(text, photo_path, chat_id=None):
-    """Send to `chat_id` (default TG_CHAT_ID). Returns True if Telegram accepted it."""
-    token, chat = env("TG_TOKEN"), chat_id or env("TG_CHAT_ID")
+def _send(text, photo_path, chat_id=None, token=None):
+    """Send to `chat_id` (default TG_CHAT_ID) with `token` (default TG_TOKEN).
+    Returns True if Telegram accepted it."""
+    token, chat = token or env("TG_TOKEN"), chat_id or env("TG_CHAT_ID")
     if not token or not chat:
         print("[telegram] TG_TOKEN / chat id not set, skipping")
         return False
@@ -206,11 +214,11 @@ def _send(text, photo_path, chat_id=None):
     return True
 
 
-def send_telegram(text, photo_path=None, chat_id=None, on_sent=None):
+def send_telegram(text, photo_path=None, chat_id=None, on_sent=None, token=None):
     """Send in a background thread so the video loop never freezes.
     on_sent() runs only if Telegram accepted the message."""
     def _run():
-        if _send(text, photo_path, chat_id) and on_sent:
+        if _send(text, photo_path, chat_id, token) and on_sent:
             try:
                 on_sent()
             except Exception as e:
