@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertOctagon, BellRing, Loader2, RefreshCw, ShieldCheck, Volume2, VolumeX, WifiOff, X } from 'lucide-react';
+import { AlertOctagon, BellRing, Home, Loader2, RefreshCw, ShieldCheck, Volume2, VolumeX, WifiOff, X } from 'lucide-react';
 import { config } from '@/config/env';
 import { useAsync } from '@/hooks/useAsync';
 import { useAlertSound } from '@/hooks/useAlertSound';
 import { guardService } from '@/services';
 import type { GuardAlert } from '@/types';
 import { cn, formatTime } from '@/utils/format';
-import { Button } from '@/components/ui/Button';
+import { Button, LinkButton } from '@/components/ui/Button';
 import { GuardAlertCard } from '@/components/guard/GuardAlertCard';
 
 const POLL_MS = 2000;
@@ -106,7 +106,7 @@ export default function GuardPage() {
         )}
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-4 px-4 py-4 sm:py-6">
+      <main className="mx-auto max-w-6xl space-y-4 px-4 pb-20 pt-4 sm:pt-6">
         {alerts.error && alerts.data && (
           <p role="status" className="flex items-center gap-2 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-amber-200">
             <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
@@ -147,6 +147,11 @@ export default function GuardPage() {
           </>
         )}
       </main>
+
+      {/* demo convenience: jump back to the homeowner's dashboard */}
+      <LinkButton to="/" variant="secondary" icon={<Home className="h-4 w-4" />} className="fixed bottom-4 left-4 z-30 shadow-lg">
+        Homeowner dashboard
+      </LinkButton>
     </div>
   );
 }
