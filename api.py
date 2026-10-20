@@ -27,6 +27,9 @@ PHOTO_EXT = {".jpg", ".jpeg", ".png"}
 MAX_PHOTO_BYTES = 10 * 1024 * 1024
 MAX_PHOTO_SIDE = 1280     # uploads are downscaled to this before saving
 THUMB_SIDE = 320
+VIDEO_DIR = Path("test_videos")    # recorded test videos (git-ignored)
+VIDEO_EXT = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
+MAX_VIDEO_BYTES = 500 * 1024 * 1024
 
 
 class StatusUpdate(BaseModel):
@@ -43,6 +46,11 @@ class NightUpdate(BaseModel):
 class SecurityUpdate(BaseModel):
     level: Optional[str] = None
     night: Optional[NightUpdate] = None
+
+
+class SourceUpdate(BaseModel):
+    kind: str                    # "camera" | "file"
+    name: Optional[str] = None   # file name in test_videos/ when kind == "file"
 
 
 class PersonUpdate(BaseModel):
@@ -117,6 +125,43 @@ async def _decode_photos(photos):
     if not out:
         raise HTTPException(400, "At least one photo is required.")
     return out
+
+
+def _video_json(p: Path):
+    st = p.stat()
+    return {"name": p.name, "sizeBytes": st.st_size, "modifiedAt": _iso(st.st_mtime)}
+
+
+def _videos():
+    VIDEO_DIR.mkdir(exist_ok=True)
+    files = [p for p in VIDEO_DIR.iterdir() if p.is_file() and p.suffix.lower() in VIDEO_EXT]
+    return [_video_json(p) for p in sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)]
+
+
+def _video_path(name: str) -> Path:
+    """test_videos/<name>, or 404. Plain file names only (no folders)."""
+    p = VIDEO_DIR / name
+    if Path(name).name != name or p.suffix.lower() not in VIDEO_EXT or not p.is_file():
+        raise HTTPException(404, f"No test video named {name!r}.")
+    return p
+
+
+def _free_video_name(filename: str) -> Path:
+    """Safe, unused file name in test_videos/ for an upload ("my clip.mp4" -> "my clip_1.mp4" if taken)."""
+    stem = "".join(c if c.isalnum() or c in " -_" else "_" for c in Path(filename).stem).strip() or "video"
+    suffix = Path(filename).suffix.lower()
+    p, n = VIDEO_DIR / f"{stem}{suffix}", 1
+    while p.exists():
+        p, n = VIDEO_DIR / f"{stem}_{n}{suffix}", n + 1
+    return p
+
+
+def _readable_video(p: Path) -> bool:
+    cap = cv2.VideoCapture(str(p))
+    try:
+        return cap.isOpened() and cap.read()[0]
+    finally:
+        cap.release()
 
 
 def _incident(r, base):
@@ -196,6 +241,50 @@ def create_router(engine):
         except ValueError as e:
             raise HTTPException(400, str(e))
         return security_json()
+
+    # ---------- video source: live camera or a recorded test video ----------
+    def source_json():
+        s = engine.get_source()
+        test = s["is_file"] and not s["is_default"]
+        return {"kind": "file" if test else "camera",
+                "name": Path(s["source"]).name if test else None,
+                "finished": s["finished"] if test else False,
+                "progress": s["progress"] if test else None,
+                "videos": _videos()}
+
+    @router.get("/source")
+    def get_source():
+        return source_json()
+
+    @router.put("/source")
+    def put_source(body: SourceUpdate):
+        if body.kind == "camera":
+            engine.set_source(None)
+        elif body.kind == "file":
+            engine.set_source(_video_path(body.name or ""))
+        else:
+            raise HTTPException(400, "kind must be 'camera' or 'file'.")
+        return source_json()
+
+    @router.post("/source/videos", status_code=201)
+    async def upload_video(video: UploadFile = File(...)):
+        if Path(video.filename or "").suffix.lower() not in VIDEO_EXT:
+            raise HTTPException(400, f"Unsupported video type. Use one of: {', '.join(sorted(VIDEO_EXT))}.")
+        VIDEO_DIR.mkdir(exist_ok=True)
+        dest, size = _free_video_name(video.filename), 0
+        try:
+            with open(dest, "wb") as f:
+                while chunk := await video.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > MAX_VIDEO_BYTES:
+                        raise HTTPException(400, "Video is larger than 500 MB.")
+                    f.write(chunk)
+            if not await asyncio.to_thread(_readable_video, dest):
+                raise HTTPException(400, "Could not read that video. Try an .mp4 (H.264) file.")
+        except BaseException:
+            dest.unlink(missing_ok=True)
+            raise
+        return _video_json(dest)
 
     # ---------- incidents ----------
     @router.get("/incidents")

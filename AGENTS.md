@@ -111,6 +111,9 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | DELETE | `/api/people/{id}` | → 204; removes the row and `faces/<name>/` |
 | POST | `/api/people/{id}/photos` | multipart `photos` → `Person` (same photo checks as create) |
 | GET | `/api/people/{id}/photo` | first photo as a JPEG thumbnail (≤ 320 px); 404 if none. `faces/` itself is never served |
+| GET | `/api/source` | `{kind: "camera"\|"file", name, finished, progress: 0..1\|null, videos: [{name, sizeBytes, modifiedAt}]}` — what the engine watches |
+| PUT | `/api/source` | `{kind: "camera"}` or `{kind: "file", name}` → same shape as GET. Test videos play **once** in real time (frames skipped if the engine is slower), stamped `TEST VIDEO`, then hold the last frame. Same name again = restart. 404 unknown video |
+| POST | `/api/source/videos` | multipart `video` → 201 `{name, sizeBytes, modifiedAt}`, saved in `test_videos/` (renamed `_1`, `_2` if taken). 400 bad type, > 500 MB, or unreadable |
 
 **`events` table:** `id, ts (epoch), camera, track_id, identity, event_type, clip_path, snapshot_path, status, notes, reviewed_at`.
 `event_type` ∈ `intrusion` (identity `unknown`) | `guest_outside_window` (identity = visitor's name).

@@ -50,6 +50,11 @@ class VisionEngine:
     def __init__(self, source=0, camera_name=CAMERA_NAME):
         self.source = source
         self.is_file = isinstance(source, str)
+        self.default_source = source   # what "back to camera" returns to (VIDEO_SOURCE)
+        self.loop_file = self.is_file  # VIDEO_SOURCE files loop; test videos play once
+        self._new_source = None        # (source, loop) requested by set_source(); applied in _loop
+        self.finished = False          # a play-once test video reached its end
+        self.progress = None           # 0..1 position in a video file, None for a camera
         self.camera_name = camera_name
 
         # Lightweight detector and CPU-optimized face analyzer
@@ -302,19 +307,61 @@ class VisionEngine:
                     "fps": round(self.fps, 1),
                     "security_level": self.level}
 
-    # ---------- main loop ----------
-    def _loop(self):
-        if self.is_file:
-            cap = cv2.VideoCapture(self.source)
+    # ---------- video source (camera or a recorded test video) ----------
+    def set_source(self, path=None):
+        """Play a video file once (path), or go back to the configured source (None).
+        Applied by the loop thread at its next frame; replaying the same path restarts it."""
+        with self.lock:
+            if path is None:
+                self._new_source = (self.default_source, isinstance(self.default_source, str))
+            else:
+                self._new_source = (str(path), False)
+            self.finished = False
+
+    def get_source(self):
+        with self.lock:
+            pending = self._new_source
+            source, is_file = (pending[0], isinstance(pending[0], str)) if pending else (self.source, self.is_file)
+            return {"source": source, "is_file": is_file,
+                    "is_default": source == self.default_source,
+                    "finished": self.finished and not pending,
+                    "progress": None if pending else self.progress}
+
+    @staticmethod
+    def _open(source):
+        if isinstance(source, str):
+            cap = cv2.VideoCapture(source)
         else:
             # Windows' default MSMF backend can open a webcam yet never deliver frames; DirectShow is reliable
             backend = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY
-            cap = cv2.VideoCapture(self.source, backend)
+            cap = cv2.VideoCapture(source, backend)
         if not cap.isOpened():
-            print(f"[camera] could not open video source {self.source!r}")
+            print(f"[camera] could not open video source {source!r}")
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        return cap
+
+    def _reset_tracks(self):
+        """Forget every track: a new source restarts ByteTrack ids at 1."""
+        for d in (self.identity, self.last_faces, self.last_checked, self.verify_fail,
+                  self.unknown_since, self.track_age, self.first_pos):
+            d.clear()
+        for s in (self.alerted, self.guest_alerted, self.moved):
+            s.clear()
+        predictor = getattr(self.detector, "predictor", None)
+        for tracker in getattr(predictor, "trackers", None) or []:
+            tracker.reset()
+
+    def _finish_clip(self, last_frame):
+        """Complete a clip still recording post-roll by repeating the last frame."""
+        while self.recorder.writer is not None and last_frame is not None:
+            self.recorder.add(last_frame)
+
+    # ---------- main loop ----------
+    def _loop(self):
+        cap = self._open(self.source)
         failed_reads = 0
+        last_frame = None
 
         frame_count = 0
         fps = 0.0
@@ -322,12 +369,51 @@ class VisionEngine:
 
         src_fps = cap.get(cv2.CAP_PROP_FPS) or 25
         frame_delay = 1.0 / src_fps
+        total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT) if self.is_file else 0
+        play_start = time.time()
 
         while self.running:
+            with self.lock:
+                request, self._new_source = self._new_source, None
+            if request:
+                self._finish_clip(last_frame)
+                self.recorder.buffer.clear()     # pre-roll from the old source
+                cap.release()
+                source, loop = request
+                cap = self._open(source)
+                src_fps = cap.get(cv2.CAP_PROP_FPS) or 25
+                frame_delay = 1.0 / src_fps
+                total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT) if isinstance(source, str) else 0
+                self._reset_tracks()
+                with self.lock:
+                    self.source, self.is_file, self.loop_file = source, isinstance(source, str), loop
+                    self.finished = False
+                    self.progress = 0.0 if self.is_file else None
+                play_start = time.time()
+                print(f"[camera] switched to {source!r}")
+
+            if self.finished:
+                self._finish_clip(last_frame)
+                time.sleep(0.1)
+                continue
+
+            if self.is_file and not self.loop_file:
+                # test videos run in real time like a live camera: skip the frames the engine is too slow for
+                behind = int((time.time() - play_start) * src_fps) - int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+                for _ in range(max(0, behind)):
+                    if not cap.grab():
+                        break
+
             ok, frame = cap.read()
             if not ok:
-                if self.is_file:
+                if self.is_file and self.loop_file:
                     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)   # loop the video
+                    continue
+                if self.is_file:                          # test video: stop on its last frame
+                    with self.lock:
+                        self.finished = True
+                        self.progress = 1.0
+                        self.unknown_count = 0
                     continue
                 failed_reads += 1
                 if failed_reads % 100 == 1:
@@ -474,10 +560,14 @@ class VisionEngine:
             cv2.putText(frame, f"Unknown: {len(current_unknown)}", (15, 60),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
             self._draw_level(frame, level, night)
+            if self.is_file and self.source != self.default_source:
+                cv2.putText(frame, f"TEST VIDEO: {Path(self.source).name}", (15, frame_h - 15),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             for tid, event_type, name in pending:
                 self._trigger_event(tid, frame, now, event_type, name,
                                     len(current_unknown))
             self.recorder.add(frame)
+            last_frame = frame
 
             ok2, buf = cv2.imencode(".jpg", frame,
                                     [cv2.IMWRITE_JPEG_QUALITY, 80])
@@ -486,6 +576,8 @@ class VisionEngine:
                     self.latest_jpeg = buf.tobytes()
                     self.unknown_count = len(current_unknown)
                     self.fps = fps
+                    if self.is_file and total_frames > 0:
+                        self.progress = min(1.0, cap.get(cv2.CAP_PROP_POS_FRAMES) / total_frames)
                     for n in seen_known:
                         self.last_seen[n] = now
 
