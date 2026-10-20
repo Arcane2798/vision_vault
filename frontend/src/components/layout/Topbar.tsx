@@ -60,12 +60,12 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
             chat.open && 'bg-surface-3 text-ink-1',
           )}
           aria-expanded={chat.open}
-          aria-label={`Ask the ${config.appName} assistant`}
-          title={`Ask the ${config.appName} assistant`}
+          aria-label="Ask Viva Bot"
+          title="Ask Viva Bot"
           onClick={() => chat.setOpen(!chat.open)}
         >
           <Bot className="h-5 w-5" aria-hidden />
-          <span className="hidden md:inline">Assistant</span>
+          <span className="hidden md:inline">Viva Bot</span>
         </button>
         <div className="relative" ref={bellRef}>
           <button

@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { AlertTriangle, Bot, CheckCircle2, KeyRound, Loader2, Lock, RotateCcw, SendHorizontal, Trash2, X } from 'lucide-react';
 import { useChat, type ChatEntry } from '@/context/ChatContext';
-import { config } from '@/config/env';
 import { cn } from '@/utils/format';
 import { Button } from '@/components/ui/Button';
 import { AddPersonModal } from '@/components/people/PersonForms';
 import { ActionCard } from './ActionCard';
 
-const ASSISTANT_NAME = `${config.appName} assistant`;
+const ASSISTANT_NAME = 'Viva Bot';
 
 const SUGGESTIONS = ['What happened at the door today?', 'Who is at the door right now?', 'Where is Azhad?', 'Switch to Away mode'];
 
@@ -111,7 +110,7 @@ export function ChatPanel() {
         <form onSubmit={submit} className="border-t border-line p-3">
           <div className="flex items-end gap-2">
             <label htmlFor="chat-input" className="sr-only">
-              Message the assistant
+              Message {ASSISTANT_NAME}
             </label>
             <textarea
               id="chat-input"
@@ -135,7 +134,7 @@ export function ChatPanel() {
       {chat.personForm && (
         <AddPersonModal
           initial={chat.personForm.prefill}
-          intro="Suggested by the assistant. Check the details and add face photos to finish registering."
+          intro="Suggested by Viva Bot. Check the details and add face photos to finish registering."
           onClose={chat.closePersonForm}
           onSubmit={chat.submitPerson}
         />
@@ -205,7 +204,7 @@ function Notice({ entry }: { entry: Extract<ChatEntry, { role: 'notice' }> }) {
       <div role="alert" className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-amber-200">
         <p className="flex items-center gap-2 font-medium">
           <KeyRound className="h-4 w-4 shrink-0" aria-hidden />
-          The assistant is not set up yet
+          {ASSISTANT_NAME} is not set up yet
         </p>
         {/* backend detail, e.g. "Chat is not configured: add GEMINI_API_KEY to .env" */}
         <p className="mt-1.5 break-words rounded bg-black/30 px-2 py-1 font-mono text-xs">{entry.content || 'The owner has not added an AI key to the backend yet.'}</p>

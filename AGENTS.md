@@ -109,7 +109,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/api/status` | `{running, fps, unknownCount, cameraName, securityLevel, peopleInView}` — live engine state; `securityLevel` = effective level; `peopleInView: [{name, kind}]` one entry per tracked person in the latest frame (static figures excluded), `kind` ∈ `family`, `guest_allowed`, `guest_outside`, `unknown` (name `unknown`) |
 | GET | `/api/security` | `{level, effectiveLevel, night: {enabled, start, end}, updatedAt: ISO\|null}` (`updatedAt` null until first change) |
 | PUT | `/api/security` | `{level?, night?: {enabled?, start?, end?}}` → same shape as GET. 400 on unknown level or bad "HH:MM" (24-hour, zero-padded) |
-| POST | `/api/chat` | `{messages: [{role: "user"\|"assistant", content}]}` (last 20 kept) → `{reply, pendingAction: PendingAction\|null}` (shape in Phase 2). 503 `{detail: "Chat is not configured: add GEMINI_API_KEY to .env"}` without a key; free-tier quota → 200 with reply "The assistant is busy (free-tier limit). Try again in a minute."; other AI errors → 502 `{detail}`; 400 no user message; 422 bad role. PendingAction dates are ISO UTC `Z` (the model works in Asia/Kuala_Lumpur time). Takes a few seconds: use a long client timeout |
+| POST | `/api/chat` | `{messages: [{role: "user"\|"assistant", content}]}` (last 20 kept) → `{reply, pendingAction: PendingAction\|null}` (shape in Phase 2). 503 `{detail: "Chat is not configured: add GEMINI_API_KEY to .env"}` without a key; free-tier quota → 200 with reply "Viva Bot is busy right now (Gemini free tier). Try again in a minute."; other AI errors → 502 `{detail}`; 400 no user message; 422 bad role. PendingAction dates are ISO UTC `Z` (the model works in Asia/Kuala_Lumpur time). Takes a few seconds: use a long client timeout |
 | GET | `/api/people` | `Person[]`, family first then by name (Person JSON in Phase 1 spec; `id` is a number) |
 | POST | `/api/people` | multipart `name, role (default family), validFrom?, validTo?, photos` (repeat `photos` per file) → 201 `Person`. 400 bad name/role/date, from > to, no photo, unreadable image or **no face found**; 409 name taken (case-insensitive) |
 | PATCH | `/api/people/{id}` | JSON `{role?, validFrom?, validTo?}` → `Person`. Omitted = unchanged, `null` = clear (open-ended). Role `family` clears the window |
@@ -235,7 +235,7 @@ orange, unknown red, static figure grey.
       Anthropic for a free tier), key `GEMINI_API_KEY` in `.env`, model from `CHAT_MODEL` (default `gemini-3.5-flash-lite`; `gemini-3.8-flash` allows only 20 free requests/day).
       Manual tool loop, automatic function calling **off**, max 6 model calls per request. System prompt includes current local time (Asia/Kuala_Lumpur).
       Code lives in a new `chat.py` (tool functions + loop); `api.py` only adds the route. No key → 503 `{detail: "Chat is not configured: add GEMINI_API_KEY to .env"}`.
-      Free-tier quota (429), overload (503) or a 40 s timeout → normal reply "The assistant is busy right now (Gemini free tier). Try again in a minute." (no silent retries) (never a 500).
+      Free-tier quota (429), overload (503) or a 40 s timeout → normal reply "Viva Bot is busy right now (Gemini free tier). Try again in a minute." (no silent retries) (never a 500).
       **Request:** `{messages: [{role: "user"|"assistant", content: string}]}` (plain text history, newest last; server caps at the last 20).
       **Response:** `{reply: string, pendingAction: PendingAction | null}`.
 - [x] Tools are plain Python functions reusing existing queries:

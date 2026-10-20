@@ -24,7 +24,7 @@ MAX_ROUNDS = 6                       # model calls per chat request (bounds the 
 GEMINI_TIMEOUT_MS = 40000           # per Gemini call, no retries; then a "busy" reply
 MAX_HISTORY = 20                     # messages kept from the client's history
 NOT_CONFIGURED = "Chat is not configured: add GEMINI_API_KEY to .env"
-BUSY_REPLY = "The assistant is busy right now (Gemini free tier). Try again in a minute."
+BUSY_REPLY = "Viva Bot is busy right now (Gemini free tier). Try again in a minute."
 
 try:
     from zoneinfo import ZoneInfo
@@ -294,7 +294,7 @@ TOOLS = [
 TOOL_NAMES = {t["name"] for t in TOOLS}
 WRITE_TOOLS = {"review_incident", "add_or_update_guest", "set_security_level"}
 
-SYSTEM = """You are the assistant inside Vision Vault, a smart home security dashboard for one home \
+SYSTEM = """You are Viva Bot, the AI assistant inside Vision Vault, a smart home security dashboard for one home \
 in a township. One camera watches the front door. Residents (family) pass silently; registered \
 visitors are allowed inside their time window; an unknown person alerts the homeowner and the \
 township guard house.
