@@ -4,6 +4,7 @@ import { config } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
 import { useRealtime } from '@/context/RealtimeContext';
 import { useAsync } from '@/hooks/useAsync';
+import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { dashboardService, incidentService } from '@/services';
 import { formatRelative, incidentHeadline } from '@/utils/format';
 import { LinkButton } from '@/components/ui/Button';
@@ -13,6 +14,7 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/ui/States';
 import { IncidentStatusBadge } from '@/components/ui/StatusBadge';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TrendChart } from '@/components/dashboard/TrendChart';
+import { LiveStatusStrip } from '@/components/live/LiveStatusStrip';
 
 export default function DashboardPage() {
   const { can } = useAuth();
@@ -22,6 +24,7 @@ export default function DashboardPage() {
   const summary = useAsync(() => dashboardService.summary(), [refreshKey], config.refreshIntervalMs);
   const trend = useAsync(() => dashboardService.trend(14), [], config.refreshIntervalMs * 4);
   const recent = useAsync(() => incidentService.list({ sort: 'newest' }).then((l) => l.slice(0, 6)), [refreshKey], config.refreshIntervalMs);
+  const live = useLiveStatus();
   const s = summary.data;
 
   return (
@@ -42,6 +45,8 @@ export default function DashboardPage() {
           </>
         }
       />
+
+      <LiveStatusStrip status={live.data} loading={live.loading} error={live.error} />
 
       {summary.error && !s ? (
         <Card>

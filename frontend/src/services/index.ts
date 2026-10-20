@@ -5,7 +5,7 @@
  */
 import { isMock } from '@/config/env';
 import { mockApi } from '@/mocks/mockApi';
-import type { AuthSession, Camera, CameraInput, DashboardSummary, Incident, IncidentQuery, IncidentStatus, TrendPoint, User } from '@/types';
+import type { AuthSession, Camera, CameraInput, DashboardSummary, Incident, IncidentQuery, IncidentStatus, LiveStatus, TrendPoint, User } from '@/types';
 import { api } from './apiClient';
 
 export const authService = {
@@ -25,6 +25,11 @@ export const cameraService = {
   create: (input: CameraInput): Promise<Camera> => (isMock ? mockApi.addCamera(input) : api('/cameras', { method: 'POST', body: input })),
   update: (id: string, input: CameraInput): Promise<Camera> => (isMock ? mockApi.updateCamera(id, input) : api(`/cameras/${id}`, { method: 'PUT', body: input })),
   remove: (id: string): Promise<void> => (isMock ? mockApi.deleteCamera(id) : api(`/cameras/${id}`, { method: 'DELETE' })),
+};
+
+/** Live mode only (mock mode is not maintained for new endpoints). */
+export const statusService = {
+  get: (): Promise<LiveStatus> => api('/status', { timeoutMs: 5000 }),
 };
 
 export const incidentService = {

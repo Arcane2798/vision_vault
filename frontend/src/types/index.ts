@@ -98,6 +98,19 @@ export interface TrendPoint {
   confirmed: number;
 }
 
+/** Security level (feature 5.1): how strict the intrusion rules are. */
+export type SecurityLevel = 'home' | 'normal' | 'away';
+
+/** GET /api/status - live engine state, polled every few seconds. */
+export interface LiveStatus {
+  running: boolean;
+  fps: number;
+  /** unknown people currently in view */
+  unknownCount: number;
+  cameraName: string;
+  securityLevel?: SecurityLevel;
+}
+
 export type RealtimeEvent =
   | { type: 'alert'; data: Incident }
   | { type: 'detection'; data: Detection }
