@@ -101,6 +101,29 @@ export interface TrendPoint {
 /** Security level (feature 5.1): how strict the intrusion rules are. */
 export type SecurityLevel = 'home' | 'normal' | 'away';
 
+/** Night schedule: auto Away between start and end (local "HH:MM", may cross midnight). */
+export interface NightSchedule {
+  enabled: boolean;
+  start: string;
+  end: string;
+}
+
+/** GET /api/security */
+export interface SecuritySettings {
+  /** level chosen by the homeowner */
+  level: SecurityLevel;
+  /** level the engine actually uses now (away while the night schedule applies) */
+  effectiveLevel: SecurityLevel;
+  night: NightSchedule;
+  updatedAt: string | null;
+}
+
+/** PUT /api/security */
+export interface SecurityUpdate {
+  level?: SecurityLevel;
+  night?: Partial<NightSchedule>;
+}
+
 /** GET /api/status - live engine state, polled every few seconds. */
 export interface LiveStatus {
   running: boolean;
@@ -108,6 +131,7 @@ export interface LiveStatus {
   /** unknown people currently in view */
   unknownCount: number;
   cameraName: string;
+  /** effective level (night schedule applied) */
   securityLevel?: SecurityLevel;
 }
 

@@ -5,7 +5,7 @@
  */
 import { isMock } from '@/config/env';
 import { mockApi } from '@/mocks/mockApi';
-import type { AuthSession, Camera, CameraInput, DashboardSummary, Incident, IncidentQuery, IncidentStatus, LiveStatus, Person, PersonInput, PersonUpdate, TrendPoint, User } from '@/types';
+import type { AuthSession, Camera, CameraInput, DashboardSummary, Incident, IncidentQuery, IncidentStatus, LiveStatus, Person, PersonInput, PersonUpdate, SecuritySettings, SecurityUpdate, TrendPoint, User } from '@/types';
 import { api, backendUrl } from './apiClient';
 
 export const authService = {
@@ -30,6 +30,12 @@ export const cameraService = {
 /** Live mode only (mock mode is not maintained for new endpoints). */
 export const statusService = {
   get: (): Promise<LiveStatus> => api('/status', { timeoutMs: 5000 }),
+};
+
+/** Security level + night schedule (live mode only). */
+export const securityService = {
+  get: (): Promise<SecuritySettings> => api('/security'),
+  update: (patch: SecurityUpdate): Promise<SecuritySettings> => api('/security', { method: 'PUT', body: patch }),
 };
 
 const UPLOAD_TIMEOUT_MS = 60000; // the backend computes face embeddings for new photos

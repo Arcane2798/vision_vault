@@ -7,6 +7,7 @@ import { useRealtime } from '@/context/RealtimeContext';
 import type { ConnectionState } from '@/types';
 import { cn, formatRelative, incidentHeadline, roleLabel } from '@/utils/format';
 import { IncidentStatusBadge } from '@/components/ui/StatusBadge';
+import { SecurityBadge } from '@/components/security/SecurityBadge';
 
 const connectionUi: Record<ConnectionState, { label: string; dot: string }> = {
   connected: { label: 'Live alerts connected', dot: 'bg-ok' },
@@ -48,6 +49,9 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
       </div>
 
       <div className="ml-auto flex items-center gap-1">
+        <span className="mr-1">
+          <SecurityBadge />
+        </span>
         <div className="relative" ref={bellRef}>
           <button
             className="relative rounded-lg p-2 text-ink-2 hover:bg-surface-3 hover:text-ink-1"

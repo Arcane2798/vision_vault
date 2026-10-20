@@ -3,6 +3,7 @@ import { Link, Outlet } from 'react-router-dom';
 import { FlaskConical, ShieldAlert, X } from 'lucide-react';
 import { isMock } from '@/config/env';
 import { useRealtime } from '@/context/RealtimeContext';
+import { SecurityProvider } from '@/context/SecurityContext';
 import { incidentHeadline } from '@/utils/format';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -10,20 +11,22 @@ import { Topbar } from './Topbar';
 export function AppLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <div className="flex min-h-screen">
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-brand focus:px-3 focus:py-2">
-        Skip to content
-      </a>
-      <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onMenu={() => setMenuOpen(true)} />
-        {isMock && <SampleDataBanner />}
-        <main id="main" className="flex-1 p-4 lg:p-6">
-          <Outlet />
-        </main>
+    <SecurityProvider>
+      <div className="flex min-h-screen">
+        <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-brand focus:px-3 focus:py-2">
+          Skip to content
+        </a>
+        <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar onMenu={() => setMenuOpen(true)} />
+          {isMock && <SampleDataBanner />}
+          <main id="main" className="flex-1 p-4 lg:p-6">
+            <Outlet />
+          </main>
+        </div>
+        <AlertToast />
       </div>
-      <AlertToast />
-    </div>
+    </SecurityProvider>
   );
 }
 

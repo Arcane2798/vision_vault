@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/States';
 import { CameraFeed } from '@/components/cameras/CameraFeed';
 import { LiveStatusStrip } from '@/components/live/LiveStatusStrip';
+import { SecurityLevelControl } from '@/components/security/SecurityLevelControl';
 
 const LEGEND: Array<{ dot: string; label: string }> = [
   { dot: 'bg-green-500', label: 'Resident (family) - allowed, no alert' },
@@ -47,6 +48,7 @@ export default function LiveMonitoringPage() {
         </div>
 
         <div className="space-y-4">
+          <SecurityLevelControl />
           <Card>
             <CardHeader title="What the colours mean" />
             <ul className="space-y-2 p-4 text-sm">

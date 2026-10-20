@@ -1,5 +1,5 @@
 import { config } from '@/config/env';
-import type { CameraStatus, Incident, IncidentStatus, PersonRole, Role } from '@/types';
+import type { CameraStatus, Incident, IncidentStatus, PersonRole, Role, SecurityLevel, SecuritySettings } from '@/types';
 
 const dateTime = new Intl.DateTimeFormat('en-GB', {
   timeZone: config.timezone,
@@ -68,6 +68,15 @@ export const cameraStatusLabel: Record<CameraStatus, string> = {
   degraded: 'Unstable',
   offline: 'Offline',
 };
+
+export const securityLevelLabel: Record<SecurityLevel, string> = { home: 'Home', normal: 'Normal', away: 'Away' };
+
+/** True when the engine is in Away only because the night schedule applies right now. */
+export const nightModeActive = (s: SecuritySettings) => s.night.enabled && s.effectiveLevel === 'away' && s.level !== 'away';
+
+/** "Away (night mode until 06:00)" while the schedule applies, else the plain level name. */
+export const effectiveLevelText = (s: SecuritySettings) =>
+  nightModeActive(s) ? `Away (night mode until ${s.night.end})` : securityLevelLabel[s.effectiveLevel];
 
 /** Backend keeps family / guest; the UI says Resident / Visitor (never "guest"). */
 export const personRoleLabel: Record<PersonRole, string> = { family: 'Resident', guest: 'Visitor' };
