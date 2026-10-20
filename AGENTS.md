@@ -26,6 +26,20 @@ with a snapshot and clip. Footage and face data stay inside the home (privacy by
 - Single household, single camera (`cam-01`). Do not build multi-camera management.
 - Keep changes small and demo-focused; nothing new after Thursday night except bug fixes.
 
+## Agent roles
+Three roles with strict file ownership, so agents can work in parallel without overwriting each other.
+Role rules live in `.agents/rules/` (Antigravity loads them automatically by file glob);
+Claude Code subagents in `.claude/agents/` point to the same files.
+
+| Role | Owns | Rules file | Claude Code agent |
+|---|---|---|---|
+| Backend | `*.py` at the root | `.agents/rules/backend.md` | `backend` |
+| Frontend | `frontend/` | `.agents/rules/frontend.md` | `frontend` |
+| Tester | `tests/`, test config | `.agents/rules/testing.md` | `tester` |
+
+Hand-off: backend updates the "Current API" table → frontend builds against it → tester writes tests from it.
+Each agent commits only its own paths. Cross-area changes are requested in the agent's summary, not made directly.
+
 ## Architecture
 
 ```
