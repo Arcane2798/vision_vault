@@ -110,7 +110,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | # | Feature | Status | Where in plan |
 |---|---|---|---|
 | 1 | Real-time person detection & tracking | ✅ done | Phase 3: prune per-track state |
-| 2 | Face recognition, homeowner registers faces | ⚠️ recognition done; registering = dropping photos in `faces/` + deleting the cache | Phase 1: cache fix + `/people` page with upload |
+| 2 | Face recognition, homeowner registers faces | ⚠️ recognition done; cache now refreshes per person automatically | Phase 1: cache fix + `/people` page with upload |
 | 3 | Intrusion snapshot + clip | ✅ done (clip race open) | Phase 2: `clip_ready` |
 | 4 | Telegram alert | ✅ done | Phase 2: guard-house copy, weapon note |
 | 5 | Web dashboard (live, history, analytics) | ✅ done (still old branding) | Phase 0: rebrand, `/api/status` |
@@ -137,7 +137,6 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 - [ ] **Guest whitelisting** — no code exists. Everyone in `faces/` is treated as permanently allowed.
 
 ### Known issues
-- `faces/embeddings.pkl` is only rebuilt when missing → new photos are ignored until it is deleted.
 - Alert WebSocket sends `clipUrl` ~10 s before the clip is finished/converted → clip fails if opened immediately.
 - Incident `confidence` is hard-coded `1.0` (alerts are rule-based).
 - Engine per-track dicts (`identity`, `track_age`, `first_pos`, …) grow forever on long runs.
@@ -162,7 +161,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 - [x] README: "Why it matters for the Township of Tomorrow" section
 
 ### Phase 1 — People & guest whitelisting (Wed 21) — core feature
-- [ ] **Embedding cache fix:** cache per person with a signature (file names + mtimes); recompute only changed folders
+- [x] **Embedding cache fix:** cache per person with a signature (file names + mtimes); recompute only changed folders
 - [ ] **`people` table** in `vault.db`: `id, name (= faces/ folder), role ('family'|'guest'), valid_from, valid_to (epoch, NULL for family), created_at`.
       On startup and on reload, insert a `family` row for every `faces/` folder that has no row (back-compat, so every person has an id).
       Names must be folder-safe (letters, digits, space, `-`, `_`; reject anything else with 400).

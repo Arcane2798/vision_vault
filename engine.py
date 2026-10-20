@@ -67,54 +67,90 @@ class VisionEngine:
         self.moved = set()       # track_ids that have actually moved
 
 
-    # ---------- enrollment (with disk caching) ----------
+    # ---------- enrollment (with per-person disk caching) ----------
+    @staticmethod
+    def _folder_signature(person_dir):
+        """File names + mtimes + sizes of a person's photos; changes when photos change."""
+        return tuple(sorted((p.name, p.stat().st_mtime_ns, p.stat().st_size)
+                            for p in person_dir.iterdir()
+                            if p.is_file() and p.suffix.lower() in IMG_EXT))
+
+    def _embed_image(self, img):
+        """Normed embedding of the largest face in `img`, or None if no face is found."""
+        h, w = img.shape[:2]
+        if max(h, w) > 1080:
+            scale = 1080 / max(h, w)
+            img = cv2.resize(img, (int(w * scale), int(h * scale)))
+        detected = self.face_app.get(img)
+        if not detected:
+            return None
+        best = max(detected, key=lambda f:
+                   (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+        return best.normed_embedding
+
+    def _embed_folder(self, person_dir):
+        embs = []
+        for img_path in sorted(person_dir.iterdir()):
+            if img_path.suffix.lower() not in IMG_EXT:
+                continue
+            img = cv2.imread(str(img_path))
+            if img is None:
+                continue
+            emb = self._embed_image(img)
+            if emb is not None:
+                embs.append(emb)
+        return np.stack(embs) if embs else None   # keep every photo
+
+    def _load_cache(self):
+        """{name: {"sig": tuple, "embs": ndarray|None}}; old/corrupt caches are ignored."""
+        if not self.cache_file.exists():
+            return {}
+        try:
+            with open(self.cache_file, "rb") as f:
+                cache = pickle.load(f)
+        except Exception as e:
+            print("[faces] cache unreadable, recomputing:", e)
+            return {}
+        if not isinstance(cache, dict):
+            return {}
+        return {k: v for k, v in cache.items()
+                if isinstance(v, dict) and "sig" in v and "embs" in v}
+
     def _load_known(self):
+        """Embeddings per person. Only folders whose photos changed are recomputed."""
         self.faces_path.mkdir(parents=True, exist_ok=True)
-        known = {}
-
-        if self.cache_file.exists():
+        cache = self._load_cache()
+        new_cache, changed = {}, False
+        for person_dir in sorted(self.faces_path.iterdir()):
+            if not person_dir.is_dir():
+                continue
+            name = person_dir.name
+            sig = self._folder_signature(person_dir)
+            entry = cache.get(name)
+            if entry is None or entry["sig"] != sig:
+                entry = {"sig": sig, "embs": self._embed_folder(person_dir)}
+                changed = True
+                n = 0 if entry["embs"] is None else len(entry["embs"])
+                print(f"[faces] enrolled {name}: {n} face(s) from {len(sig)} photo(s)")
+            new_cache[name] = entry
+        if set(new_cache) != set(cache):
+            changed = True              # a folder was added or removed
+        if changed:
             try:
-                with open(self.cache_file, "rb") as f:
-                    known = pickle.load(f)
-                print("Loaded cached embeddings for:", list(known.keys()))
-            except Exception as e:
-                print("Cache corrupted or unreadable, recomputing:", e)
-                known = {}
-
-        if not known:
-            for person_dir in self.faces_path.iterdir():
-                if not person_dir.is_dir():
-                    continue
-                embs = []
-                for img_path in person_dir.iterdir():
-                    if img_path.suffix.lower() not in IMG_EXT:
-                        continue
-                    img = cv2.imread(str(img_path))
-                    if img is None:
-                        continue
-                    h, w = img.shape[:2]
-                    if max(h, w) > 1080:
-                        scale = 1080 / max(h, w)
-                        img = cv2.resize(img, (int(w * scale), int(h * scale)))
-                    detected = self.face_app.get(img)
-                    if detected:
-                        best = max(detected, key=lambda f:
-                                   (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
-                        embs.append(best.normed_embedding)
-                if embs:
-                    known[person_dir.name] = np.stack(embs)   # keep every photo
-
-            if known:
                 with open(self.cache_file, "wb") as f:
-                    pickle.dump(known, f)
-                print("Enrolled and saved cache for:", list(known.keys()))
-            else:
-                print("No faces enrolled. Check the faces/ folder and photo formats.")
+                    pickle.dump(new_cache, f)
+            except Exception as e:
+                print("[faces] could not save cache:", e)
+        known = {k: v["embs"] for k, v in new_cache.items() if v["embs"] is not None}
+        if known:
+            print("[faces] known people:", list(known))
+        else:
+            print("[faces] no faces enrolled. Check the faces/ folder and photo formats.")
         return known
 
     def _identify(self, emb, thresh=MATCH_THRESH):
         best, best_score = "unknown", 0.0
-        for name, refs in self.known.items():
+        for name, refs in self.known.items():   # dict is swapped whole, never mutated
             score = float(np.max(refs @ emb))
             if score > best_score:
                 best, best_score = name, score
