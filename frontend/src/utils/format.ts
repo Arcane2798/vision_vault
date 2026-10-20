@@ -1,5 +1,5 @@
 import { config } from '@/config/env';
-import type { CameraStatus, Incident, IncidentStatus, PersonRole, Role, SecurityLevel, SecuritySettings } from '@/types';
+import type { CameraStatus, Incident, IncidentStatus, InViewKind, PersonInView, PersonRole, Role, SecurityLevel, SecuritySettings } from '@/types';
 
 const dateTime = new Intl.DateTimeFormat('en-GB', {
   timeZone: config.timezone,
@@ -80,6 +80,17 @@ export const nightModeActive = (s: SecuritySettings) => s.night.enabled && s.eff
 /** "Away (night mode until 06:00)" while the schedule applies, else the plain level name. */
 export const effectiveLevelText = (s: SecuritySettings) =>
   nightModeActive(s) ? `Away (night mode until ${s.night.end})` : securityLevelLabel[s.effectiveLevel];
+
+/** /api/status peopleInView kinds -> display text (same meaning as the live-frame colours). */
+export const inViewKindLabel: Record<InViewKind, string> = {
+  family: 'Resident',
+  guest_allowed: 'Visitor (allowed now)',
+  guest_outside: 'Visitor outside allowed time',
+  unknown: 'Unknown person',
+};
+
+/** Name to show for someone in view; unknown people have no name. */
+export const inViewName = (p: PersonInView) => (p.kind === 'unknown' || !p.name || p.name.toLowerCase() === 'unknown' ? 'Unknown' : p.name);
 
 /** Backend keeps family / guest; the UI says Resident / Visitor (never "guest"). */
 export const personRoleLabel: Record<PersonRole, string> = { family: 'Resident', guest: 'Visitor' };

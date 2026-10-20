@@ -7,13 +7,14 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/States';
 import { CameraFeed } from '@/components/cameras/CameraFeed';
 import { LiveStatusStrip } from '@/components/live/LiveStatusStrip';
+import { IN_VIEW_STYLE } from '@/components/live/PeopleInView';
 import { SecurityLevelControl } from '@/components/security/SecurityLevelControl';
 
 const LEGEND: Array<{ dot: string; label: string }> = [
-  { dot: 'bg-green-500', label: 'Resident (family) - allowed, no alert' },
-  { dot: 'bg-cyan-400', label: 'Visitor inside their allowed window' },
-  { dot: 'bg-orange-400', label: 'Visitor outside their window - homeowner alerted' },
-  { dot: 'bg-red-500', label: 'Unknown person - incident recorded and alert sent' },
+  { dot: IN_VIEW_STYLE.family.dot, label: 'Resident (family) - allowed, no alert' },
+  { dot: IN_VIEW_STYLE.guest_allowed.dot, label: 'Visitor inside their allowed window' },
+  { dot: IN_VIEW_STYLE.guest_outside.dot, label: 'Visitor outside their window - homeowner alerted' },
+  { dot: IN_VIEW_STYLE.unknown.dot, label: 'Unknown person - incident recorded and alert sent' },
 ];
 
 /** One home, one front-door camera: the feed, live engine status and the colour legend. */

@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import { Activity, Gauge, UserX } from 'lucide-react';
+import { Activity, Gauge, Users, UserX } from 'lucide-react';
 import type { LiveStatus } from '@/types';
 import { cn } from '@/utils/format';
 import { Card } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/States';
+import { PeopleInView } from './PeopleInView';
 
 interface Props {
   status?: LiveStatus;
@@ -11,7 +12,7 @@ interface Props {
   error: Error | null;
 }
 
-/** Three live tiles from GET /api/status: engine state, FPS and unknown people in view. */
+/** Three live tiles from GET /api/status (engine state, FPS, unknown in view) plus who is in view, when the backend reports it. */
 export function LiveStatusStrip({ status, loading, error }: Props) {
   if (error && !status) {
     return (
@@ -22,30 +23,41 @@ export function LiveStatusStrip({ status, loading, error }: Props) {
   }
   const unknown = status?.unknownCount ?? 0;
   return (
-    <div className="mb-4 grid gap-3 sm:grid-cols-3" aria-live="polite">
-      <Tile
-        label="Detection engine"
-        icon={<Activity className="h-4 w-4" />}
-        tone={status ? (status.running ? 'ok' : 'danger') : 'default'}
-        loading={loading && !status}
-        value={status ? (status.running ? 'Running' : 'Stopped') : '-'}
-        hint={status?.cameraName}
-      />
-      <Tile
-        label="Frames per second"
-        icon={<Gauge className="h-4 w-4" />}
-        loading={loading && !status}
-        value={status ? status.fps.toFixed(1) : '-'}
-        hint="AI processing speed"
-      />
-      <Tile
-        label="Unknown in view"
-        icon={<UserX className="h-4 w-4" />}
-        tone={unknown > 0 ? 'danger' : 'ok'}
-        loading={loading && !status}
-        value={status ? String(unknown) : '-'}
-        hint={unknown > 0 ? 'Unrecognised person at the door now' : 'No unknown people right now'}
-      />
+    <div className="mb-4 space-y-3">
+      <div className="grid gap-3 sm:grid-cols-3" aria-live="polite">
+        <Tile
+          label="Detection engine"
+          icon={<Activity className="h-4 w-4" />}
+          tone={status ? (status.running ? 'ok' : 'danger') : 'default'}
+          loading={loading && !status}
+          value={status ? (status.running ? 'Running' : 'Stopped') : '-'}
+          hint={status?.cameraName}
+        />
+        <Tile
+          label="Frames per second"
+          icon={<Gauge className="h-4 w-4" />}
+          loading={loading && !status}
+          value={status ? status.fps.toFixed(1) : '-'}
+          hint="AI processing speed"
+        />
+        <Tile
+          label="Unknown in view"
+          icon={<UserX className="h-4 w-4" />}
+          tone={unknown > 0 ? 'danger' : 'ok'}
+          loading={loading && !status}
+          value={status ? String(unknown) : '-'}
+          hint={unknown > 0 ? 'Unrecognised person at the door now' : 'No unknown people right now'}
+        />
+      </div>
+      {status?.peopleInView && (
+        <Card className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3">
+          <p className="flex shrink-0 items-center gap-2 text-xs text-ink-3">
+            <Users className="h-4 w-4" aria-hidden />
+            At the door now
+          </p>
+          <PeopleInView people={status.peopleInView} />
+        </Card>
+      )}
     </div>
   );
 }

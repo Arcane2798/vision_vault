@@ -159,6 +159,16 @@ export interface LiveStatus {
   cameraName: string;
   /** effective level (night schedule applied) */
   securityLevel?: SecurityLevel;
+  /** who is in view right now (missing on older backends) */
+  peopleInView?: PersonInView[];
+}
+
+/** family = resident (green), guest_allowed = visitor in window (cyan), guest_outside = visitor outside window (orange), unknown (red). */
+export type InViewKind = 'family' | 'guest_allowed' | 'guest_outside' | 'unknown';
+
+export interface PersonInView {
+  name: string;
+  kind: InViewKind;
 }
 
 /** Backend role values. Display text: family -> "Resident", guest -> "Visitor" (see utils/format.ts). */
