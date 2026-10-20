@@ -59,6 +59,7 @@ class VisionEngine:
         self.known = {}           # name -> (n, 512) embeddings; swapped whole under self.lock
         self.people = {}          # name -> people row; swapped whole under self.lock
         self._reload_lock = threading.Lock()   # serialises reload_people() calls
+        self.last_seen = {}       # name -> epoch of last frame a known person was in view (self.lock)
 
         self.recorder = ClipRecorder(fps=CLIP_FPS)
         self.identity = {}        # track_id -> name (locked once recognized)
@@ -201,6 +202,11 @@ class VisionEngine:
         with self.lock:
             return self.latest_jpeg
 
+    def get_last_seen(self):
+        """{name: epoch} of when each known person was last in view (this run only)."""
+        with self.lock:
+            return dict(self.last_seen)
+
     def get_status(self):
         with self.lock:
             return {"camera": self.camera_name,
@@ -250,6 +256,7 @@ class VisionEngine:
 
             current_unknown = set()
             pending = []              # (tid, event_type, name) to trigger after drawing
+            seen_known = set()        # recognised people in this frame
             now = time.time()
             with self.lock:
                 known, people = self.known, self.people
@@ -341,6 +348,8 @@ class VisionEngine:
                         self.unknown_since.pop(tid, None)
 
                     kind = classify_person(name, people.get(name), now)
+                    if kind != UNKNOWN:
+                        seen_known.add(name)
                     if kind == GUEST_OUTSIDE and tid not in self.guest_alerted:
                         self.guest_alerted.add(tid)
                         pending.append((tid, GUEST_OUTSIDE, name))
@@ -382,6 +391,8 @@ class VisionEngine:
                     self.latest_jpeg = buf.tobytes()
                     self.unknown_count = len(current_unknown)
                     self.fps = fps
+                    for n in seen_known:
+                        self.last_seen[n] = now
 
             if self.is_file:   # don't run faster than the video's real speed
                 time.sleep(max(0, frame_delay - (time.time() - now)))

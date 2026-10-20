@@ -175,7 +175,7 @@ orange, unknown red, static figure grey.
       family → allowed (green); guest inside window → allowed (cyan, label `guest:<name>`);
       guest outside window → event `guest_outside_window` + Telegram (orange); no match → `intrusion` (red).
       Window check is a pure function `visitor_allowed(role, valid_from, valid_to, now) -> bool`.
-- [ ] **Engine:** `last_seen: {name: epoch}` updated whenever a known person is matched (under `self.lock`); exposed as `lastSeen` on people.
+- [x] **Engine:** `last_seen: {name: epoch}` updated whenever a known person is matched (under `self.lock`); exposed as `lastSeen` on people.
 - [ ] **API** (needs `pip install python-multipart`):
       `GET /api/people`, `POST /api/people` (multipart: name, role, validFrom?, validTo?, photos[]),
       `PATCH /api/people/{id}` (JSON `{role?, validFrom?, validTo?}`), `DELETE /api/people/{id}` (row + folder),
@@ -188,11 +188,17 @@ orange, unknown red, static figure grey.
       `normal` — current defaults (GRACE 3 s, MOVE_REQUIRED 0.08);
       `away` — GRACE 1 s, MOVE_REQUIRED 0 (a standing stranger also alerts), MATCH_THRESH raised by 0.05 (stricter face match).
       Engine `set_security_level(level)` under `self.lock`; the current level is drawn in the frame corner.
-      API: `GET /api/security` → `{level, updatedAt}`, `PUT /api/security` `{level}` (400 on unknown level); `/api/status` adds `securityLevel`.
+      **Night schedule (owner request, Tue 20 Oct):** settings `night_enabled` (default off), `night_start` / `night_end` ("HH:MM", default
+      "23:00" / "06:00", local machine time, window may cross midnight). Pure function
+      `effective_level(level, night_enabled, night_start, night_end, now) -> str` = `away` inside the night window, else `level`.
+      The engine uses the **effective** level (re-check about once a second, not per frame) and draws it as `AWAY (night)` when the schedule applies.
+      API: `GET /api/security` → `{level, effectiveLevel, night: {enabled, start, end}, updatedAt}`;
+      `PUT /api/security` `{level?, night?: {enabled?, start?, end?}}` (400 on unknown level or bad "HH:MM"); `/api/status` adds `securityLevel` (= effective).
 - [ ] **Frontend `/people` page** ("Residents & Visitors"): list family + visitors (thumbnail, role, window, active badge, "last seen 14:32"),
       add person with photo upload, edit visitor window, delete with confirm. Types in `types/index.ts`, calls in `services/index.ts`.
 - [ ] **Frontend security level:** segmented control Home / Normal / Away (one-line description each) on the Live Monitoring page,
-      plus a small badge with the current level in the top bar. Calls `GET/PUT /api/security`.
+      plus a small badge with the **effective** level in the top bar. Below it, a "Night mode — auto Away" toggle with start/end
+      time inputs; when it's active now, show "Away (night mode until 06:00)". Calls `GET/PUT /api/security`.
 
 ### Phase 2 — Chatbot with tool calling + guard-house alert (Thu 22)
 - [ ] `POST /api/chat` `{messages}` → `{reply, pendingAction?}` using the `anthropic` Python SDK, model `claude-sonnet-5-5`,
@@ -228,7 +234,7 @@ orange, unknown red, static figure grey.
 
 ## KIV (after Friday)
 Login & roles · liveness / anti-spoofing · dedicated weapon model (guns) · ESP32 buzzer · township-wide guard dashboard
-(many homes) · scheduled security levels (auto Away at night) · multi-camera · remove frontend mock mode (`src/mocks/`).
+(many homes) · multi-camera · remove frontend mock mode (`src/mocks/`).
 
 ## Pending deletion (awaiting owner check — do not delete yet)
 | Item | Why |
