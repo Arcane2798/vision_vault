@@ -341,8 +341,13 @@ export interface MapCamera {
   live?: boolean;
   /** recorded video in test_videos/ */
   video?: string;
+  /** seconds into the replay at which this camera's video starts */
   offset?: number;
   videoFound: boolean;
+  videoSizeBytes?: number | null;
+  videoModifiedAt?: string | null;
+  /** seconds */
+  videoDuration?: number | null;
 }
 
 export interface HouseMap {
@@ -352,7 +357,8 @@ export interface HouseMap {
   rooms: MapRoom[];
   doors: Array<[string, string]>;
   cameras: MapCamera[];
-  timeline: { ready: boolean; duration: number; processedAt: string | null };
+  /** stale = a video was uploaded after the last processing */
+  timeline: { ready: boolean; duration: number; processedAt: string | null; stale: boolean };
 }
 
 export interface MapPerson {

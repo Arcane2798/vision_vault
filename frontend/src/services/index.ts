@@ -75,6 +75,8 @@ export const familyService = {
   photoSrc: (m: FamilyMember): string => backendUrl(m.photoUrl),
 };
 
+const VIDEO_UPLOAD_TIMEOUT_MS = 10 * 60000; // test videos can be hundreds of MB
+
 /** House map + safe path (side features 3 & 4). */
 export const mapService = {
   get: (): Promise<HouseMap> => api('/map'),
@@ -82,10 +84,18 @@ export const mapService = {
   state: (t: number | undefined, live: boolean): Promise<MapState> =>
     api('/map/state', { query: { t: t === undefined ? undefined : t.toFixed(2), live: live ? 'true' : undefined } }),
   process: (): Promise<MapStatus> => api('/map/process', { method: 'POST' }),
+  /** the recorded video for one room camera (saved under the file name in house_map.json) */
+  uploadVideo: (cameraId: string, video: File): Promise<HouseMap> => {
+    const form = new FormData();
+    form.append('video', video, video.name);
+    return api(`/map/cameras/${encodeURIComponent(cameraId)}/video`, { method: 'POST', body: form, timeoutMs: VIDEO_UPLOAD_TIMEOUT_MS });
+  },
+  /** seconds into the replay at which this camera's video starts (no re-processing needed) */
+  setOffset: (cameraId: string, offset: number): Promise<HouseMap> =>
+    api(`/map/cameras/${encodeURIComponent(cameraId)}`, { method: 'PATCH', body: { offset } }),
   status: (): Promise<MapStatus> => api('/map/status'),
 };
 
-const VIDEO_UPLOAD_TIMEOUT_MS = 10 * 60000; // test videos can be hundreds of MB
 
 /** Video source: live camera or a recorded test video (live mode only). */
 export const sourceService = {

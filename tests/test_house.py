@@ -56,11 +56,14 @@ def test_occupancy_and_live():
                             {"t": 4.0, "people": []}],
                       "h": [{"t": 2.0, "people": [{"name": "unknown", "kind": "unknown"}]}]}}
     assert house.occupancy_at(CFG, tl, 0.5) == {}
+    # camera "h" has offset 2: its sample at 2.0 s of video is 4.0 s on the replay clock
+    occ = house.occupancy_at(CFG, tl, 4.2)
+    assert occ == {"hall": [{"name": "unknown", "kind": "unknown", "camera": "h"}]}
     occ = house.occupancy_at(CFG, tl, 2.2)
-    assert occ == {"kitchen": [{"name": "Azhad", "kind": "family", "camera": "k"}],
-                   "hall": [{"name": "unknown", "kind": "unknown", "camera": "h"}]}
+    assert occ == {"kitchen": [{"name": "Azhad", "kind": "family", "camera": "k"}]}
     assert house.occupancy_at(CFG, tl, 3.9) == {}                      # samples too old
     assert house.timeline_duration(tl) == 4.0
+    assert house.timeline_duration(tl, CFG) == 4.0                     # h: 2 + 2.0
     live = house.merge_live(CFG, {}, [{"name": "unknown", "kind": "unknown"},
                                       {"name": "Ali", "kind": "guest_allowed"},
                                       {"name": "unknown", "kind": "leaving"}])
@@ -95,15 +98,77 @@ def test_map_api(client, engine, tmp_path, monkeypatch):
     assert [r["id"] for r in m["rooms"]][0] == "front" and m["timeline"]["ready"] is False
     assert {c["id"]: c["videoFound"] for c in m["cameras"]} == {"cam-01": True, "k": False, "h": False}
     r = client.post("/api/map/process")
-    assert r.status_code == 400 and "k.mp4" in r.json()["detail"]
+    assert r.status_code == 400 and "No room videos" in r.json()["detail"]
     (tmp_path / "t.json").write_text(json.dumps({"processedAt": 1.0, "cameras": {
         "h": [{"t": 2.0, "people": [{"name": "unknown", "kind": "unknown"}]}]}}))
-    assert client.get("/api/map").json()["timeline"]["duration"] == 2.0
+    assert client.get("/api/map").json()["timeline"]["duration"] == 4.0   # h offset 2 + 2.0
     engine.in_view = [{"name": "Azhad", "kind": "family"}]
-    s = client.get("/api/map/state?t=2.5&live=true").json()
+    s = client.get("/api/map/state?t=4.5&live=true").json()
     assert s["intruderRooms"] == ["hall"]
     assert s["rooms"]["living"][0]["name"] == "Azhad"
     assert s["safePaths"] == [{"name": "Azhad", "from": "living", "path": ["living", "front"],
                                "advice": "Leave via Front yard."}]
     assert client.get("/api/map/state").json()["rooms"] == {}
     assert client.get("/api/map/status").json()["state"] == "idle"
+
+
+def _tiny_video(path, frames=10):
+    import cv2
+    import numpy as np
+    w = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), 5, (64, 48))
+    for i in range(frames):
+        w.write(np.full((48, 64, 3), i * 20, np.uint8))
+    w.release()
+    return path.read_bytes()
+
+
+def test_timeline_stale_and_offsets():
+    tl = {"processedAt": 100.0, "cameras": {"k": [{"t": 0, "people": []}]}}
+    assert house.timeline_stale(CFG, {}, {"k": 500.0}) is False        # never processed
+    assert house.timeline_stale(CFG, tl, {"k": 50.0, "h": None}) is False
+    assert house.timeline_stale(CFG, tl, {"k": 150.0}) is True         # re-uploaded after processing
+    assert house.timeline_stale(CFG, tl, {"k": 50.0, "h": 60.0}) is True   # h never processed
+    moved = house.set_camera_offset(CFG, "k", "12.5")
+    assert next(c for c in moved["cameras"] if c["id"] == "k")["offset"] == 12.5
+    assert next(c for c in CFG["cameras"] if c["id"] == "k")["offset"] == 0   # original untouched
+    for bad in (-1, 99999, "soon"):
+        with pytest.raises(house.MapError):
+            house.set_camera_offset(CFG, "k", bad)
+    with pytest.raises(house.MapError, match="live"):
+        house.set_camera_offset(CFG, "cam-01", 1)
+    with pytest.raises(house.MapError, match="no camera"):
+        house.set_camera_offset(CFG, "nope", 1)
+
+
+def test_map_video_upload_and_offset_api(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(house, "MAP_FILE", tmp_path / "m.json")
+    monkeypatch.setattr(house, "TIMELINE_FILE", tmp_path / "t.json")
+    monkeypatch.setattr(house, "VIDEO_DIR", tmp_path / "videos")
+    (tmp_path / "m.json").write_text(json.dumps(CFG))
+    good = _tiny_video(tmp_path / "src.mp4")
+
+    r = client.post("/api/map/cameras/k/video", files={"video": ("phone clip.mp4", good, "video/mp4")})
+    assert r.status_code == 200, r.text
+    k = next(c for c in r.json()["cameras"] if c["id"] == "k")
+    assert k["videoFound"] is True and k["videoDuration"] == 2.0 and k["videoSizeBytes"] == len(good)
+    assert (tmp_path / "videos" / "k.mp4").read_bytes() == good          # saved under the map's name
+
+    # a bad upload keeps the good video
+    r = client.post("/api/map/cameras/k/video", files={"video": ("x.mp4", b"not a video", "video/mp4")})
+    assert r.status_code == 400 and (tmp_path / "videos" / "k.mp4").read_bytes() == good
+    assert client.post("/api/map/cameras/k/video", files={"video": ("x.txt", good, "text/plain")}).status_code == 400
+    assert client.post("/api/map/cameras/cam-01/video", files={"video": ("x.mp4", good, "video/mp4")}).status_code == 400
+    assert client.post("/api/map/cameras/nope/video", files={"video": ("x.mp4", good, "video/mp4")}).status_code == 404
+    assert not list((tmp_path / "videos").glob(".upload_*"))             # no temp files left
+
+    # processed before the upload -> stale
+    (tmp_path / "t.json").write_text(json.dumps({"processedAt": 1.0, "cameras": {"k": [{"t": 0, "people": []}]}}))
+    assert client.get("/api/map").json()["timeline"]["stale"] is True
+
+    r = client.patch("/api/map/cameras/h", json={"offset": 7.5})
+    assert r.status_code == 200 and next(c for c in r.json()["cameras"] if c["id"] == "h")["offset"] == 7.5
+    assert json.loads((tmp_path / "m.json").read_text())["cameras"][2]["offset"] == 7.5   # persisted
+    assert client.patch("/api/map/cameras/h", json={"offset": -3}).status_code == 400
+    assert client.patch("/api/map/cameras/cam-01", json={"offset": 1}).status_code == 400
+    assert client.patch("/api/map/cameras/nope", json={"offset": 1}).status_code == 404
+

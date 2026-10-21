@@ -5,6 +5,7 @@ frontend's model. Auth is not implemented: run the frontend with
 VITE_AUTH_ENABLED=false.
 """
 import asyncio
+import os
 import shutil
 import sqlite3
 import time
@@ -58,6 +59,10 @@ class SecurityUpdate(BaseModel):
     level: Optional[str] = None
     night: Optional[NightUpdate] = None
     away: Optional[AwayUpdate] = None
+
+
+class MapCameraUpdate(BaseModel):
+    offset: float
 
 
 class PresenceUpdate(BaseModel):
@@ -191,6 +196,38 @@ def _readable_video(p: Path) -> bool:
         return cap.isOpened() and cap.read()[0]
     finally:
         cap.release()
+
+
+def _video_duration(p: Path):
+    """Seconds, or None if unknown."""
+    cap = cv2.VideoCapture(str(p))
+    try:
+        fps, frames = cap.get(cv2.CAP_PROP_FPS), cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        return round(frames / fps, 1) if fps and frames else None
+    finally:
+        cap.release()
+
+
+async def _receive_video(video: UploadFile, dest: Path):
+    """Stream an uploaded video to `dest`. It goes to a temporary file first and only replaces
+    `dest` once it is known to be a readable video, so a bad upload never destroys a good one.
+    400 on a bad type, more than 500 MB, or an unreadable file."""
+    if Path(video.filename or "").suffix.lower() not in VIDEO_EXT:
+        raise HTTPException(400, f"Unsupported video type. Use one of: {', '.join(sorted(VIDEO_EXT))}.")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp, size = dest.with_name(f".upload_{dest.name}"), 0
+    try:
+        with open(tmp, "wb") as f:
+            while chunk := await video.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_VIDEO_BYTES:
+                    raise HTTPException(400, "Video is larger than 500 MB.")
+                f.write(chunk)
+        if not await asyncio.to_thread(_readable_video, tmp):
+            raise HTTPException(400, "Could not read that video. Try an .mp4 (H.264) file.")
+        os.replace(tmp, dest)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def _incident(r, base):
@@ -389,22 +426,9 @@ def create_router(engine):
 
     @router.post("/source/videos", status_code=201)
     async def upload_video(video: UploadFile = File(...)):
-        if Path(video.filename or "").suffix.lower() not in VIDEO_EXT:
-            raise HTTPException(400, f"Unsupported video type. Use one of: {', '.join(sorted(VIDEO_EXT))}.")
         VIDEO_DIR.mkdir(exist_ok=True)
-        dest, size = _free_video_name(video.filename), 0
-        try:
-            with open(dest, "wb") as f:
-                while chunk := await video.read(1024 * 1024):
-                    size += len(chunk)
-                    if size > MAX_VIDEO_BYTES:
-                        raise HTTPException(400, "Video is larger than 500 MB.")
-                    f.write(chunk)
-            if not await asyncio.to_thread(_readable_video, dest):
-                raise HTTPException(400, "Could not read that video. Try an .mp4 (H.264) file.")
-        except BaseException:
-            dest.unlink(missing_ok=True)
-            raise
+        dest = _free_video_name(video.filename or "video.mp4")
+        await _receive_video(video, dest)
         return _video_json(dest)
 
     # ---------- incidents ----------
@@ -642,25 +666,63 @@ def create_router(engine):
         s["processedAt"] = _iso(s["processedAt"]) if s.get("processedAt") else None
         return s
 
-    @router.get("/map")
-    def get_map():
-        cfg = house_map()
+    def map_video(cam):
+        return house.VIDEO_DIR / Path(cam["video"]).name
+
+    def map_json(cfg):
         tl = house.load_timeline()
-        cams = [dict(c, videoFound=(c.get("live") or (house.VIDEO_DIR / Path(c["video"]).name).exists()))
-                for c in cfg.get("cameras", [])]
+        cams, mtimes = [], {}
+        for c in cfg.get("cameras", []):
+            if c.get("live"):
+                cams.append(dict(c, videoFound=True))
+                continue
+            p = map_video(c)
+            found = p.is_file()
+            mtimes[c["id"]] = p.stat().st_mtime if found else None
+            cams.append(dict(c, videoFound=found,
+                             videoSizeBytes=p.stat().st_size if found else None,
+                             videoModifiedAt=_iso(mtimes[c["id"]]) if found else None,
+                             videoDuration=_video_duration(p) if found else None))
         return {"name": cfg.get("name", "House map"), "width": cfg.get("width"), "height": cfg.get("height"),
                 "rooms": cfg["rooms"], "doors": cfg.get("doors", []), "cameras": cams,
-                "timeline": {"ready": bool(tl.get("cameras")), "duration": house.timeline_duration(tl),
-                             "processedAt": _iso(tl["processedAt"]) if tl.get("processedAt") else None}}
+                "timeline": {"ready": bool(tl.get("cameras")), "duration": house.timeline_duration(tl, cfg),
+                             "processedAt": _iso(tl["processedAt"]) if tl.get("processedAt") else None,
+                             "stale": house.timeline_stale(cfg, tl, mtimes)}}
+
+    @router.get("/map")
+    def get_map():
+        return map_json(house_map())
+
+    @router.post("/map/cameras/{cam_id}/video")
+    async def upload_map_video(cam_id: str, video: UploadFile = File(...)):
+        """Upload the recorded video for one room camera (saved under the file name in the map)."""
+        cfg = house_map()
+        try:
+            cam = house.recorded_camera(cfg, cam_id)
+        except house.MapError as e:
+            raise HTTPException(404 if "no camera" in str(e) else 400, str(e))
+        if map_processor.status()["state"] == "processing":
+            raise HTTPException(409, "Videos are being processed. Upload again when it finishes.")
+        await _receive_video(video, map_video(cam))
+        return map_json(cfg)
+
+    @router.patch("/map/cameras/{cam_id}")
+    def update_map_camera(cam_id: str, body: MapCameraUpdate):
+        """Shift a recorded camera's video on the replay clock (no re-processing needed)."""
+        cfg = house_map()
+        try:
+            cfg = house.set_camera_offset(cfg, cam_id, body.offset)
+            house.save_map(cfg)
+        except house.MapError as e:
+            raise HTTPException(404 if "no camera" in str(e) else 400, str(e))
+        return map_json(cfg)
 
     @router.post("/map/process", status_code=202)
     def process_map_videos():
         cfg = house_map()
-        missing = [c["video"] for c in cfg.get("cameras", [])
-                   if not c.get("live") and not (house.VIDEO_DIR / Path(c["video"]).name).exists()]
-        if missing:
-            raise HTTPException(400, "Missing videos in test_videos/: " + ", ".join(missing)
-                                + ". Upload them on the Test Video page first.")
+        # rooms without a video are simply empty on the map; at least one video is needed
+        if not any(map_video(c).is_file() for c in cfg.get("cameras", []) if not c.get("live")):
+            raise HTTPException(400, "No room videos uploaded yet. Upload at least one video on the House map page.")
         if not map_processor.start(engine, cfg):
             raise HTTPException(409, "Videos are already being processed.")
         return map_status_json()

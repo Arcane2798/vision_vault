@@ -9,6 +9,7 @@ Everything except process_videos() is pure, so it is unit-tested without models 
 """
 import bisect
 import json
+import os
 import threading
 import time
 from collections import deque
@@ -19,6 +20,7 @@ TIMELINE_FILE = Path("house_map_timeline.json")
 VIDEO_DIR = Path("test_videos")
 SAMPLE_FPS = 4.0          # frames per second of each recorded video that are analysed
 SEEN_WINDOW = 1.5         # a camera sample counts for this many seconds of replay time
+MAX_OFFSET = 3600.0       # a camera's video may start up to an hour into the replay
 
 
 class MapError(ValueError):
@@ -65,6 +67,56 @@ def validate_map(cfg: dict) -> None:
             raise MapError(f"camera {c['id']!r} is in unknown room {c.get('room')!r}")
         if not c.get("live") and not c.get("video"):
             raise MapError(f"camera {c['id']!r} needs \"live\": true or a \"video\" file name")
+
+
+def save_map(cfg: dict, path=None) -> None:
+    """Validate and write the map (atomically, so a crash never leaves half a file)."""
+    validate_map(cfg)
+    path = Path(path or MAP_FILE)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def recorded_camera(cfg: dict, cam_id: str) -> dict:
+    """The recorded (non-live) camera with this id; MapError if missing or live."""
+    cam = next((c for c in cfg.get("cameras", []) if c.get("id") == cam_id), None)
+    if cam is None:
+        raise MapError(f"no camera {cam_id!r} in the map")
+    if cam.get("live"):
+        raise MapError(f"{cam['name']} is the live camera: it has no recorded video")
+    return cam
+
+
+def set_camera_offset(cfg: dict, cam_id: str, offset) -> dict:
+    """A copy of the map with this recorded camera's video starting `offset` seconds into the replay."""
+    try:
+        offset = float(offset)
+    except (TypeError, ValueError):
+        raise MapError("offset must be a number of seconds")
+    if not 0 <= offset <= MAX_OFFSET:
+        raise MapError(f"offset must be between 0 and {int(MAX_OFFSET)} seconds")
+    recorded_camera(cfg, cam_id)
+    out = dict(cfg)
+    out["cameras"] = [dict(c, offset=round(offset, 2)) if c.get("id") == cam_id else c
+                      for c in cfg.get("cameras", [])]
+    return out
+
+
+def timeline_stale(cfg: dict, timeline: dict, video_mtimes: dict) -> bool:
+    """True when a recorded camera's video changed (or appeared) after the last processing.
+    `video_mtimes` is {cam_id: mtime or None}. Offsets never make it stale (applied at replay)."""
+    cams = timeline.get("cameras") or {}
+    if not cams:
+        return False                       # never processed: a different state, not "stale"
+    processed = timeline.get("processedAt") or 0
+    for c in cfg.get("cameras", []):
+        if c.get("live"):
+            continue
+        m = video_mtimes.get(c["id"])
+        if m is not None and (m > processed or c["id"] not in cams):
+            return True
+    return False
 
 
 def neighbours(doors) -> dict:
@@ -131,16 +183,19 @@ def plan_safe_paths(cfg: dict, occupancy: dict) -> list:
 # ---------- recorded-video timeline ----------
 def occupancy_at(cfg: dict, timeline: dict, t: float, window: float = SEEN_WINDOW) -> dict:
     """{room_id: [{name, kind, camera}]} at replay time t: each recorded camera contributes its
-    latest sample not older than `window` seconds."""
+    latest sample not older than `window` seconds. Sample times are seconds into that camera's
+    video; the camera's `offset` (from the map, so it can be edited without re-processing)
+    shifts its video on the shared replay clock."""
     occ = {}
     cams = {c["id"]: c for c in cfg.get("cameras", [])}
     for cam_id, samples in (timeline.get("cameras") or {}).items():
         cam = cams.get(cam_id)
         if cam is None or not samples:
             continue
+        local = t - float(cam.get("offset", 0))
         times = [s["t"] for s in samples]
-        i = bisect.bisect_right(times, t) - 1
-        if i < 0 or t - times[i] > window:
+        i = bisect.bisect_right(times, local) - 1
+        if i < 0 or local - times[i] > window:
             continue
         for p in samples[i]["people"]:
             occ.setdefault(cam["room"], []).append({"name": p["name"], "kind": p["kind"], "camera": cam_id})
@@ -161,8 +216,11 @@ def merge_live(cfg: dict, occ: dict, in_view) -> dict:
     return occ
 
 
-def timeline_duration(timeline: dict) -> float:
-    return max((s[-1]["t"] for s in (timeline.get("cameras") or {}).values() if s), default=0.0)
+def timeline_duration(timeline: dict, cfg=None) -> float:
+    """Length of the replay: the latest sample of any camera, shifted by its offset."""
+    offsets = {c["id"]: float(c.get("offset", 0)) for c in (cfg or {}).get("cameras", [])}
+    return max((offsets.get(cam, 0.0) + s[-1]["t"]
+                for cam, s in (timeline.get("cameras") or {}).items() if s), default=0.0)
 
 
 def load_timeline(path=None) -> dict:
@@ -215,9 +273,11 @@ def process_videos(engine, cfg, progress=lambda cam, p: None) -> dict:
     import engine as eng
     from rules import FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, classify_person, security_params
 
-    recorded = [c for c in cfg.get("cameras", []) if not c.get("live")]
+    # rooms without a video yet are skipped (they stay empty on the map)
+    recorded = [c for c in cfg.get("cameras", [])
+                if not c.get("live") and (VIDEO_DIR / Path(c["video"]).name).is_file()]
     if not recorded:
-        raise MapError("no recorded cameras in the map (add cameras with a \"video\")")
+        raise MapError("no room videos uploaded yet")
     with engine.lock:
         known, people = engine.known, engine.people
     thresh = security_params("normal")["match_thresh"]
@@ -262,8 +322,8 @@ def process_videos(engine, cfg, progress=lambda cam, p: None) -> dict:
                     name = identity.get(tid, "unknown")
                     kind = kind_of.get(classify_person(name, people.get(name), time.time()), "unknown")
                     seen.append({"name": name, "kind": kind})
-            t = float(cam.get("offset", 0)) + (idx - 1) / src_fps
-            samples.append({"t": round(t, 2), "people": seen})
+            # seconds into this video; the camera's offset is applied at replay (occupancy_at)
+            samples.append({"t": round((idx - 1) / src_fps, 2), "people": seen})
             progress(cam["id"], (n + min(1.0, idx / total)) / len(recorded))
         cap.release()
         out[cam["id"]] = samples

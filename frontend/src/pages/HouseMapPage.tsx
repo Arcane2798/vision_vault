@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera as CameraIcon, CircleAlert, Info, Pause, Play, Radio, RefreshCw, Route } from 'lucide-react';
+import { Info, Pause, Play, Radio, Route } from 'lucide-react';
 import { useAsync } from '@/hooks/useAsync';
 import { mapService } from '@/services';
 import type { HouseMap, MapPerson, MapRoom, MapState, MapStatus } from '@/types';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/States';
+import { MapVideosCard } from '@/components/map/MapVideosCard';
 
 type Mode = 'live' | 'replay';
 const SPEEDS = [1, 2, 4];
@@ -194,43 +195,7 @@ export default function HouseMapPage() {
 
           <div className="space-y-4">
             <SafePathCard state={state} map={map.data} />
-            <Card>
-              <CardHeader title="Recorded room cameras" subtitle="Videos in test_videos/, processed once" />
-              <div className="space-y-3 p-4">
-                <ul className="space-y-1.5 text-sm">
-                  {map.data.cameras.map((c) => (
-                    <li key={c.id} className="flex items-center gap-2">
-                      <CameraIcon className={cn('h-4 w-4 shrink-0', c.videoFound ? 'text-ink-2' : 'text-red-300')} aria-hidden />
-                      <span className="min-w-0 flex-1 truncate">
-                        {c.name} <span className="text-ink-3">· {roomName(map.data!, c.room)}</span>
-                      </span>
-                      <span className={cn('shrink-0 text-xs', c.videoFound ? 'text-ink-3' : 'text-red-300')}>{c.live ? 'live' : c.videoFound ? c.video : `missing ${c.video}`}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button size="sm" icon={<RefreshCw className="h-4 w-4" />} loading={status?.state === 'processing'} onClick={process}>
-                    {timeline?.ready ? 'Re-process videos' : 'Process videos'}
-                  </Button>
-                  <span className="text-xs text-ink-3">
-                    {status?.state === 'processing'
-                      ? `Processing ${status.camera ?? ''} ${Math.round((status.progress ?? 0) * 100)}%`
-                      : status?.state === 'error'
-                        ? null
-                        : timeline?.ready
-                          ? `Ready · ${fmt(duration)} of recordings`
-                          : 'Not processed yet'}
-                  </span>
-                </div>
-                {(processError || status?.state === 'error') && (
-                  <p className="flex items-start gap-1.5 text-xs text-red-300">
-                    <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                    {processError ?? status?.error}
-                  </p>
-                )}
-                <p className="text-xs text-ink-3">Processing takes about as long as the videos and slows the live camera meanwhile.</p>
-              </div>
-            </Card>
+            <MapVideosCard map={map.data} status={status} onChanged={() => map.reload()} onProcess={process} processError={processError} />
           </div>
         </div>
       )}
@@ -276,11 +241,6 @@ function FloorPlan({ map, state }: { map: HouseMap; state: MapState | null }) {
           <People room={r} people={state?.rooms[r.id] ?? []} />
         </g>
       ))}
-      {map.doors.map(([a, b]) => {
-        const [x1, y1] = centre[a];
-        const [x2, y2] = centre[b];
-        return <line key={`${a}-${b}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#334155" strokeWidth={0.05} strokeDasharray="0.1 0.12" />;
-      })}
       {paths.map((p) => (
         <polyline
           key={p.name}
@@ -309,18 +269,19 @@ function FloorPlan({ map, state }: { map: HouseMap; state: MapState | null }) {
 }
 
 function People({ room, people }: { room: MapRoom; people: MapPerson[] }) {
-  const cols = Math.max(1, Math.floor((room.w - 0.4) / 0.9));
+  const STEP = 1.5; // room for the name under each dot
+  const cols = Math.max(1, Math.floor((room.w - 0.4) / STEP));
   return (
     <>
       {people.map((p, i) => {
-        const x = room.x + 0.6 + (i % cols) * 0.9;
-        const y = room.y + room.h / 2 + Math.floor(i / cols) * 0.9;
+        const x = room.x + 0.8 + (i % cols) * STEP;
+        const y = room.y + room.h / 2 + Math.floor(i / cols) * 1.1;
         return (
           <g key={`${p.camera}-${p.name}-${i}`}>
             <circle cx={x} cy={y} r={0.28} fill={PERSON_COLOR[p.kind]} stroke="#0f172a" strokeWidth={0.05}>
               <title>{p.kind === 'unknown' ? 'Unknown person' : p.name}</title>
             </circle>
-            <text x={x} y={y + 0.62} fontSize={0.3} textAnchor="middle" fill="#e2e8f0">
+            <text x={x} y={y + 0.62} fontSize={0.28} textAnchor="middle" fill="#e2e8f0">
               {p.kind === 'unknown' ? 'Unknown' : p.name}
             </text>
           </g>
