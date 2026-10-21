@@ -56,6 +56,9 @@ PERSON_CONF = 0.55       # weakest "person" detection at level Normal (per level
 # proves nothing. Items need a lower confidence than people to be found at all.
 ITEM_CLASSES = {34: "baseball bat", 43: "knife", 76: "scissors"}
 ITEM_CONF = 0.25
+# Paused Wed 21 Oct (owner: focus on detecting people and recognising faces). ITEM_DETECTION=1 turns it back on.
+ITEM_DETECTION = env("ITEM_DETECTION", "0") == "1"
+DETECT_CLASSES = [0, *ITEM_CLASSES] if ITEM_DETECTION else [0]
 ITEM_COLOR = (255, 0, 255)   # magenta (BGR)
 MIN_TRACK_FRAMES = 10    # Normal-level default; per level: rules.security_params
 MIN_FACE_PX = 40         # ignore faces narrower than this, in capture pixels (garbage embeddings)
@@ -63,8 +66,9 @@ MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
 
 # Family tracker (camera inside, facing the door): box growing = arriving, shrinking = leaving.
 # DEPARTURE_FILTER: an unknown who starts close to the camera and walks away (a resident leaving,
-# face never seen) is logged as "someone left" instead of raising an intrusion. 0 turns it off.
-DEPARTURE_FILTER = env("DEPARTURE_FILTER", "1") != "0"
+# face never seen) is logged as "someone left" instead of raising an intrusion.
+# Paused Wed 21 Oct: it hid a real intruder walking away from a living-room camera. DEPARTURE_FILTER=1 turns it back on.
+DEPARTURE_FILTER = env("DEPARTURE_FILTER", "0") == "1"
 TRACK_END_SEC = 2.0      # a track unseen this long has left the view: decide arrived / left
 SIZE_SAMPLES = 5         # first / last box heights kept per track for the direction
 LEAVING_COLOR = (200, 200, 200)
@@ -134,7 +138,7 @@ class VisionEngine:
         self.camera_name = camera_name
 
         # Lightweight person detector; face detector + recogniser (see FaceModel)
-        self.detector = YOLO("yolov8n.pt")
+        self.detector = YOLO("yolo11s.pt")
         self.face_app = FaceModel()
 
         self.faces_path = Path(FACES_DIR)
@@ -603,8 +607,9 @@ class VisionEngine:
                 self._forget_tracks(stale_tracks(self.track_seen, now, TRACK_FORGET_SEC))
                 self._next_prune = now + PRUNE_INTERVAL
 
-            res = self.detector.track(frame, classes=[0, *ITEM_CLASSES],
-                                      conf=min(params["person_conf"], ITEM_CONF),
+            res = self.detector.track(frame, classes=DETECT_CLASSES,
+                                      conf=(min(params["person_conf"], ITEM_CONF) if ITEM_DETECTION
+                                            else params["person_conf"]),
                                       persist=True, tracker="bytetrack.yaml",
                                       verbose=False)[0]
             new_items = []            # (tid, labels) seen on an already-alerted intruder

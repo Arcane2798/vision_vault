@@ -99,6 +99,8 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 | `.env` | `TG_TOKEN`, `TG_CHAT_ID`, optional `VIDEO_SOURCE`; optional `GUARD_TG_TOKEN` (separate guard bot; with no `GUARD_TG_CHAT_ID` it messages `TG_CHAT_ID`, so one account gets two bot chats) and `GUARD_TG_CHAT_ID` (guard-house chat; with neither set there is no guard Telegram copy) and `HOUSE_UNIT` (e.g. `No. 12, Jalan Elmina 3/1`); `GEMINI_API_KEY` (AI assistant; unset = `/api/chat` returns 503) and optional `CHAT_MODEL` (default `gemini-3.5-flash-lite`, set in `chat.DEFAULT_MODEL`; `gemini-3.8-flash` allows only 20 free requests/day). There is no backend `.env.example`; copy these lines:<br>`# GUARD_TG_CHAT_ID=-1001234567890`<br>`# HOUSE_UNIT=No. 12, Jalan Elmina 3/1`<br>`# GEMINI_API_KEY=your-key-from-aistudio.google.com`<br>`# CHAT_MODEL=gemini-3.5-flash-lite` |
 
 ## Vision settings (`.env`, added Wed 21 Oct)
+Focus (owner, Wed 21 Oct): accurate person detection + resident/intruder recognition. Person detector is `yolo11s.pt` (was yolov8n/yolo11n; steadier on far, edge and back-turned people, engine ~3–4 FPS). Weapon detection and the departure filter are paused.
+
 | Key | Default | Meaning |
 |---|---|---|
 | `VISION_MODE` | (empty) | `legacy` = pre-Wed-21-Oct behaviour: 640x480, buffalo_s recogniser, face check every 8 frames |
@@ -189,7 +191,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 | 7 | Guard-house alert & dashboard | ✅ Telegram copy + mock Guard House view (/guard) with acknowledge | Phase 2: alert to guard-house Telegram. Dashboard for many homes = KIV (pitch only) |
 | 8 | AI assistant (live feed, locate family) | ✅ Gemini chat with tools + confirm (needs GEMINI_API_KEY) | Phase 1: `lastSeen` per person. Phase 2: chatbot + tools |
 | 9 | Path tracking | ✅ done (trail on live frame + snapshot) | Phase 3: trail drawn on live frame + burned into snapshot |
-| 10 | Intruder's items detection | ✅ prototype (knife / scissors / baseball bat near an unknown person; untested on a real knife) | Phase 3 (optional): COCO `knife` / `scissors` / `baseball bat` near an unknown person |
+| 10 | Intruder's items detection | ⏸ paused Wed 21 Oct (`ITEM_DETECTION=1` re-enables); was a prototype (knife / scissors / baseball bat near an unknown person; untested on a real knife) | Phase 3 (optional): COCO `knife` / `scissors` / `baseball bat` near an unknown person |
 
 "Locate family members" is honest only as **"last seen at the front door at 14:32"** because there is one camera. Say it that way in the UI and chatbot.
 
@@ -344,7 +346,7 @@ Real deployment = a separate township server for many homes (KIV); the demo is o
 | # | Feature | Status |
 |---|---|---|
 | S1 | Account login (head of house = admin) | KIV (owner chose to skip) |
-| S2 | Family members tracker (who is home / out) | ✅ `/api/family`, dashboard card, Viva Bot `who_is_home`. `DEPARTURE_FILTER` (default on): an unknown who starts close to the camera and walks away is logged as "someone left" and does **not** raise an intrusion (`rules.is_departing`) |
+| S2 | Family members tracker (who is home / out) | ✅ `/api/family`, dashboard card, Viva Bot `who_is_home`. `DEPARTURE_FILTER` (⏸ paused Wed 21 Oct, default off; `DEPARTURE_FILTER=1` re-enables — it hid an intruder walking away from a living-room camera): an unknown who starts close to the camera and walks away is logged as "someone left" and does **not** raise an intrusion (`rules.is_departing`) |
 | S3 | Safe path suggestion | ✅ shortest route out avoiding intruder rooms, per resident (`house.safe_path`, `plan_safe_paths`) |
 | S4 | House map (track people across cameras) | ✅ concept: `/map` page. Floor plan + cameras in `house_map.json` (sample plan: edit to match the demo house). Recorded room videos (in `test_videos/`) are processed once into `house_map_timeline.json` (~1.3× video length on this CPU, slows the live camera meanwhile) and replayed; the live camera adds its room. |
 
