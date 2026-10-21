@@ -40,6 +40,12 @@ FACE_RECOGNIZER = env("FACE_RECOGNIZER", "buffalo_s" if LEGACY else "buffalo_l")
 CAPTURE_W, CAPTURE_H = (int(v) for v in
                         (env("CAPTURE_SIZE", "640x480" if LEGACY else "1280x720")).lower().split("x"))
 PROCESS_W = 640           # YOLO / overlay / stream / clip width
+# Person detector. OpenVINO runs yolo11s ~2x faster than PyTorch on this Intel CPU; the export
+# (yolo11s_<h>x<w>_openvino_model/, git-ignored) is made once on first start. DETECTOR_IMGSZ = YOLO input size.
+DETECTOR_MODEL = env("DETECTOR_MODEL", "yolo11s.pt")
+DETECTOR_BACKEND = (env("DETECTOR_BACKEND", "openvino") or "openvino").lower()
+DETECTOR_IMGSZ = int(env("DETECTOR_IMGSZ", "640"))
+DETECTOR_DEVICE = (env("DETECTOR_DEVICE", "gpu") or "gpu").lower()   # OpenVINO: gpu (Intel iGPU) | cpu
 # frames between face checks while a person is unknown: any match during the grace period
 # cancels the alert, so more looks = fewer false alarms on residents, no extra delay for intruders
 FACE_REC_INTERVAL = int(env("FACE_CHECK_FRAMES", "8" if LEGACY else "3"))
@@ -93,6 +99,44 @@ FACE_BOX_COLOR = (255, 255, 255)
 VIEW_KIND = {GUEST_OUTSIDE: "guest_outside"}
 
 
+def detector_shape(imgsz):
+    """(h, w) YOLO input for a 16:9 camera: `imgsz` wide, height rounded up to a multiple of 32
+    (640 -> 384x640). A rectangular export does ~40% less work than a square one."""
+    return -(-imgsz * 9 // 16 // 32) * 32, imgsz
+
+
+def load_detector(model=DETECTOR_MODEL, backend=DETECTOR_BACKEND, imgsz=DETECTOR_IMGSZ,
+                  device=DETECTOR_DEVICE):
+    """(YOLO person detector, extra predict/track kwargs). OpenVINO export if backend is
+    "openvino" (exported once if missing) on the Intel GPU when there is one, else the CPU;
+    any OpenVINO failure falls back to the PyTorch .pt model with a warning."""
+    if backend == "openvino":
+        h, w = detector_shape(imgsz)
+        folder = Path(f"{Path(model).stem}_{h}x{w}_openvino_model")   # suffix tells YOLO the format
+        try:
+            import openvino as ov
+            dev = "GPU" if device == "gpu" and "GPU" in ov.Core().available_devices else "CPU"
+            if not (folder / "metadata.yaml").exists():
+                print(f"[detector] exporting {model} to OpenVINO at {h}x{w} (once, ~1 min)...")
+                out = Path(YOLO(model).export(format="openvino", imgsz=[h, w], verbose=False))
+                if out.resolve() != folder.resolve():
+                    if folder.exists():
+                        import shutil
+                        shutil.rmtree(folder)
+                    out.rename(folder)
+            det = YOLO(str(folder), task="detect")
+            kwargs = {"imgsz": [h, w], "device": f"intel:{dev.lower()}"}
+            det.predict(np.zeros((h, w, 3), np.uint8), verbose=False, **kwargs)   # compile (GPU ~12 s)
+            print(f"[detector] {model} on OpenVINO {dev}, input {h}x{w}")
+            return det, kwargs
+        except Exception as e:
+            print(f"[detector] WARNING: OpenVINO unavailable ({e}); using PyTorch {model}")
+    elif backend != "pytorch":
+        print(f"[detector] WARNING: unknown DETECTOR_BACKEND {backend!r}; using PyTorch")
+    print(f"[detector] {model} on PyTorch CPU, imgsz {imgsz}")
+    return YOLO(model), {"imgsz": imgsz}
+
+
 class FaceModel:
     """Face detector + recogniser with the FaceAnalysis.get() interface the engine uses.
     Only detection and recognition run (no landmark / age / gender models)."""
@@ -138,7 +182,7 @@ class VisionEngine:
         self.camera_name = camera_name
 
         # Lightweight person detector; face detector + recogniser (see FaceModel)
-        self.detector = YOLO("yolo11s.pt")
+        self.detector, self.detect_kwargs = load_detector()
         self.face_app = FaceModel()
 
         self.faces_path = Path(FACES_DIR)
@@ -611,7 +655,7 @@ class VisionEngine:
                                       conf=(min(params["person_conf"], ITEM_CONF) if ITEM_DETECTION
                                             else params["person_conf"]),
                                       persist=True, tracker="bytetrack.yaml",
-                                      verbose=False)[0]
+                                      verbose=False, **self.detect_kwargs)[0]
             new_items = []            # (tid, labels) seen on an already-alerted intruder
 
             if res.boxes.id is not None:

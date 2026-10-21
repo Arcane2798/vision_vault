@@ -107,12 +107,16 @@ Focus (owner, Wed 21 Oct): accurate person detection + resident/intruder recogni
 | `CAPTURE_SIZE` | `1280x720` | Camera capture size. Faces are cropped from this; YOLO/stream/clips use a 640-wide copy |
 | `FACE_RECOGNIZER` | `buffalo_l` | InsightFace pack for recognition (ResNet-50). Cache: `faces/embeddings_<pack>.pkl` (`embeddings.pkl` for buffalo_s) |
 | `FACE_DETECTOR` | `buffalo_s` | Pack for face detection (fast det_500m). Only detection + recognition run, no landmark/age models |
+| `DETECTOR_BACKEND` | `openvino` | `openvino` = OpenVINO export of `yolo11s.pt` (made once on first start into `yolo11s_<h>x<w>_openvino_model/`, git-ignored; GPU compile ~12 s at start); any failure falls back to `pytorch` with a warning |
+| `DETECTOR_DEVICE` | `gpu` | OpenVINO device: `gpu` = the Intel iGPU (falls back to CPU if absent), `cpu` |
 | `FACE_CHECK_FRAMES` | `3` | Frames between face checks while a person is unknown; any match during the grace period cancels the alert |
+Detector ms/frame on the i7-10510U (yolo11s, 832x464 frames; input = width x 16:9): PyTorch CPU 256 / 331 / 480 at 640 / 832 / 960;
+OpenVINO CPU 296 / 353 / 549 (no gain over PyTorch here); **OpenVINO iGPU 104 / 147 / 199** (and frees the CPU for faces).
 Measured on the i7-10510U: face check 110 ms (was 262 ms), engine 7–10 FPS on `test1.mp4` with 2–3 people.
 
 ## Setup & run
 ```bash
-pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python requests imageio-ffmpeg python-multipart google-genai
+pip install ultralytics openvino insightface fastapi uvicorn python-dotenv opencv-python requests imageio-ffmpeg python-multipart google-genai
 ```
 - Backend (from `vision_vault/`): `py -m uvicorn main:app --port 8000`
   - Guard House view runs on the same laptop: switch with the bottom-left button (decided Tue 20 Oct: no phone in the demo).
