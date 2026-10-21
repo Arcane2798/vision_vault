@@ -4,6 +4,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import pickle
 import threading
 import time
+from collections import deque
 from pathlib import Path
 
 import cv2
@@ -17,7 +18,7 @@ from rules import (DEFAULT_LEVEL, DEFAULT_NIGHT_END, DEFAULT_NIGHT_START,
                    FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, SECURITY_LEVELS,
                    UNKNOWN, classify_person, effective_level, guard_alert_due,
                    high_reason, normalize_level, security_params, should_alert_guard,
-                   valid_away_window, valid_hhmm)
+                   stale_tracks, valid_away_window, valid_hhmm)
 from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
                          ClipRecorder, env, get_settings, guard_chat_id, guard_token, house_unit,
                          init_db, load_people, log_event, send_telegram,
@@ -51,6 +52,10 @@ PERSON_CONF = 0.55       # ignore weak "person" detections
 MIN_TRACK_FRAMES = 10    # a track must exist this many frames before it counts
 MIN_FACE_PX = 40         # ignore faces narrower than this, in capture pixels (garbage embeddings)
 MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
+
+TRAIL_LEN = 60           # foot points kept per track for the path trail (~8 s at 7 fps)
+TRACK_FORGET_SEC = 30.0  # drop all state of a track not seen for this long (bounded memory)
+PRUNE_INTERVAL = 5.0     # seconds between stale-track sweeps
 
 LEVEL_COLOR = {"normal": (0, 255, 255), "high": (0, 0, 255)}  # BGR
 LEVEL_CHECK_INTERVAL = 1.0   # seconds between sleep-time / away-date re-checks
@@ -155,6 +160,9 @@ class VisionEngine:
         self.thread = None
 
         self.track_age = {}      # track_id -> frames seen
+        self.trails = {}         # track_id -> deque of foot points (x, y) in frame coords
+        self.track_seen = {}     # track_id -> last time the track was in a frame
+        self._next_prune = 0.0
 
 
     # ---------- enrollment (with per-person disk caching) ----------
@@ -432,13 +440,24 @@ class VisionEngine:
                   f"{int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))}")
         return cap
 
+    def _track_stores(self):
+        """Every per-track dict / set (keyed by ByteTrack id)."""
+        return (self.identity, self.last_faces, self.last_checked, self.verify_fail,
+                self.unknown_since, self.track_age, self.trails, self.track_seen,
+                self.alerted, self.guest_alerted)
+
+    def _forget_tracks(self, tids):
+        for store in self._track_stores():
+            for tid in tids:
+                if isinstance(store, dict):
+                    store.pop(tid, None)
+                else:
+                    store.discard(tid)
+
     def _reset_tracks(self):
         """Forget every track: a new source restarts ByteTrack ids at 1."""
-        for d in (self.identity, self.last_faces, self.last_checked, self.verify_fail,
-                  self.unknown_since, self.track_age):
-            d.clear()
-        for s in (self.alerted, self.guest_alerted):
-            s.clear()
+        for store in self._track_stores():
+            store.clear()
         predictor = getattr(self.detector, "predictor", None)
         for tracker in getattr(predictor, "trackers", None) or []:
             tracker.reset()
@@ -538,6 +557,9 @@ class VisionEngine:
                 params, level = self.params, self.level
             frame_count += 1
             frame_h, frame_w = frame.shape[:2]
+            if now >= self._next_prune:
+                self._forget_tracks(stale_tracks(self.track_seen, now, TRACK_FORGET_SEC))
+                self._next_prune = now + PRUNE_INTERVAL
 
             res = self.detector.track(frame, classes=[0], conf=PERSON_CONF,
                                       persist=True, tracker="bytetrack.yaml",
@@ -553,6 +575,8 @@ class VisionEngine:
                     person_w, person_h = x2 - x1, y2 - y1
                     if person_w < 20 or person_h < 20:
                         continue
+                    self.track_seen[tid] = now
+                    self.trails.setdefault(tid, deque(maxlen=TRAIL_LEN)).append(((x1 + x2) // 2, y2))
                     self.track_age[tid] = self.track_age.get(tid, 0) + 1
                     if self.track_age[tid] < MIN_TRACK_FRAMES:
                         continue
@@ -625,6 +649,7 @@ class VisionEngine:
                         pending.append((tid, GUEST_OUTSIDE, name))
 
                     color, label = STYLE[kind]
+                    self._draw_trail(frame, self.trails.get(tid), color, kind == UNKNOWN)
                     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                     cv2.putText(frame, f"{label.format(name=name)} #{tid}",
                                 (x1, max(20, y1 - 8)),
@@ -676,6 +701,17 @@ class VisionEngine:
                 time.sleep(max(0, frame_delay - (time.time() - now)))
 
         cap.release()
+
+    @staticmethod
+    def _draw_trail(frame, trail, color, emphasise):
+        """Where the person walked (foot points). Unknown people get a thick trail with a start
+        dot, others a thin one; the trail is part of the frame, so it is also in the snapshot."""
+        if not trail or len(trail) < 2:
+            return
+        pts = np.array(trail, np.int32).reshape(-1, 1, 2)
+        cv2.polylines(frame, [pts], False, color, 3 if emphasise else 1, cv2.LINE_AA)
+        if emphasise:
+            cv2.circle(frame, trail[0], 5, color, -1, cv2.LINE_AA)
 
     @staticmethod
     def _draw_level(frame, level):

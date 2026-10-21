@@ -140,3 +140,12 @@ def test_high_reason_sleep_and_away():
     assert valid_away_window(1, 2) and valid_away_window(None, 2) and valid_away_window(1, None)
     assert not valid_away_window(2, 2) and not valid_away_window(3, 2)
     assert effective_level("normal", False, "23:00", "06:00", day, True, trip_from, trip_to) == "high"
+
+
+def test_stale_tracks():
+    from rules import stale_tracks
+    seen = {1: 100.0, 2: 125.0, 3: 131.0}
+    assert stale_tracks(seen, 131.0, 30.0) == {1}
+    assert stale_tracks(seen, 200.0, 30.0) == {1, 2, 3}
+    assert stale_tracks({}, 0, 30.0) == set()
+

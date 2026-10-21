@@ -61,6 +61,12 @@ def classify_person(name: str, person: Optional[dict], now: float) -> str:
     return GUEST_OUTSIDE
 
 
+# ---------- track housekeeping ----------
+def stale_tracks(last_seen: dict, now: float, max_age: float) -> set:
+    """Track ids not seen for more than `max_age` seconds (their state can be dropped)."""
+    return {tid for tid, t in last_seen.items() if now - t > max_age}
+
+
 # ---------- security level (feature 5.1) ----------
 SECURITY_LEVELS = ("normal", "high")
 DEFAULT_LEVEL = "normal"

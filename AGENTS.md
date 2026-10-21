@@ -165,7 +165,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 | 6 | Visitor registration | ✅ done | Phase 1: `people` table + `/people` page — **core** |
 | 7 | Guard-house alert & dashboard | ✅ Telegram copy + mock Guard House view (/guard) with acknowledge | Phase 2: alert to guard-house Telegram. Dashboard for many homes = KIV (pitch only) |
 | 8 | AI assistant (live feed, locate family) | ✅ Gemini chat with tools + confirm (needs GEMINI_API_KEY) | Phase 1: `lastSeen` per person. Phase 2: chatbot + tools |
-| 9 | Path tracking | ❌ | Phase 3: trail drawn on live frame + burned into snapshot |
+| 9 | Path tracking | ✅ done (trail on live frame + snapshot) | Phase 3: trail drawn on live frame + burned into snapshot |
 | 10 | Intruder's items detection | ❌ | Phase 3 (optional): COCO `knife` / `scissors` / `baseball bat` near an unknown person |
 
 "Locate family members" is honest only as **"last seen at the front door at 14:32"** because there is one camera. Say it that way in the UI and chatbot.
@@ -186,7 +186,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 ### Known issues
 - ~~Alert WebSocket sends `clipUrl` before the clip is converted~~ — fixed: backend exposes `clipReady`, incident detail and Guard House show "Clip processing…" until ready.
 - Incident `confidence` is hard-coded `1.0` (alerts are rule-based).
-- Engine per-track dicts (`identity`, `track_age`, `first_pos`, …) grow forever on long runs.
+- ~~Engine per-track dicts grow forever on long runs~~ — fixed Wed 21 Oct: tracks unseen for 30 s are forgotten (`rules.stale_tracks`).
 - Project sits in OneDrive — push to GitHub after every feature.
 - **Security limitation (state it in the demo):** a printed photo of a family member is accepted (no liveness check).
 - **AI assistant privacy:** on the Gemini free tier, Google may use prompts to improve its products. Only text metadata (incident times/status, names, security level) is sent, never camera frames or photos.
@@ -305,8 +305,8 @@ Real deployment = a separate township server for many homes (KIV); the demo is o
       - Incident detail shows "Guard house acknowledged at 21:14 — Guard dispatched" when `guardAcknowledgedAt` is set.
 
 ### Phase 3 — Polish & demo (Fri 23, morning only)
-- [ ] Prune engine per-track state for tracks unseen > 30 s (do this together with path trails, which share the same state)
-- [ ] **Path tracking (feature 9):** keep a `deque(maxlen=60)` of foot points per track; draw the trail as a polyline on the
+- [x] Prune engine per-track state for tracks unseen > 30 s (do this together with path trails, which share the same state)
+- [x] **Path tracking (feature 9):** keep a `deque(maxlen=60)` of foot points per track; draw the trail as a polyline on the
       live frame (red for unknown, faded for others) and burn the unknown's trail into the intrusion snapshot.
 - [ ] Optional quick win **(feature 10):** run YOLO on classes person + `knife`, `scissors`, `baseball bat`; if one overlaps an
       unknown person's box, store it in a new `items` column, add "⚠ carrying knife" to the Telegram text, and show it on the incident.
