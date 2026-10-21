@@ -22,6 +22,7 @@ from rules import (ARRIVED, FAMILY, LEFT, MAX_ACK_NOTE, ROLES, UNKNOWN_PRESENCE,
                    guard_ack_message, presence_status, valid_person_name, visitor_allowed)
 from vault_utils import (DB_PATH, FACES_DIR, house_unit, last_movements, log_movement,
                          send_telegram, sync_people)
+import house
 
 CAMERA_ID = "cam-01"
 STATUSES = {"new", "under_review", "confirmed", "dismissed"}
@@ -626,6 +627,59 @@ def create_router(engine):
         return [{"id": r["id"], "timestamp": _iso(r["ts"]), "name": r["name"],
                  "direction": r["direction"], "source": r["source"]}
                 for r in _rows("SELECT * FROM movements ORDER BY ts DESC, id DESC LIMIT ?", (limit,))]
+
+    # ---------- house map + safe path (side features 3 & 4) ----------
+    map_processor = house.MapProcessor()
+
+    def house_map():
+        try:
+            return house.load_map()
+        except house.MapError as e:
+            raise HTTPException(400, f"House map: {e}")
+
+    def map_status_json():
+        s = map_processor.status()
+        s["processedAt"] = _iso(s["processedAt"]) if s.get("processedAt") else None
+        return s
+
+    @router.get("/map")
+    def get_map():
+        cfg = house_map()
+        tl = house.load_timeline()
+        cams = [dict(c, videoFound=(c.get("live") or (house.VIDEO_DIR / Path(c["video"]).name).exists()))
+                for c in cfg.get("cameras", [])]
+        return {"name": cfg.get("name", "House map"), "width": cfg.get("width"), "height": cfg.get("height"),
+                "rooms": cfg["rooms"], "doors": cfg.get("doors", []), "cameras": cams,
+                "timeline": {"ready": bool(tl.get("cameras")), "duration": house.timeline_duration(tl),
+                             "processedAt": _iso(tl["processedAt"]) if tl.get("processedAt") else None}}
+
+    @router.post("/map/process", status_code=202)
+    def process_map_videos():
+        cfg = house_map()
+        missing = [c["video"] for c in cfg.get("cameras", [])
+                   if not c.get("live") and not (house.VIDEO_DIR / Path(c["video"]).name).exists()]
+        if missing:
+            raise HTTPException(400, "Missing videos in test_videos/: " + ", ".join(missing)
+                                + ". Upload them on the Test Video page first.")
+        if not map_processor.start(engine, cfg):
+            raise HTTPException(409, "Videos are already being processed.")
+        return map_status_json()
+
+    @router.get("/map/status")
+    def map_status():
+        return map_status_json()
+
+    @router.get("/map/state")
+    def map_state(t: Optional[float] = None, live: bool = False):
+        """Who is in which room at replay time t (recorded cameras) and/or now (live camera),
+        plus a safe way out for every resident when an intruder is on the map."""
+        cfg = house_map()
+        occ = house.occupancy_at(cfg, house.load_timeline(), t) if t is not None else {}
+        if live:
+            occ = house.merge_live(cfg, occ, engine.get_status().get("in_view", []))
+        intruders = sorted(room for room, ps in occ.items() if any(p["kind"] == "unknown" for p in ps))
+        return {"t": t, "live": live, "rooms": occ, "intruderRooms": intruders,
+                "safePaths": house.plan_safe_paths(cfg, occ)}
 
     @router.get("/people/{person_id}/photo")
     def person_photo(person_id: int):

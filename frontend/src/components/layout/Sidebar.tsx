@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Building2, Cctv, Film, LayoutDashboard, ListChecks, MonitorPlay, Users, X } from 'lucide-react';
+import { Building2, Cctv, Film, LayoutDashboard, ListChecks, Map as MapIcon, MonitorPlay, Users, X } from 'lucide-react';
 import { config } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/utils/format';
@@ -11,6 +11,7 @@ export const NAV_ITEMS: Array<{ to: string; label: string; Icon: typeof Cctv; pe
   { to: '/live', label: 'Live Monitoring', Icon: MonitorPlay, permission: 'view:live' },
   { to: '/incidents', label: 'Incidents', Icon: ListChecks, permission: 'view:incidents' },
   { to: '/people', label: 'Residents & Visitors', Icon: Users, permission: 'manage:people' },
+  { to: '/map', label: 'House map', Icon: MapIcon, permission: 'view:live' },
   { to: '/test-video', label: 'Test with Video', Icon: Film, permission: 'view:live' },
 ];
 

@@ -12,6 +12,7 @@ const IncidentsPage = lazy(() => import('@/pages/IncidentsPage'));
 const IncidentDetailPage = lazy(() => import('@/pages/IncidentDetailPage'));
 const PeoplePage = lazy(() => import('@/pages/PeoplePage'));
 const TestVideoPage = lazy(() => import('@/pages/TestVideoPage'));
+const HouseMapPage = lazy(() => import('@/pages/HouseMapPage'));
 const GuardPage = lazy(() => import('@/pages/GuardPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="incidents/:id" element={<ProtectedRoute permission="view:incidents"><IncidentDetailPage /></ProtectedRoute>} />
           <Route path="people" element={<ProtectedRoute permission="manage:people"><PeoplePage /></ProtectedRoute>} />
           <Route path="test-video" element={<ProtectedRoute permission="view:live"><TestVideoPage /></ProtectedRoute>} />
+          <Route path="map" element={<ProtectedRoute permission="view:live"><HouseMapPage /></ProtectedRoute>} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

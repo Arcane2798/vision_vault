@@ -1,0 +1,27 @@
+{
+  "name": "Sample terrace house (edit to match your demo house)",
+  "width": 20,
+  "height": 12,
+  "rooms": [
+    {"id": "front_yard", "name": "Front yard", "x": 0, "y": 0, "w": 3, "h": 12, "exit": true},
+    {"id": "living", "name": "Living room", "x": 3, "y": 0, "w": 8, "h": 7},
+    {"id": "hall", "name": "Hallway", "x": 3, "y": 7, "w": 8, "h": 5},
+    {"id": "kitchen", "name": "Kitchen", "x": 11, "y": 0, "w": 6, "h": 6},
+    {"id": "bedroom1", "name": "Master bedroom", "x": 11, "y": 6, "w": 6, "h": 6},
+    {"id": "back_yard", "name": "Back yard", "x": 17, "y": 0, "w": 3, "h": 12, "exit": true}
+  ],
+  "doors": [
+    ["front_yard", "living"],
+    ["living", "hall"],
+    ["living", "kitchen"],
+    ["hall", "bedroom1"],
+    ["kitchen", "back_yard"],
+    ["bedroom1", "back_yard"]
+  ],
+  "cameras": [
+    {"id": "cam-01", "name": "Front door (live)", "room": "living", "live": true},
+    {"id": "map-kitchen", "name": "Kitchen", "room": "kitchen", "video": "kitchen.mp4", "offset": 0},
+    {"id": "map-hall", "name": "Hallway", "room": "hall", "video": "hall.mp4", "offset": 0},
+    {"id": "map-bedroom", "name": "Master bedroom", "room": "bedroom1", "video": "bedroom.mp4", "offset": 0}
+  ]
+}

@@ -1,0 +1,270 @@
+"""House map + safe path (side features 3 and 4).
+
+A floor plan (house_map.json: rooms, doors between them, rooms that lead outside) with cameras placed
+in rooms. A camera is either the live camera or a recorded video; recorded videos are processed once
+into a timeline of who each camera saw, then replayed together on the map. When an unknown person is
+on the map, every resident gets the shortest route to a way out that avoids rooms with an intruder.
+
+Everything except process_videos() is pure, so it is unit-tested without models or a camera.
+"""
+import bisect
+import json
+import threading
+import time
+from collections import deque
+from pathlib import Path
+
+MAP_FILE = Path("house_map.json")
+TIMELINE_FILE = Path("house_map_timeline.json")
+VIDEO_DIR = Path("test_videos")
+SAMPLE_FPS = 4.0          # frames per second of each recorded video that are analysed
+SEEN_WINDOW = 1.5         # a camera sample counts for this many seconds of replay time
+
+
+class MapError(ValueError):
+    """house_map.json is missing or inconsistent."""
+
+
+# ---------- floor plan ----------
+def load_map(path=None) -> dict:
+    path = path or MAP_FILE
+    try:
+        cfg = json.loads(Path(path).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise MapError(f"{path} not found")
+    except json.JSONDecodeError as e:
+        raise MapError(f"{path} is not valid JSON: {e}")
+    validate_map(cfg)
+    return cfg
+
+
+def validate_map(cfg: dict) -> None:
+    """Raise MapError unless rooms, doors and cameras are consistent."""
+    rooms = cfg.get("rooms")
+    if not isinstance(rooms, list) or not rooms:
+        raise MapError("the map needs a non-empty 'rooms' list")
+    ids = set()
+    for r in rooms:
+        for key in ("id", "name", "x", "y", "w", "h"):
+            if key not in r:
+                raise MapError(f"room {r.get('id', '?')!r} is missing {key!r}")
+        if r["id"] in ids:
+            raise MapError(f"duplicate room id {r['id']!r}")
+        ids.add(r["id"])
+    if not any(r.get("exit") for r in rooms):
+        raise MapError("at least one room must have \"exit\": true (a way out)")
+    for d in cfg.get("doors", []):
+        if len(d) != 2 or d[0] not in ids or d[1] not in ids:
+            raise MapError(f"door {d!r} must join two existing rooms")
+    cam_ids = set()
+    for c in cfg.get("cameras", []):
+        if c.get("id") in cam_ids or not c.get("id"):
+            raise MapError(f"camera ids must be unique and non-empty ({c.get('id')!r})")
+        cam_ids.add(c["id"])
+        if c.get("room") not in ids:
+            raise MapError(f"camera {c['id']!r} is in unknown room {c.get('room')!r}")
+        if not c.get("live") and not c.get("video"):
+            raise MapError(f"camera {c['id']!r} needs \"live\": true or a \"video\" file name")
+
+
+def neighbours(doors) -> dict:
+    graph = {}
+    for a, b in doors:
+        graph.setdefault(a, set()).add(b)
+        graph.setdefault(b, set()).add(a)
+    return graph
+
+
+def safe_path(doors, start, exits, blocked):
+    """Shortest list of room ids from `start` to any room in `exits` that never enters a room in
+    `blocked` (the start itself may be blocked: you can always try to leave the room you are in).
+    None if every way out goes through an intruder."""
+    graph = neighbours(doors)
+    exits, blocked = set(exits), set(blocked)
+    if start in exits and start not in blocked:
+        return [start]
+    prev = {start: None}
+    queue = deque([start])
+    while queue:
+        room = queue.popleft()
+        for nxt in sorted(graph.get(room, ())):
+            if nxt in prev or nxt in blocked:
+                continue
+            prev[nxt] = room
+            if nxt in exits:
+                path = [nxt]
+                while prev[path[-1]] is not None:
+                    path.append(prev[path[-1]])
+                return path[::-1]
+            queue.append(nxt)
+    return None
+
+
+def plan_safe_paths(cfg: dict, occupancy: dict) -> list:
+    """For every resident on the map: the safe route out, or advice to stay put.
+    `occupancy` is {room_id: [{name, kind, camera}]}."""
+    names = {r["id"]: r["name"] for r in cfg["rooms"]}
+    exits = [r["id"] for r in cfg["rooms"] if r.get("exit")]
+    blocked = {room for room, people in occupancy.items()
+               if any(p["kind"] == "unknown" for p in people)}
+    if not blocked:
+        return []
+    plans = []
+    for room, people in sorted(occupancy.items()):
+        for p in people:
+            if p["kind"] != "family":
+                continue
+            path = safe_path(cfg.get("doors", []), room, exits, blocked)
+            if path is None:
+                advice = (f"No safe way out. Stay in the {names[room]}, lock the door and wait for the "
+                          f"guard house.")
+            elif len(path) == 1:
+                advice = f"Already outside ({names[room]}). Move away from the house."
+            else:
+                advice = "Leave via " + " → ".join(names[r] for r in path[1:]) + "."
+                if room in blocked:
+                    advice = f"The intruder is in the {names[room]} with you. " + advice
+            plans.append({"name": p["name"], "from": room, "path": path, "advice": advice})
+    return plans
+
+
+# ---------- recorded-video timeline ----------
+def occupancy_at(cfg: dict, timeline: dict, t: float, window: float = SEEN_WINDOW) -> dict:
+    """{room_id: [{name, kind, camera}]} at replay time t: each recorded camera contributes its
+    latest sample not older than `window` seconds."""
+    occ = {}
+    cams = {c["id"]: c for c in cfg.get("cameras", [])}
+    for cam_id, samples in (timeline.get("cameras") or {}).items():
+        cam = cams.get(cam_id)
+        if cam is None or not samples:
+            continue
+        times = [s["t"] for s in samples]
+        i = bisect.bisect_right(times, t) - 1
+        if i < 0 or t - times[i] > window:
+            continue
+        for p in samples[i]["people"]:
+            occ.setdefault(cam["room"], []).append({"name": p["name"], "kind": p["kind"], "camera": cam_id})
+    return occ
+
+
+def merge_live(cfg: dict, occ: dict, in_view) -> dict:
+    """Add the live camera's people (engine get_status()["in_view"]) to its room."""
+    live = next((c for c in cfg.get("cameras", []) if c.get("live")), None)
+    if live is None:
+        return occ
+    occ = {k: list(v) for k, v in occ.items()}
+    for p in in_view:
+        kind = {"guest_allowed": "guest", "guest_outside": "guest"}.get(p["kind"], p["kind"])
+        if kind == "leaving":
+            continue
+        occ.setdefault(live["room"], []).append({"name": p["name"], "kind": kind, "camera": live["id"]})
+    return occ
+
+
+def timeline_duration(timeline: dict) -> float:
+    return max((s[-1]["t"] for s in (timeline.get("cameras") or {}).values() if s), default=0.0)
+
+
+def load_timeline(path=None) -> dict:
+    path = path or TIMELINE_FILE
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+# ---------- processing (needs the models; runs in a background thread) ----------
+class MapProcessor:
+    """Runs recorded map videos through person detection + face recognition once."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.state = {"state": "idle", "progress": 0.0, "camera": None, "error": None,
+                      "processedAt": load_timeline().get("processedAt")}
+
+    def status(self):
+        with self.lock:
+            return dict(self.state)
+
+    def _set(self, **kw):
+        with self.lock:
+            self.state.update(kw)
+
+    def start(self, engine, cfg) -> bool:
+        with self.lock:
+            if self.state["state"] == "processing":
+                return False
+            self.state.update(state="processing", progress=0.0, camera=None, error=None)
+        threading.Thread(target=self._run, args=(engine, cfg), daemon=True).start()
+        return True
+
+    def _run(self, engine, cfg):
+        try:
+            timeline = process_videos(engine, cfg, progress=lambda cam, p: self._set(camera=cam, progress=p))
+            TIMELINE_FILE.write_text(json.dumps(timeline), encoding="utf-8")
+            self._set(state="done", progress=1.0, camera=None, processedAt=timeline["processedAt"])
+        except Exception as e:      # shown on the map page
+            self._set(state="error", error=str(e))
+
+
+def process_videos(engine, cfg, progress=lambda cam, p: None) -> dict:
+    """{processedAt, cameras: {cam_id: [{t, people: [{name, kind}]}]}} for every recorded camera.
+    Uses the engine's face model and enrolled faces; a separate YOLO instance does the tracking."""
+    import cv2
+    from ultralytics import YOLO
+    import engine as eng
+    from rules import FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, classify_person, security_params
+
+    recorded = [c for c in cfg.get("cameras", []) if not c.get("live")]
+    if not recorded:
+        raise MapError("no recorded cameras in the map (add cameras with a \"video\")")
+    with engine.lock:
+        known, people = engine.known, engine.people
+    thresh = security_params("normal")["match_thresh"]
+    kind_of = {FAMILY: "family", GUEST_ALLOWED: "guest", GUEST_OUTSIDE: "guest"}
+    out = {}
+    for n, cam in enumerate(recorded):
+        path = VIDEO_DIR / Path(cam["video"]).name
+        cap = cv2.VideoCapture(str(path))
+        if not cap.isOpened():
+            raise MapError(f"camera {cam['id']!r}: cannot open video {path}")
+        src_fps = cap.get(cv2.CAP_PROP_FPS) or 25
+        total = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 1
+        step = max(1, round(src_fps / SAMPLE_FPS))
+        yolo = YOLO("yolov8n.pt")
+        identity, samples, idx = {}, [], 0
+        while True:
+            ok, full = cap.read()
+            if not ok:
+                break
+            idx += 1
+            if (idx - 1) % step:
+                continue
+            if full.shape[1] > eng.CAPTURE_W:
+                full = cv2.resize(full, (eng.CAPTURE_W, int(full.shape[0] * eng.CAPTURE_W / full.shape[1])))
+            frame = cv2.resize(full, (eng.PROCESS_W, int(full.shape[0] * eng.PROCESS_W / full.shape[1])))
+            scale = full.shape[1] / frame.shape[1]
+            res = yolo.track(frame, classes=[0], conf=eng.PERSON_CONF, persist=True,
+                             tracker="bytetrack.yaml", verbose=False)[0]
+            seen = []
+            if res.boxes.id is not None:
+                for (x1, y1, x2, y2), tid in zip(res.boxes.xyxy.cpu().numpy().astype(int),
+                                                 res.boxes.id.int().cpu().tolist()):
+                    if identity.get(tid, "unknown") == "unknown":
+                        crop = full[int(y1 * scale):int((y1 + (y2 - y1) * 0.55) * scale),
+                                    int(x1 * scale):int(x2 * scale)]
+                        faces = [f for f in (engine.face_app.get(crop) if crop.size else [])
+                                 if f.det_score >= eng.MIN_DET_SCORE
+                                 and f.bbox[2] - f.bbox[0] >= eng.MIN_FACE_PX]
+                        if faces:
+                            best = max(faces, key=lambda f: f.bbox[2] - f.bbox[0])
+                            identity[tid] = engine._identify(best.normed_embedding, known, thresh)[0]
+                    name = identity.get(tid, "unknown")
+                    kind = kind_of.get(classify_person(name, people.get(name), time.time()), "unknown")
+                    seen.append({"name": name, "kind": kind})
+            t = float(cam.get("offset", 0)) + (idx - 1) / src_fps
+            samples.append({"t": round(t, 2), "people": seen})
+            progress(cam["id"], (n + min(1.0, idx / total)) / len(recorded))
+        cap.release()
+        out[cam["id"]] = samples
+    return {"processedAt": time.time(), "cameras": out}

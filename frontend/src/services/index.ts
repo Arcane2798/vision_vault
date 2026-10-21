@@ -5,7 +5,7 @@
  */
 import { isMock } from '@/config/env';
 import { mockApi } from '@/mocks/mockApi';
-import type { AuthSession, Camera, CameraInput, ChatRequest, ChatResponse, DashboardSummary, FamilyMember, GuardAckRequest, GuardAlert, Incident, IncidentQuery, IncidentStatus, LiveStatus, Movement, Person, PersonInput, PersonUpdate, SecuritySettings, SecurityUpdate, TestVideo, TrendPoint, User, VideoSource, VideoSourceUpdate } from '@/types';
+import type { AuthSession, Camera, CameraInput, ChatRequest, ChatResponse, DashboardSummary, FamilyMember, GuardAckRequest, HouseMap, MapState, MapStatus, GuardAlert, Incident, IncidentQuery, IncidentStatus, LiveStatus, Movement, Person, PersonInput, PersonUpdate, SecuritySettings, SecurityUpdate, TestVideo, TrendPoint, User, VideoSource, VideoSourceUpdate } from '@/types';
 import { api, backendUrl } from './apiClient';
 
 export const authService = {
@@ -73,6 +73,16 @@ export const familyService = {
   setStatus: (id: number, status: 'home' | 'out'): Promise<FamilyMember> => api(`/family/${id}/status`, { method: 'PUT', body: { status } }),
   movements: (limit = 20): Promise<Movement[]> => api('/family/movements', { query: { limit: String(limit) } }),
   photoSrc: (m: FamilyMember): string => backendUrl(m.photoUrl),
+};
+
+/** House map + safe path (side features 3 & 4). */
+export const mapService = {
+  get: (): Promise<HouseMap> => api('/map'),
+  /** t = replay time in seconds (recorded cameras); live = add the live camera */
+  state: (t: number | undefined, live: boolean): Promise<MapState> =>
+    api('/map/state', { query: { t: t === undefined ? undefined : t.toFixed(2), live: live ? 'true' : undefined } }),
+  process: (): Promise<MapStatus> => api('/map/process', { method: 'POST' }),
+  status: (): Promise<MapStatus> => api('/map/status'),
 };
 
 const VIDEO_UPLOAD_TIMEOUT_MS = 10 * 60000; // test videos can be hundreds of MB

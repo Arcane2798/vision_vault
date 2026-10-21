@@ -132,6 +132,10 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/api/family` | Residents only: `[{id, name, status: "home"\|"out"\|"unknown", since: ISO\|null, lastSeen: ISO\|null, source: "seen"\|"camera"\|"manual"\|null, photoUrl}]`. Family tracker: the camera is **inside, facing the front door**; box growing = arrived, shrinking = left (`movements` table); being seen inside after the last movement = home (`rules.presence_status`) |
 | PUT | `/api/family/{id}/status` | `{status: "home"\|"out"}` → that member; logs a `manual` movement. 400 for a visitor, 404 unknown id, 422 bad status |
 | GET | `/api/family/movements` | `?limit=20` (1–200) → `[{id, timestamp, name: string\|null, direction: "arrived"\|"left", source: "camera"\|"manual"}]`, newest first. `name` null = someone left whose face was not seen |
+| GET | `/api/map` | House map from `house_map.json`: `{name, width, height, rooms: [{id, name, x, y, w, h, exit?}], doors: [[a, b]], cameras: [{id, name, room, live?, video?, offset?, videoFound}], timeline: {ready, duration, processedAt}}`. 400 if the file is missing or invalid (`house.validate_map`) |
+| POST | `/api/map/process` | 202 → status; processes every recorded camera's video once in the background. 400 lists missing videos, 409 if already running |
+| GET | `/api/map/status` | `{state: idle\|processing\|done\|error, progress, camera, error, processedAt}` |
+| GET | `/api/map/state` | `?t=<replay seconds>&live=true` → `{t, live, rooms: {roomId: [{name, kind: family\|guest\|unknown, camera}]}, intruderRooms, safePaths: [{name, from, path: [roomId]\|null, advice}]}` |
 | GET | `/api/source` | `{kind: "camera"\|"file", name, finished, progress: 0..1\|null, videos: [{name, sizeBytes, modifiedAt}]}` — what the engine watches |
 | PUT | `/api/source` | `{kind: "camera"}` or `{kind: "file", name}` → same shape as GET. Test videos play **once** in real time (frames skipped if the engine is slower), stamped `TEST VIDEO`, then hold the last frame. Same name again = restart. 404 unknown video |
 | POST | `/api/source/videos` | multipart `video` → 201 `{name, sizeBytes, modifiedAt}`, saved in `test_videos/` (renamed `_1`, `_2` if taken). 400 bad type, > 500 MB, or unreadable |
@@ -327,8 +331,8 @@ Real deployment = a separate township server for many homes (KIV); the demo is o
 |---|---|---|
 | S1 | Account login (head of house = admin) | KIV (owner chose to skip) |
 | S2 | Family members tracker (who is home / out) | ✅ `/api/family`, dashboard card, Viva Bot `who_is_home`. `DEPARTURE_FILTER` (default on): an unknown who starts close to the camera and walks away is logged as "someone left" and does **not** raise an intrusion (`rules.is_departing`) |
-| S3 | Safe path suggestion | see House map |
-| S4 | House map (track people across cameras) | in progress |
+| S3 | Safe path suggestion | ✅ shortest route out avoiding intruder rooms, per resident (`house.safe_path`, `plan_safe_paths`) |
+| S4 | House map (track people across cameras) | ✅ concept: `/map` page. Floor plan + cameras in `house_map.json` (sample plan: edit to match the demo house). Recorded room videos (in `test_videos/`) are processed once into `house_map_timeline.json` (~1.3× video length on this CPU, slows the live camera meanwhile) and replayed; the live camera adds its room. |
 
 ## KIV (after Friday)
 Login & roles · liveness / anti-spoofing · dedicated weapon model (guns) · ESP32 buzzer · township-wide guard dashboard

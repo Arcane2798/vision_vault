@@ -320,3 +320,69 @@ export type RealtimeEvent =
   | { type: 'camera_status'; data: { cameraId: string; status: CameraStatus } };
 
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'disabled';
+
+/** House map (side features 3 & 4): GET /api/map, from house_map.json. Coordinates are plan units (metres). */
+export interface MapRoom {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** a way out of the house (yard, street) */
+  exit?: boolean;
+}
+
+export interface MapCamera {
+  id: string;
+  name: string;
+  room: string;
+  /** the real front-door camera */
+  live?: boolean;
+  /** recorded video in test_videos/ */
+  video?: string;
+  offset?: number;
+  videoFound: boolean;
+}
+
+export interface HouseMap {
+  name: string;
+  width: number | null;
+  height: number | null;
+  rooms: MapRoom[];
+  doors: Array<[string, string]>;
+  cameras: MapCamera[];
+  timeline: { ready: boolean; duration: number; processedAt: string | null };
+}
+
+export interface MapPerson {
+  name: string;
+  kind: 'family' | 'guest' | 'unknown';
+  camera: string;
+}
+
+export interface SafePath {
+  name: string;
+  from: string;
+  /** room ids from `from` to a way out, or null when every way out passes an intruder */
+  path: string[] | null;
+  advice: string;
+}
+
+/** GET /api/map/state */
+export interface MapState {
+  t: number | null;
+  live: boolean;
+  rooms: Record<string, MapPerson[]>;
+  intruderRooms: string[];
+  safePaths: SafePath[];
+}
+
+/** GET /api/map/status (recorded videos being processed) */
+export interface MapStatus {
+  state: 'idle' | 'processing' | 'done' | 'error';
+  progress: number;
+  camera: string | null;
+  error: string | null;
+  processedAt: string | null;
+}
