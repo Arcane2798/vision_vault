@@ -228,3 +228,36 @@ def effective_level(level: str, now, away_enabled: bool = False,
     if high_reason(now, away_enabled, away_from, away_to):
         return "high"
     return level
+
+
+def box_center_distance(a, b) -> float:
+    """Distance between the centres of two (x1, y1, x2, y2) boxes."""
+    ax, ay = (a[0] + a[2]) / 2, (a[1] + a[3]) / 2
+    bx, by = (b[0] + b[2]) / 2, (b[1] + b[3]) / 2
+    return ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5
+
+
+def match_lost_unknown(box, lost: dict, now: float, max_gap: float = 3.0,
+                       max_dist: float = 1.0) -> Optional[int]:
+    """Old track id whose unknown-person timer a NEW track should carry on, or None.
+
+    ByteTrack sometimes drops a person and gives them a new id; without this the 5 s grace
+    would restart (and a second alert could fire for the same intruder). `lost` maps old
+    track ids to {"box", "seen", "identity", "unknown_since"}. A candidate must be an
+    unknown person with a running timer (never a recognised resident or visitor), not in
+    the current frame, last seen at most `max_gap` s ago, with its box centre within
+    `max_dist` box heights of the new box. The closest candidate wins.
+    """
+    best, best_d = None, None
+    for tid, info in lost.items():
+        if info.get("identity", UNKNOWN) != UNKNOWN or info.get("unknown_since") is None:
+            continue
+        gap = now - info["seen"]
+        if gap <= 0 or gap > max_gap:
+            continue
+        old = info["box"]
+        height = max(box[3] - box[1], old[3] - old[1], 1)
+        d = box_center_distance(box, old)
+        if d <= max_dist * height and (best_d is None or d < best_d):
+            best, best_d = tid, d
+    return best

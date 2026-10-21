@@ -17,7 +17,7 @@ from insightface.utils.storage import ensure_available
 from rules import (DEFAULT_LEVEL,
                    FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, SECURITY_LEVELS,
                    UNKNOWN, classify_person, effective_level, guard_alert_due,
-                   high_reason, is_departing, items_near, items_text, movement_direction,
+                   high_reason, is_departing, items_near, match_lost_unknown, items_text, movement_direction,
                    normalize_level, off_active, security_params, should_alert_guard, stale_tracks,
                    valid_away_window)
 from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
@@ -233,6 +233,7 @@ class VisionEngine:
         self.departing = set()   # unknown tracks judged "someone leaving" (no alert)
         self.closed = set()      # tracks already judged arrived / left
         self.track_seen = {}     # track_id -> last time the track was in a frame
+        self.last_box = {}       # track_id -> last (x1, y1, x2, y2) in frame coords (timer carry-over)
         self._next_prune = 0.0
 
 
@@ -530,7 +531,7 @@ class VisionEngine:
         """Every per-track dict / set (keyed by ByteTrack id)."""
         return (self.identity, self.last_faces, self.last_checked, self.verify_fail,
                 self.unknown_since, self.track_age, self.trails, self.track_seen,
-                self.track_items, self.track_event, self.size_hist, self.track_names,
+                self.track_items, self.track_event, self.size_hist, self.track_names, self.last_box,
                 self.departing, self.closed, self.alerted, self.guest_alerted)
 
     def _forget_tracks(self, tids):
@@ -688,6 +689,9 @@ class VisionEngine:
                         first_h.append(person_h / frame_h)
                     last_h.append(person_h / frame_h)
                     self.track_age[tid] = self.track_age.get(tid, 0) + 1
+                    if self.track_age[tid] == 1:
+                        self._carry_unknown_timer(tid, (x1, y1, x2, y2), now)
+                    self.last_box[tid] = (x1, y1, x2, y2)
                     if self.track_age[tid] < params["min_track_frames"]:
                         continue
 
@@ -834,6 +838,25 @@ class VisionEngine:
                 time.sleep(max(0, frame_delay - (time.time() - now)))
 
         cap.release()
+
+    def _carry_unknown_timer(self, tid, box, now):
+        """A new track id close to where an unknown person was just lost (ByteTrack dropped
+        them) keeps that person's grace timer and alerted status: no restart, no second alert.
+        Residents are never candidates (rules.match_lost_unknown) and no identity is copied."""
+        lost = {t: {"box": b, "seen": self.track_seen.get(t, 0.0),
+                    "identity": self.identity.get(t, UNKNOWN),
+                    "unknown_since": self.unknown_since.get(t)}
+                for t, b in self.last_box.items() if t != tid and self.track_seen.get(t, 0.0) < now}
+        old = match_lost_unknown(box, lost, now)
+        if old is None:
+            return
+        self.unknown_since[tid] = self.unknown_since.pop(old)   # one heir per lost track
+        if old in self.alerted:
+            self.alerted.add(tid)
+            if old in self.track_event:
+                self.track_event[tid] = self.track_event[old]
+        print(f"[track] {tid} continues unknown track {old} "
+              f"(timer {now - self.unknown_since[tid]:.1f} s, alerted={old in self.alerted})")
 
     @staticmethod
     def _draw_trail(frame, trail, color, emphasise):

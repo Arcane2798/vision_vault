@@ -120,6 +120,9 @@ Real-time replay of the four room videos (832x464, OpenVINO iGPU; engine FPS / f
 | 640 | 14.5 / 58% | 15.1 / 64% | 14.9 / 58% | 15.4 / 35% |
 | **832** (default) | 8.6 / 69% | 9.1 / 68% | 8.5 / 61% | 8.0 / 47% |
 | 960 | 6.1 / 68% | 6.4 / 67% | 6.2 / 64% | 6.4 / 50% |
+**Timer carry-over:** when ByteTrack drops an unknown person and a new id appears within 3 s and one box height of where they
+were last seen, the new id keeps their grace timer and alerted status (`rules.match_lost_unknown`, engine `_carry_unknown_timer`).
+Residents are never candidates and no identity is copied. Replay at 832: living_room intrusions 3 → 2, living_room_2 stays 1.
 960 only upsamples these 832-wide videos: within noise of 832 at ~30% lower FPS. Use 960+ only with a 1280x720 webcam.
 Measured on the i7-10510U: face check 110 ms (was 262 ms), engine 7–10 FPS on `test1.mp4` with 2–3 people.
 
