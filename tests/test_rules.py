@@ -51,11 +51,11 @@ def test_invalid_names(name):
 
 def test_security_params():
     n, h, o = security_params("normal"), security_params("high"), security_params("off")
-    assert n == {"alerts": True, "grace": 5.0, "match_thresh": 0.40, "person_conf": 0.55,
+    assert n == {"alerts": True, "grace": 5.0, "match_thresh": 0.40, "person_conf": 0.25,
                  "min_track_frames": 5, "departure_filter": True, "guard_alert": True}
     # High: same 5 s grace as Normal, more sensitive on every other knob
     assert h["grace"] == n["grace"] == 5.0
-    assert h["person_conf"] < n["person_conf"] and h["min_track_frames"] < n["min_track_frames"]
+    assert h["person_conf"] == n["person_conf"] and h["min_track_frames"] < n["min_track_frames"]
     assert h["match_thresh"] == pytest.approx(0.45) and h["match_thresh"] > n["match_thresh"]
     assert h["departure_filter"] is False and h["alerts"] and h["guard_alert"]
     # Off: still tracks, never alerts

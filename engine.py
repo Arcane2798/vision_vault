@@ -56,7 +56,6 @@ CLIP_PRE_SEC = 5          # seconds of video kept before an event
 CLIP_POST_SEC = 5         # seconds recorded after the (last) event; clips use the measured FPS
 IMG_EXT = {".jpg", ".jpeg", ".png"}
 
-PERSON_CONF = 0.55       # weakest "person" detection at level Normal (per level: rules.security_params)
 # Intruder's items (feature 10): COCO classes YOLOv8n already knows, found in the same pass as
 # people. A prototype: the nano model misses many knives, so a hit is a strong hint, a miss
 # proves nothing. Items need a lower confidence than people to be found at all.

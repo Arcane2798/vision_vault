@@ -12,7 +12,7 @@ import { LEVEL_STYLE } from './SecurityBadge';
 const LEVELS: Array<{ value: SecurityLevel; description: string }> = [
   { value: 'off', description: 'No alerts or recordings, e.g. while you have a party. Choose how long; it switches back on by itself.' },
   { value: 'normal', description: 'Default: alerts 5 s after an unknown person has been in view (seen for 10 frames).' },
-  { value: 'high', description: 'Most sensitive: also waits 5 s, but is stricter about face matches, detects partly visible people and starts counting sooner (3 frames). Used automatically while you are away from home.' },
+  { value: 'high', description: 'Most sensitive: also waits 5 s, but is stricter about face matches and starts counting sooner (3 frames). Used automatically while you are away from home.' },
 ];
 
 /** quick timers for Off */
