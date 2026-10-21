@@ -24,3 +24,6 @@ house_map_timeline.json
 
 # OpenVINO exports of the detector (regenerated on first start)
 *_openvino_model/
+
+# Intel GPU compiler diagnostics written by OpenVINO
+kernel.errors.txt
