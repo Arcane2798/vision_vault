@@ -44,7 +44,7 @@ PROCESS_W = 640           # YOLO / overlay / stream / clip width
 # (yolo11s_<h>x<w>_openvino_model/, git-ignored) is made once on first start. DETECTOR_IMGSZ = YOLO input size.
 DETECTOR_MODEL = env("DETECTOR_MODEL", "yolo11s.pt")
 DETECTOR_BACKEND = (env("DETECTOR_BACKEND", "openvino") or "openvino").lower()
-DETECTOR_IMGSZ = int(env("DETECTOR_IMGSZ", "640"))
+DETECTOR_IMGSZ = int(env("DETECTOR_IMGSZ", "832"))   # best detection at >= 8 FPS (see AGENTS.md)
 DETECTOR_DEVICE = (env("DETECTOR_DEVICE", "gpu") or "gpu").lower()   # OpenVINO: gpu (Intel iGPU) | cpu
 # frames between face checks while a person is unknown: any match during the grace period
 # cancels the alert, so more looks = fewer false alarms on residents, no extra delay for intruders
@@ -621,7 +621,7 @@ class VisionEngine:
                 continue
             failed_reads = 0
 
-            # `full` (<= CAPTURE_W wide) is only used for face crops; YOLO, drawing, streaming
+            # `full` (<= CAPTURE_W wide) is used for YOLO and face crops; drawing, streaming
             # and clips use the PROCESS_W-wide `frame`. Video files are often 1080p.
             h0, w0 = frame.shape[:2]
             if w0 > CAPTURE_W:
@@ -651,7 +651,9 @@ class VisionEngine:
                 self._forget_tracks(stale_tracks(self.track_seen, now, TRACK_FORGET_SEC))
                 self._next_prune = now + PRUNE_INTERVAL
 
-            res = self.detector.track(frame, classes=DETECT_CLASSES,
+            # YOLO sees the full capture (more pixels for far people at DETECTOR_IMGSZ > 640);
+            # its boxes are scaled back to `frame` coordinates below
+            res = self.detector.track(full, classes=DETECT_CLASSES,
                                       conf=(min(params["person_conf"], ITEM_CONF) if ITEM_DETECTION
                                             else params["person_conf"]),
                                       persist=True, tracker="bytetrack.yaml",
@@ -659,7 +661,7 @@ class VisionEngine:
             new_items = []            # (tid, labels) seen on an already-alerted intruder
 
             if res.boxes.id is not None:
-                boxes = res.boxes.xyxy.cpu().numpy().astype(int)
+                boxes = (res.boxes.xyxy.cpu().numpy() / scale).astype(int)   # full -> frame
                 ids = res.boxes.id.int().cpu().tolist()
                 classes = res.boxes.cls.int().cpu().tolist()
                 confs = res.boxes.conf.cpu().tolist()

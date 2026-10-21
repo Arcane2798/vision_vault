@@ -61,7 +61,7 @@ Each agent commits only its own paths. Cross-area changes are requested in the a
         │
         ▼
  VisionEngine thread (engine.py)
-   YOLOv8n + ByteTrack → person tracks
+   YOLO11s (OpenVINO) + ByteTrack → person tracks
    InsightFace on head crop → matched identity or "unknown"
    Rules: track ≥ 10 frames, unknown for the grace period (5 s at Normal and High) → intrusion
         │ annotated JPEG                       │ intrusion
@@ -108,10 +108,19 @@ Focus (owner, Wed 21 Oct): accurate person detection + resident/intruder recogni
 | `FACE_RECOGNIZER` | `buffalo_l` | InsightFace pack for recognition (ResNet-50). Cache: `faces/embeddings_<pack>.pkl` (`embeddings.pkl` for buffalo_s) |
 | `FACE_DETECTOR` | `buffalo_s` | Pack for face detection (fast det_500m). Only detection + recognition run, no landmark/age models |
 | `DETECTOR_BACKEND` | `openvino` | `openvino` = OpenVINO export of `yolo11s.pt` (made once on first start into `yolo11s_<h>x<w>_openvino_model/`, git-ignored; GPU compile ~12 s at start); any failure falls back to `pytorch` with a warning |
+| `DETECTOR_IMGSZ` | `832` | YOLO input width (height = 16:9, rounded to 32). YOLO now runs on the full capture frame (not the 640 copy); boxes are scaled back for drawing and face crops |
 | `DETECTOR_DEVICE` | `gpu` | OpenVINO device: `gpu` = the Intel iGPU (falls back to CPU if absent), `cpu` |
 | `FACE_CHECK_FRAMES` | `3` | Frames between face checks while a person is unknown; any match during the grace period cancels the alert |
 Detector ms/frame on the i7-10510U (yolo11s, 832x464 frames; input = width x 16:9): PyTorch CPU 256 / 331 / 480 at 640 / 832 / 960;
 OpenVINO CPU 296 / 353 / 549 (no gain over PyTorch here); **OpenVINO iGPU 104 / 147 / 199** (and frees the CPU for faces).
+Real-time replay of the four room videos (832x464, OpenVINO iGPU; engine FPS / frames with a person found):
+
+| `DETECTOR_IMGSZ` | bedroom | kitchen | living_room | living_room_2 |
+|---|---|---|---|---|
+| 640 | 14.5 / 58% | 15.1 / 64% | 14.9 / 58% | 15.4 / 35% |
+| **832** (default) | 8.6 / 69% | 9.1 / 68% | 8.5 / 61% | 8.0 / 47% |
+| 960 | 6.1 / 68% | 6.4 / 67% | 6.2 / 64% | 6.4 / 50% |
+960 only upsamples these 832-wide videos: within noise of 832 at ~30% lower FPS. Use 960+ only with a 1280x720 webcam.
 Measured on the i7-10510U: face check 110 ms (was 262 ms), engine 7–10 FPS on `test1.mp4` with 2–3 people.
 
 ## Setup & run
