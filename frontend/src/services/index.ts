@@ -5,7 +5,7 @@
  */
 import { isMock } from '@/config/env';
 import { mockApi } from '@/mocks/mockApi';
-import type { AuthSession, Camera, CameraInput, ChatRequest, ChatResponse, DashboardSummary, GuardAckRequest, GuardAlert, Incident, IncidentQuery, IncidentStatus, LiveStatus, Person, PersonInput, PersonUpdate, SecuritySettings, SecurityUpdate, TestVideo, TrendPoint, User, VideoSource, VideoSourceUpdate } from '@/types';
+import type { AuthSession, Camera, CameraInput, ChatRequest, ChatResponse, DashboardSummary, FamilyMember, GuardAckRequest, GuardAlert, Incident, IncidentQuery, IncidentStatus, LiveStatus, Movement, Person, PersonInput, PersonUpdate, SecuritySettings, SecurityUpdate, TestVideo, TrendPoint, User, VideoSource, VideoSourceUpdate } from '@/types';
 import { api, backendUrl } from './apiClient';
 
 export const authService = {
@@ -64,6 +64,15 @@ export const peopleService = {
     url.searchParams.set('v', String(p.photoCount));
     return url.href;
   },
+};
+
+/** Family tracker (side feature 2): residents home / out. */
+export const familyService = {
+  list: (): Promise<FamilyMember[]> => api('/family'),
+  /** correct the tracker by hand */
+  setStatus: (id: number, status: 'home' | 'out'): Promise<FamilyMember> => api(`/family/${id}/status`, { method: 'PUT', body: { status } }),
+  movements: (limit = 20): Promise<Movement[]> => api('/family/movements', { query: { limit: String(limit) } }),
+  photoSrc: (m: FamilyMember): string => backendUrl(m.photoUrl),
 };
 
 const VIDEO_UPLOAD_TIMEOUT_MS = 10 * 60000; // test videos can be hundreds of MB

@@ -18,9 +18,10 @@ from fastapi import (APIRouter, File, Form, HTTPException, Query, Request,
                      Response, UploadFile, WebSocket, WebSocketDisconnect)
 from pydantic import BaseModel, ConfigDict, Field
 
-from rules import (FAMILY, MAX_ACK_NOTE, ROLES, guard_ack_message,
-                   valid_person_name, visitor_allowed)
-from vault_utils import DB_PATH, FACES_DIR, house_unit, send_telegram, sync_people
+from rules import (ARRIVED, FAMILY, LEFT, MAX_ACK_NOTE, ROLES, UNKNOWN_PRESENCE,
+                   guard_ack_message, presence_status, valid_person_name, visitor_allowed)
+from vault_utils import (DB_PATH, FACES_DIR, house_unit, last_movements, log_movement,
+                         send_telegram, sync_people)
 
 CAMERA_ID = "cam-01"
 STATUSES = {"new", "under_review", "confirmed", "dismissed"}
@@ -56,6 +57,10 @@ class SecurityUpdate(BaseModel):
     level: Optional[str] = None
     night: Optional[NightUpdate] = None
     away: Optional[AwayUpdate] = None
+
+
+class PresenceUpdate(BaseModel):
+    status: Literal["home", "out"]
 
 
 class SourceUpdate(BaseModel):
@@ -233,6 +238,27 @@ def _guard_alert(r, base):
 
 def _items(r):
     return [i for i in (r.get("items") or "").split(",") if i]
+
+
+def family_status(engine):
+    """Residents (family) with home / out from the camera's arrivals, departures and sightings.
+    Also used by the chat assistant."""
+    moves = last_movements()
+    seen = engine.get_last_seen()
+    out = []
+    for r in _rows("SELECT * FROM people WHERE role=? ORDER BY name COLLATE NOCASE", (FAMILY,)):
+        move = moves.get(r["name"].lower())
+        last_seen = seen.get(r["name"])
+        status = presence_status(move[0] if move else None, move[1] if move else None, last_seen)
+        since = None
+        if status != UNKNOWN_PRESENCE:
+            since = (last_seen if last_seen and (not move or last_seen > move[1]) else move[1])
+        out.append({"id": r["id"], "name": r["name"], "status": status,
+                    "since": _iso(since) if since else None,
+                    "lastSeen": _iso(last_seen) if last_seen else None,
+                    "source": "seen" if since == last_seen and last_seen else (move[2] if move else None),
+                    "photoUrl": f"/api/people/{r['id']}/photo"})
+    return out
 
 
 def dashboard_summary(running):
@@ -577,6 +603,29 @@ def create_router(engine):
         save_photos(safe_folder(r["name"]), images)
         await asyncio.to_thread(engine.reload_people)
         return one_person(person_id)
+
+    # ---------- family tracker (side feature 2) ----------
+    def family_json():
+        return family_status(engine)
+
+    @router.get("/family")
+    def family():
+        return family_json()
+
+    @router.put("/family/{person_id}/status")
+    def set_family_status(person_id: int, body: PresenceUpdate):
+        r = person_row(person_id)
+        if r["role"] != FAMILY:
+            raise HTTPException(400, f"{r['name']} is a visitor, not a resident.")
+        log_movement(r["name"], ARRIVED if body.status == "home" else LEFT, "manual")
+        return next(p for p in family_json() if p["id"] == person_id)
+
+    @router.get("/family/movements")
+    def movements(limit: int = 20):
+        limit = max(1, min(200, limit))
+        return [{"id": r["id"], "timestamp": _iso(r["ts"]), "name": r["name"],
+                 "direction": r["direction"], "source": r["source"]}
+                for r in _rows("SELECT * FROM movements ORDER BY ts DESC, id DESC LIMIT ?", (limit,))]
 
     @router.get("/people/{person_id}/photo")
     def person_photo(person_id: int):

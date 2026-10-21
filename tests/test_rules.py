@@ -162,3 +162,21 @@ def test_items_near():
     assert items_near(person, [knife_in_hand, ("scissors", (120, 120, 130, 130)), knife_at_arm]) == ["knife", "scissors"]
     assert items_near(person, []) == []
     assert items_text(["knife", "scissors"]) == "knife, scissors"
+
+
+def test_family_tracker_rules():
+    from rules import (ARRIVED, HOME, LEFT, OUT, UNKNOWN_PRESENCE, is_departing,
+                       movement_direction, presence_status)
+    assert movement_direction([0.2, 0.21, 0.2], [0.35, 0.4, 0.38]) == ARRIVED     # walked towards the camera
+    assert movement_direction([0.6, 0.62, 0.6], [0.3, 0.32, 0.31]) == LEFT
+    assert movement_direction([0.3, 0.3], [0.33, 0.32]) is None                 # stood still
+    assert movement_direction([], [0.3]) is None
+    assert movement_direction([0.2, 0.2, 0.9], [0.4, 0.4, 0.4]) == ARRIVED      # one noisy box ignored
+    assert is_departing([0.6, 0.6], [0.45, 0.44]) is True                       # close, walking away
+    assert is_departing([0.3, 0.3], [0.2, 0.2]) is False                        # started far: a real visitor/intruder
+    assert is_departing([0.6, 0.6], [0.58, 0.6]) is False                       # close but not leaving
+    assert presence_status(None, None, None) == UNKNOWN_PRESENCE
+    assert presence_status(LEFT, 100.0, 90.0) == OUT
+    assert presence_status(ARRIVED, 100.0, 90.0) == HOME
+    assert presence_status(LEFT, 100.0, 150.0) == HOME                          # seen inside after leaving
+    assert presence_status(None, None, 50.0) == HOME

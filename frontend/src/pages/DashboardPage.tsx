@@ -16,6 +16,7 @@ import { IncidentStatusBadge } from '@/components/ui/StatusBadge';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TrendChart } from '@/components/dashboard/TrendChart';
 import { LiveStatusStrip } from '@/components/live/LiveStatusStrip';
+import { FamilyTrackerCard } from '@/components/family/FamilyTrackerCard';
 
 export default function DashboardPage() {
   const { can } = useAuth();
@@ -134,6 +135,10 @@ export default function DashboardPage() {
             </ul>
           )}
         </Card>
+      </div>
+
+      <div className="mt-4">
+        <FamilyTrackerCard />
       </div>
     </>
   );

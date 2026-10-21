@@ -184,7 +184,34 @@ export interface LiveStatus {
 }
 
 /** family = resident (green), guest_allowed = visitor in window (cyan), guest_outside = visitor outside window (orange), unknown (red). */
-export type InViewKind = 'family' | 'guest_allowed' | 'guest_outside' | 'unknown';
+/** leaving = someone from inside walking out, face not seen (no alert; family tracker) */
+export type InViewKind = 'family' | 'guest_allowed' | 'guest_outside' | 'unknown' | 'leaving';
+
+/** Family tracker (side feature 2): camera inside the front door sees residents arrive and leave. */
+export type PresenceStatus = 'home' | 'out' | 'unknown';
+
+/** GET /api/family */
+export interface FamilyMember {
+  id: number;
+  name: string;
+  status: PresenceStatus;
+  /** when the status started (ISO): the arrival/departure, or the last time seen inside */
+  since: string | null;
+  lastSeen: string | null;
+  /** seen = spotted inside; camera = arrival/departure detected; manual = marked by the homeowner */
+  source: 'seen' | 'camera' | 'manual' | null;
+  photoUrl: string;
+}
+
+/** GET /api/family/movements */
+export interface Movement {
+  id: number;
+  timestamp: string;
+  /** null = someone left whose face was not seen */
+  name: string | null;
+  direction: 'arrived' | 'left';
+  source: 'camera' | 'manual';
+}
 
 export interface PersonInView {
   name: string;

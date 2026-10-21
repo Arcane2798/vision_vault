@@ -129,6 +129,9 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/api/people/{id}/photo` | first photo as a JPEG thumbnail (≤ 320 px); 404 if none. `faces/` itself is never served |
 | GET | `/api/guard/alerts` | `?limit=50` (1–200) → newest first, only events with `guard_notified = 1`: `[{id: string, timestamp, houseUnit, cameraName, snapshotUrl: string\|null, clipUrl: string\|null, clipReady, acknowledgedAt: ISO\|null, ackNote: string\|null, items: string[]}]`. **No identity or people data.** `houseUnit` = `HOUSE_UNIT` (fallback "This home") |
 | POST | `/api/guard/alerts/{id}/ack` | JSON `{note?: string}` (≤ 200 chars, body optional) → that alert. The first ack sets `acknowledgedAt` and sends the homeowner a Telegram text ("🛡 Guard house acknowledged the alert at HH:MM — note"); a repeat keeps the time and only updates the note (if given). 404 if not a guard alert; 400 note too long |
+| GET | `/api/family` | Residents only: `[{id, name, status: "home"\|"out"\|"unknown", since: ISO\|null, lastSeen: ISO\|null, source: "seen"\|"camera"\|"manual"\|null, photoUrl}]`. Family tracker: the camera is **inside, facing the front door**; box growing = arrived, shrinking = left (`movements` table); being seen inside after the last movement = home (`rules.presence_status`) |
+| PUT | `/api/family/{id}/status` | `{status: "home"\|"out"}` → that member; logs a `manual` movement. 400 for a visitor, 404 unknown id, 422 bad status |
+| GET | `/api/family/movements` | `?limit=20` (1–200) → `[{id, timestamp, name: string\|null, direction: "arrived"\|"left", source: "camera"\|"manual"}]`, newest first. `name` null = someone left whose face was not seen |
 | GET | `/api/source` | `{kind: "camera"\|"file", name, finished, progress: 0..1\|null, videos: [{name, sizeBytes, modifiedAt}]}` — what the engine watches |
 | PUT | `/api/source` | `{kind: "camera"}` or `{kind: "file", name}` → same shape as GET. Test videos play **once** in real time (frames skipped if the engine is slower), stamped `TEST VIDEO`, then hold the last frame. Same name again = restart. 404 unknown video |
 | POST | `/api/source/videos` | multipart `video` → 201 `{name, sizeBytes, modifiedAt}`, saved in `test_videos/` (renamed `_1`, `_2` if taken). 400 bad type, > 500 MB, or unreadable |
@@ -318,6 +321,14 @@ Real deployment = a separate township server for many homes (KIV); the demo is o
 (orange, homeowner alerted) → stranger (red: homeowner **and guard house** get Telegram photos, incident appears live)
 → open incident, play clip, mark confirmed → ask chatbot "what happened at the door today?" and
 "register Ali as a visitor Saturday 2–6pm" (confirm). Close with the township-wide vision slide.
+
+## Side features (owner's Notion list, Wed 21 Oct)
+| # | Feature | Status |
+|---|---|---|
+| S1 | Account login (head of house = admin) | KIV (owner chose to skip) |
+| S2 | Family members tracker (who is home / out) | ✅ `/api/family`, dashboard card, Viva Bot `who_is_home`. `DEPARTURE_FILTER` (default on): an unknown who starts close to the camera and walks away is logged as "someone left" and does **not** raise an intrusion (`rules.is_departing`) |
+| S3 | Safe path suggestion | see House map |
+| S4 | House map (track people across cameras) | in progress |
 
 ## KIV (after Friday)
 Login & roles · liveness / anti-spoofing · dedicated weapon model (guns) · ESP32 buzzer · township-wide guard dashboard

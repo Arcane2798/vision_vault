@@ -211,6 +211,13 @@ class ChatTools:
                 {"name": name, "role": GUEST, **body})
         return self.pending
 
+    def who_is_home(self):
+        """Residents home / out from the family tracker (camera inside, facing the front door)."""
+        from api import family_status
+        return [{"name": p["name"], "status": p["status"],
+                 "since": fmt_local(_epoch(p["since"])), "lastSeen": fmt_local(_epoch(p["lastSeen"]))}
+                for p in family_status(self.engine)]
+
     def set_security_level(self, level):
         if level not in SECURITY_LEVELS:
             raise ToolError(f"level must be one of {', '.join(SECURITY_LEVELS)}")
@@ -307,6 +314,10 @@ TOOLS = [
          "valid_from": {"type": "string", "description": "Window start, omit for open-ended. " + _LOCAL_DT},
          "valid_to": {"type": "string", "description": "Window end, omit for open-ended. " + _LOCAL_DT}},
          "required": ["name"]}},
+    {"name": "who_is_home",
+     "description": "Which residents are home or out right now, and since when (family tracker: the "
+                    "camera inside the front door sees people arrive and leave; 'unknown' = not seen yet).",
+     "parameters": {"type": "object", "properties": {}}},
     {"name": "set_security_level",
      "description": "Prepare switching the security level for the user to confirm. normal = default "
                     "(alert 3 s after an unknown person appears); high = alert after 1 s with a stricter "

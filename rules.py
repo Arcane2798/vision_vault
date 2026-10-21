@@ -79,6 +79,53 @@ def items_text(items) -> str:
     return ", ".join(items)
 
 
+# ---------- family tracker (side feature 2) ----------
+# The camera is inside the house, facing the front door (owner decision Wed 21 Oct):
+# walking towards it (box grows) = arriving home, walking away (box shrinks) = leaving.
+ARRIVED, LEFT = "arrived", "left"
+HOME, OUT, UNKNOWN_PRESENCE = "home", "out", "unknown"
+
+
+def _median(values):
+    v = sorted(values)
+    n = len(v)
+    return 0.0 if n == 0 else (v[n // 2] if n % 2 else (v[n // 2 - 1] + v[n // 2]) / 2)
+
+
+def movement_direction(first_heights, last_heights, ratio: float = 1.3):
+    """ARRIVED if the person's box grew by `ratio` (walked towards the camera), LEFT if it
+    shrank by the same factor, else None. Heights are box height / frame height; the first and
+    last few samples of a track are compared by median to ignore single noisy boxes."""
+    a, b = _median(first_heights), _median(last_heights)
+    if a <= 0 or b <= 0:
+        return None
+    if b / a >= ratio:
+        return ARRIVED
+    if a / b >= ratio:
+        return LEFT
+    return None
+
+
+def is_departing(first_heights, last_heights, near: float = 0.45, shrink: float = 0.85) -> bool:
+    """A track that started close to the camera (box at least `near` of the frame height) and is
+    getting smaller: someone from inside walking out with their back to the camera. Their face
+    is never seen, so without this they would raise an intrusion alert."""
+    a, b = _median(first_heights), _median(last_heights)
+    return a >= near and b <= a * shrink
+
+
+def presence_status(last_move, last_move_ts, last_seen_ts) -> str:
+    """HOME / OUT / UNKNOWN_PRESENCE for one person. Being seen by the (inside) camera after the
+    last recorded movement means home; otherwise the last movement decides."""
+    if last_seen_ts is not None and (last_move_ts is None or last_seen_ts > last_move_ts):
+        return HOME
+    if last_move == ARRIVED:
+        return HOME
+    if last_move == LEFT:
+        return OUT
+    return UNKNOWN_PRESENCE
+
+
 # ---------- track housekeeping ----------
 def stale_tracks(last_seen: dict, now: float, max_age: float) -> set:
     """Track ids not seen for more than `max_age` seconds (their state can be dropped)."""

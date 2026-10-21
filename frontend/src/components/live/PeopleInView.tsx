@@ -7,6 +7,7 @@ export const IN_VIEW_STYLE: Record<InViewKind, { dot: string; chip: string }> = 
   guest_allowed: { dot: 'bg-cyan-400', chip: 'border-cyan-400/40 bg-cyan-400/10 text-cyan-300' },
   guest_outside: { dot: 'bg-orange-400', chip: 'border-orange-400/40 bg-orange-400/10 text-orange-300' },
   unknown: { dot: 'bg-red-500', chip: 'border-red-500/40 bg-red-500/10 text-red-300' },
+  leaving: { dot: 'bg-slate-300', chip: 'border-line bg-surface-2 text-ink-2' },
 };
 
 /** Chips for everyone in view right now: colour dot + name, with the kind as text for screen readers. */

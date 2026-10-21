@@ -41,6 +41,11 @@ def init_db():
         name TEXT NOT NULL UNIQUE COLLATE NOCASE,
         role TEXT NOT NULL DEFAULT 'family',
         valid_from REAL, valid_to REAL, created_at REAL)""")
+    # family tracker: one row per arrival/departure; name NULL = "someone left, face not seen"
+    con.execute("""CREATE TABLE IF NOT EXISTS movements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts REAL NOT NULL, name TEXT, direction TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'camera')""")
     # key/value settings (security level, night schedule); updated_at = epoch of last change
     con.execute("""CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY, value TEXT, updated_at REAL)""")
@@ -116,6 +121,29 @@ def log_event(camera, track_id, identity, event_type,
         return cur.lastrowid
     finally:
         con.close()
+
+
+def log_movement(name, direction, source="camera", ts=None):
+    """Record an arrival ("arrived") or departure ("left"); returns the row id."""
+    con = sqlite3.connect(DB_PATH, timeout=10)
+    try:
+        cur = con.execute("INSERT INTO movements (ts, name, direction, source) VALUES (?,?,?,?)",
+                          (ts or time.time(), name, direction, source))
+        con.commit()
+        return cur.lastrowid
+    finally:
+        con.close()
+
+
+def last_movements():
+    """{name (lower-case): (direction, ts, source)} of each person's latest movement."""
+    con = sqlite3.connect(DB_PATH)
+    try:
+        rows = con.execute("SELECT name, direction, ts, source FROM movements"
+                           " WHERE name IS NOT NULL ORDER BY ts").fetchall()
+    finally:
+        con.close()
+    return {n.lower(): (d, t, s) for n, d, t, s in rows}
 
 
 def set_event_items(event_id, items):

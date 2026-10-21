@@ -242,3 +242,45 @@ def test_incident_items(client):
     assert client.get("/api/guard/alerts").json()[0]["items"] == ["knife", "scissors"]
     plain = add_event()
     assert client.get(f"/api/incidents/{plain}").json()["items"] == []
+
+
+def test_family_tracker_api(client, engine):
+    import vault_utils
+    jpg = __import__("conftest").jpeg()
+    for name, role in (("Azhad", "family"), ("Chong", "family"), ("Ali", "guest")):
+        r = client.post("/api/people", data={"name": name, "role": role},
+                        files=[("photos", ("a.jpg", jpg, "image/jpeg"))])
+        assert r.status_code == 201, r.text
+    fam = client.get("/api/family").json()
+    assert [p["name"] for p in fam] == ["Azhad", "Chong"]                  # residents only
+    assert all(p["status"] == "unknown" and p["since"] is None for p in fam)
+
+    vault_utils.log_movement("Azhad", "left", "camera", ts=time.time() - 60)
+    vault_utils.log_movement(None, "left", "camera")                        # someone, face not seen
+    fam = {p["name"]: p for p in client.get("/api/family").json()}
+    assert fam["Azhad"]["status"] == "out" and fam["Azhad"]["source"] == "camera"
+
+    engine.last_seen["Azhad"] = time.time()                                 # seen inside again
+    assert {p["name"]: p for p in client.get("/api/family").json()}["Azhad"]["status"] == "home"
+
+    chong = fam["Chong"]["id"]
+    r = client.put(f"/api/family/{chong}/status", json={"status": "out"})
+    assert r.status_code == 200 and r.json()["status"] == "out" and r.json()["source"] == "manual"
+    assert client.put(f"/api/family/{chong}/status", json={"status": "away"}).status_code == 422
+    ali = next(p["id"] for p in client.get("/api/people").json() if p["name"] == "Ali")
+    assert client.put(f"/api/family/{ali}/status", json={"status": "home"}).status_code == 400
+    assert client.put("/api/family/999/status", json={"status": "home"}).status_code == 404
+
+    moves = client.get("/api/family/movements?limit=5").json()
+    assert moves[0]["name"] == "Chong" and moves[0]["direction"] == "left" and moves[0]["source"] == "manual"
+    assert any(m["name"] is None for m in moves)
+
+
+def test_chat_who_is_home(client, engine):
+    import chat
+    import vault_utils
+    jpg = __import__("conftest").jpeg()
+    client.post("/api/people", data={"name": "Azhad"}, files=[("photos", ("a.jpg", jpg, "image/jpeg"))])
+    vault_utils.log_movement("Azhad", "arrived", "camera")
+    res, err = chat.ChatTools(engine).run("who_is_home", {})
+    assert not err and res[0]["name"] == "Azhad" and res[0]["status"] == "home"

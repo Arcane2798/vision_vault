@@ -17,11 +17,13 @@ from insightface.utils.storage import ensure_available
 from rules import (DEFAULT_LEVEL, DEFAULT_NIGHT_END, DEFAULT_NIGHT_START,
                    FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, SECURITY_LEVELS,
                    UNKNOWN, classify_person, effective_level, guard_alert_due,
-                   high_reason, items_near, items_text, normalize_level, security_params,
-                   should_alert_guard, stale_tracks, valid_away_window, valid_hhmm)
+                   high_reason, is_departing, items_near, items_text, movement_direction,
+                   normalize_level, security_params, should_alert_guard, stale_tracks,
+                   valid_away_window, valid_hhmm)
 from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
                          ClipRecorder, env, get_settings, guard_chat_id, guard_token, house_unit,
-                         init_db, load_people, log_event, send_telegram, set_event_items,
+                         init_db, load_people, log_event, log_movement, send_telegram,
+                         set_event_items,
                          set_settings, sync_people)
 
 VERIFY_INTERVAL = 30      # frames between re-checks of an already-recognized person
@@ -58,6 +60,14 @@ ITEM_COLOR = (255, 0, 255)   # magenta (BGR)
 MIN_TRACK_FRAMES = 10    # a track must exist this many frames before it counts
 MIN_FACE_PX = 40         # ignore faces narrower than this, in capture pixels (garbage embeddings)
 MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
+
+# Family tracker (camera inside, facing the door): box growing = arriving, shrinking = leaving.
+# DEPARTURE_FILTER: an unknown who starts close to the camera and walks away (a resident leaving,
+# face never seen) is logged as "someone left" instead of raising an intrusion. 0 turns it off.
+DEPARTURE_FILTER = env("DEPARTURE_FILTER", "1") != "0"
+TRACK_END_SEC = 2.0      # a track unseen this long has left the view: decide arrived / left
+SIZE_SAMPLES = 5         # first / last box heights kept per track for the direction
+LEAVING_COLOR = (200, 200, 200)
 
 TRAIL_LEN = 60           # foot points kept per track for the path trail (~8 s at 7 fps)
 TRACK_FORGET_SEC = 30.0  # drop all state of a track not seen for this long (bounded memory)
@@ -169,6 +179,10 @@ class VisionEngine:
         self.trails = {}         # track_id -> deque of foot points (x, y) in frame coords
         self.track_items = {}    # track_id -> set of item labels seen near this unknown person
         self.track_event = {}    # track_id -> events.id of its intrusion (to add late items)
+        self.size_hist = {}      # track_id -> ([first heights], deque[last heights]) as frame fractions
+        self.track_names = {}    # track_id -> last known person recognised on this track
+        self.departing = set()   # unknown tracks judged "someone leaving" (no alert)
+        self.closed = set()      # tracks already judged arrived / left
         self.track_seen = {}     # track_id -> last time the track was in a frame
         self._next_prune = 0.0
 
@@ -452,7 +466,8 @@ class VisionEngine:
         """Every per-track dict / set (keyed by ByteTrack id)."""
         return (self.identity, self.last_faces, self.last_checked, self.verify_fail,
                 self.unknown_since, self.track_age, self.trails, self.track_seen,
-                self.track_items, self.track_event, self.alerted, self.guest_alerted)
+                self.track_items, self.track_event, self.size_hist, self.track_names,
+                self.departing, self.closed, self.alerted, self.guest_alerted)
 
     def _forget_tracks(self, tids):
         for store in self._track_stores():
@@ -565,6 +580,9 @@ class VisionEngine:
                 params, level = self.params, self.level
             frame_count += 1
             frame_h, frame_w = frame.shape[:2]
+            for tid in stale_tracks(self.track_seen, now, TRACK_END_SEC) - self.closed:
+                self.closed.add(tid)
+                self._close_track(tid, now)
             if now >= self._next_prune:
                 self._forget_tracks(stale_tracks(self.track_seen, now, TRACK_FORGET_SEC))
                 self._next_prune = now + PRUNE_INTERVAL
@@ -598,6 +616,10 @@ class VisionEngine:
                         continue
                     self.track_seen[tid] = now
                     self.trails.setdefault(tid, deque(maxlen=TRAIL_LEN)).append(((x1 + x2) // 2, y2))
+                    first_h, last_h = self.size_hist.setdefault(tid, ([], deque(maxlen=SIZE_SAMPLES)))
+                    if len(first_h) < SIZE_SAMPLES:
+                        first_h.append(person_h / frame_h)
+                    last_h.append(person_h / frame_h)
                     self.track_age[tid] = self.track_age.get(tid, 0) + 1
                     if self.track_age[tid] < MIN_TRACK_FRAMES:
                         continue
@@ -651,6 +673,20 @@ class VisionEngine:
                     name = self.identity.get(tid, "unknown")
                     if name != "unknown" and name not in known:
                         name = self.identity[tid] = "unknown"   # person was deleted
+                    if name != "unknown":
+                        self.track_names[tid] = name
+                    elif (DEPARTURE_FILTER and tid not in self.alerted
+                          and is_departing(first_h, last_h)):
+                        self.departing.add(tid)
+                    if name == "unknown" and tid in self.departing:
+                        # someone from inside walking out, face not seen: no alert
+                        self.unknown_since.pop(tid, None)
+                        in_view.append({"name": "unknown", "kind": "leaving"})
+                        self._draw_trail(frame, self.trails.get(tid), LEAVING_COLOR, False)
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), LEAVING_COLOR, 1)
+                        cv2.putText(frame, f"leaving #{tid}", (x1, max(20, y1 - 8)),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, LEAVING_COLOR, 1)
+                        continue
                     if name == "unknown" and item_boxes:
                         near = set(items_near((x1, y1, x2, y2), item_boxes))
                         added = near - self.track_items.get(tid, set())
@@ -793,6 +829,22 @@ class VisionEngine:
                           f"Unknown people in view: {n_unknown}\n"
                           f"Time: {time.strftime('%H:%M:%S')}{carrying}")
             send_telegram(guard_text, snap, chat_id=guard_chat, token=guard_token())
+
+    def _close_track(self, tid, now):
+        """A track left the view: record arrived / left for a known person, or "someone left"
+        for a departing unknown (family tracker)."""
+        hist = self.size_hist.get(tid)
+        if not hist:
+            return
+        direction = movement_direction(*hist)
+        name = self.track_names.get(tid)
+        if direction is None or (name is None and tid not in self.departing):
+            return
+        try:
+            log_movement(name, direction, "camera", now)
+            print(f"[tracker] {name or 'someone (face not seen)'} {direction}")
+        except Exception as e:
+            print("[tracker] could not save movement:", e)
 
     def _report_late_items(self, tid, added):
         """An item first seen after the intrusion was logged: update the event and warn once
