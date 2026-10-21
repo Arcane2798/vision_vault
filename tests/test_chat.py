@@ -136,3 +136,30 @@ def test_chat_route_with_fake_client(client, monkeypatch):
     assert r.status_code == 200 and r.json() == {"reply": "All quiet.", "pendingAction": None}
     r = client.post("/api/chat", json={"messages": [{"role": "user", "content": "  "}]})
     assert r.status_code == 400
+
+
+def test_set_away_from_home_prepares_only(client, engine):
+    t = chat.ChatTools(engine)
+    before = dict(engine.sec)
+    a = t.set_away_from_home("2026-10-24T18:00", "2026-10-28")
+    assert a["method"] == "PUT" and a["path"] == "/api/security"
+    away = a["body"]["away"]
+    assert away["enabled"] is True and away["from"] == "2026-10-24T10:00:00Z"
+    assert away["to"].startswith("2026-10-28T15:59:59")          # bare "back" date = end of that day (MYT)
+    assert "High" in a["summary"]
+    assert engine.sec == before                                  # nothing changed until Confirm
+    assert t.set_away_from_home(enabled=False)["body"] == {"away": {"enabled": False}}
+    assert t.set_away_from_home()["body"]["away"] == {"enabled": True, "from": None, "to": None}
+    assert t.run("set_away_from_home", {"leaving": "2026-10-28", "back": "2026-10-24"})[1]
+    assert t.run("set_away_from_home", {"leaving": "soon"})[1]
+    res, err = t.run("set_away_from_home", {"back": "2026-10-28T12:00"})
+    assert not err and "Confirm" in res["note"]
+
+
+def test_live_status_reports_schedules(client, engine):
+    t = chat.ChatTools(engine)
+    s = t.get_live_status()
+    assert s["sleepTime"] == "off" and s["awayFromHome"] == "off" and s["highBecause"] is None
+    engine.sec.update(away_enabled=True, away_from=None, away_to=None)
+    s = t.get_live_status()
+    assert s["highBecause"] == "away from home" and s["awayFromHome"]["back"] == "not set"

@@ -138,8 +138,16 @@ class ChatTools:
 
     def get_live_status(self):
         s = self.engine.get_status()
+        sec = self.engine.get_security()
         return {"cameraRunning": s["running"], "fps": s["fps"],
                 "unknownInView": s["unknown_count"], "securityLevel": s["security_level"],
+                "chosenLevel": sec["level"],
+                "highBecause": {"sleep": "sleep time", "away": "away from home"}.get(sec.get("high_reason")),
+                "sleepTime": ({"from": sec["night_start"], "until": sec["night_end"]}
+                              if sec["night_enabled"] else "off"),
+                "awayFromHome": ({"leaving": fmt_local(sec["away_from"]) or "open",
+                                  "back": fmt_local(sec["away_to"]) or "not set"}
+                                 if sec["away_enabled"] else "off"),
                 "peopleInView": s.get("in_view", [])}
 
     def list_people(self):
@@ -208,6 +216,22 @@ class ChatTools:
             raise ToolError(f"level must be one of {', '.join(SECURITY_LEVELS)}")
         self.pending = request_action(f"Switch security level to {level.capitalize()}",
                                       "PUT", "/api/security", {"level": level})
+        return self.pending
+
+    def set_away_from_home(self, leaving=None, back=None, enabled=True):
+        """Away-from-home dates (e.g. a vacation): High for the whole range."""
+        if enabled is False:
+            self.pending = request_action("Turn off away from home (back to the chosen level)",
+                                          "PUT", "/api/security", {"away": {"enabled": False}})
+            return self.pending
+        start = parse_local(leaving, "leaving")
+        end = parse_local(back, "back", end_of_day=True)   # "back on the 28th" = all of the 28th
+        if start is not None and end is not None and start >= end:
+            raise ToolError("leaving must be before back.")
+        summary = (f"Away from home from {fmt_local(start) or 'now'} until "
+                   f"{fmt_local(end) or 'you turn it off'}: security level High")
+        self.pending = request_action(summary, "PUT", "/api/security", {"away": {
+            "enabled": True, "from": iso_or_none(start), "to": iso_or_none(end)}})
         return self.pending
 
     # ----- dispatch -----
@@ -290,9 +314,19 @@ TOOLS = [
      "parameters": {"type": "object", "properties": {
          "level": {"type": "string", "enum": list(SECURITY_LEVELS)}},
          "required": ["level"]}},
+    {"name": "set_away_from_home",
+     "description": "Prepare the away-from-home dates (a trip or vacation) for the user to confirm. "
+                    "Between leaving and back the camera is in High security. Use enabled=false to "
+                    "turn it off early (when they are back).",
+     "parameters": {"type": "object", "properties": {
+         "leaving": {"type": "string", "description": "When they leave, omit for now. " + _LOCAL_DT},
+         "back": {"type": "string", "description": "When they are back home, omit if unknown "
+                  "(High stays on until turned off). A bare date includes the whole day. " + _LOCAL_DT},
+         "enabled": {"type": "boolean", "description": "false = turn away from home off."}}}},
 ]
 TOOL_NAMES = {t["name"] for t in TOOLS}
-WRITE_TOOLS = {"review_incident", "add_or_update_guest", "set_security_level"}
+WRITE_TOOLS = {"review_incident", "add_or_update_guest", "set_security_level",
+               "set_away_from_home"}
 
 SYSTEM = """You are Viva Bot, the AI assistant inside Vision Vault, a smart home security dashboard for one home \
 in a township. One camera watches the front door. Residents (family) pass silently; registered \
@@ -304,7 +338,10 @@ How to answer:
 - You only get text from the tools; you cannot see the camera. If asked to look at the video, say so.
 - There is only one camera, so locating someone means "last seen at the front door at 14:32".
 - Say "residents" and "visitors" (never "guests"), and "guard house".
-- Write tools (review_incident, add_or_update_guest, set_security_level) only prepare an action. \
+- High security is used automatically during the sleep time and while the family is away from \
+home (set_away_from_home, e.g. for a vacation).
+- Write tools (review_incident, add_or_update_guest, set_security_level, set_away_from_home) only \
+prepare an action. \
 After calling one, tell the user to press Confirm; never say it is already done.
 - Pass dates to tools as local time like 2026-10-24T14:00. Resolve words like "today" or \
 "Saturday 2-6pm" against the current time below; if a date is ambiguous, ask.

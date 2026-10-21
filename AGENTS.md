@@ -244,7 +244,9 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 - [x] Tools are plain Python functions reusing existing queries:
       read — `get_summary`, `list_incidents(from, to, status, limit)`, `get_incident(id)`, `get_live_status`, `list_people`,
       `where_is(name)` (answers from `lastSeen`: "last seen at the front door at 14:32");
-      write — `review_incident(id, status, notes)`, `add_or_update_guest(name, valid_from, valid_to)`, `set_security_level(level)`.
+      write — `review_incident(id, status, notes)`, `add_or_update_guest(name, valid_from, valid_to)`, `set_security_level(level)`,
+      `set_away_from_home(leaving?, back?, enabled?)` (vacation dates → `PUT /api/security {away}`; a bare "back" date = end of that day).
+      `get_live_status` also reports `chosenLevel`, `highBecause`, `sleepTime` and `awayFromHome`.
       `get_live_status` includes **who is in view right now**: engine `get_status()` adds `in_view: [{name, kind}]`
       (kind = family / guest_allowed / guest_outside / unknown) and `/api/status` adds `peopleInView: [{name, kind}]`.
       Text only — **no camera frames are sent to the AI** (keeps the "footage stays in the home" promise).
