@@ -6,6 +6,20 @@ unknown people trigger a recorded incident, a snapshot, and Telegram alerts to t
 **Hackathon:** Sime Darby Property University Hackathon 2026 — theme "Township of Tomorrow".
 **Deadline: Friday 23 Oct 2026.** Owner / lead: Azhad (backend + vision). Frontend was built by a teammate.
 
+## ⏩ Handoff — unattended build, Wed 21 Oct 09:20–09:50 (read this first)
+Rollback point before this build: tag `v0.95-pre-afk` (`git checkout v0.95-pre-afk`). Every feature below is its own commit;
+112 tests pass; frontend typecheck + build pass; each feature was also run against the real models on `test1.mp4` in a temp copy.
+
+| Feature | Commit | Verified | Still needs the owner |
+|---|---|---|---|
+| Face recognition (720p crops, buffalo_l, check every 3 frames) | `8427e97` | engine 7–10 FPS; strangers score 0.00–0.19 | **Walk test on your own face** (scores under the face box). First start embeds faces with buffalo_l (~10 s). Undo: `VISION_MODE=legacy` in `.env` |
+| Path trails + forgetting stale tracks | `7f66a55` | trail visible in snapshot | — |
+| Intruder's items (knife / scissors / bat) | `de0abfa` | runs, no errors | Test with a real knife/scissors on camera; YOLOv8n is weak at knives |
+| Family tracker (home / out) | `e04de5c` | API + dashboard card + "Mark home" checked in the browser | Walk in and out past the inside camera; a resident leaving with their back turned is logged as "someone left" (no alarm). Undo: `DEPARTURE_FILTER=0` |
+| House map + safe path | `7289cf1` | processing ran on real models (~1.3× video length); replay + safe route checked in the browser | Edit `house_map.json` to your demo house; record one video per room into `test_videos/` (names in the file); press **Process videos** on the House map page |
+| Viva Bot `who_is_home` + vacation dates | `e04de5c`, `882327b` | unit tests | One real question (Gemini quota) |
+Not built (owner decision): account login (S1).
+
 ## Positioning — "Township of Tomorrow" (decided Tue 20 Oct)
 **Vision Vault is smart home security that plugs into the township.** Each home runs its own camera + AI.
 Recognised residents pass silently; registered **visitors** are allowed inside their time window (like a gated
@@ -164,7 +178,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 | # | Feature | Status | Where in plan |
 |---|---|---|---|
 | 1 | Real-time person detection & tracking | ✅ done | Phase 3: prune per-track state |
-| 2 | Face recognition, homeowner registers faces | ✅ done (register via Residents & Visitors page) | Phase 1: cache fix + `/people` page with upload |
+| 2 | Face recognition, homeowner registers faces | ✅ done; accuracy upgrade Wed 21 Oct (720p crops, buffalo_l) | Phase 1: cache fix + `/people` page with upload |
 | 3 | Intrusion snapshot + clip | ✅ done (clip race + speed fixed) | Phase 2: `clip_ready` |
 | 4 | Telegram alert | ✅ done | Phase 2: guard-house copy, weapon note |
 | 5 | Web dashboard (live, history, analytics) | ✅ done (rebranded to Vision Vault) | Phase 0: rebrand, `/api/status` |

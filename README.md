@@ -23,16 +23,20 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
 
 | Feature | Status |
 |---|---|
-| Real-time person detection and tracking (YOLOv8n + ByteTrack) | ✅ |
-| Face recognition of enrolled residents (InsightFace) | ✅ |
+| Real-time person detection and tracking (YOLOv8n + ByteTrack), with the path each person walked drawn on the video | ✅ |
+| Face recognition of residents: faces cropped from 720p, ResNet-50 recogniser (InsightFace buffalo_l) | ✅ |
 | Intrusion rules that cut false alarms: minimum track age and a grace period set by the security level | ✅ |
-| Evidence: snapshot + 10 s clip (5 s before, 5 s after), re-encoded to H.264 for browser playback | ✅ |
+| Evidence: snapshot (with the intruder's path) + 10 s clip, re-encoded to H.264 for browser playback | ✅ |
 | Telegram alert to the homeowner with photo | ✅ |
-| Web dashboard: live feed, real-time alerts, incident history with filters, incident review (confirm / dismiss + notes), 14-day trend | ✅ |
-| Visitor registration with time windows (e.g. "allow Ali Saturday 2–6 pm") | 🚧 in progress |
-| Guard-house alert with house address and photo | 🚧 in progress |
-| AI assistant: ask about incidents and register visitors in plain language (LLM tool calling) | 🚧 in progress |
-| Township-wide guard dashboard, weapon detection, liveness / anti-spoofing, ESP32 buzzer, login | 📋 planned |
+| Web dashboard: live feed, real-time alerts, incident history and review, 14-day trend | ✅ |
+| Security levels Normal / High, switched to High automatically during sleep time and while away from home | ✅ |
+| Visitor registration with time windows (e.g. "allow Ali Saturday 2–6 pm") | ✅ |
+| Township guard house: alert with house address and photo, Guard House screen with acknowledge | ✅ |
+| AI assistant "Viva Bot": ask about incidents, who is home, register visitors, set vacation dates (confirm before any change) | ✅ |
+| Intruder's items: knife / scissors / baseball bat near an unknown person (prototype) | ✅ |
+| Family tracker: who is home and who is out, from arrivals and departures at the door | ✅ |
+| House map + safe path: people per room from several cameras, safest way out avoiding the intruder (concept with recorded videos) | ✅ |
+| Township-wide guard dashboard, liveness / anti-spoofing, gun detection model, ESP32 buzzer, login | 📋 planned |
 
 ## How it works
 
