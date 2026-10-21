@@ -51,9 +51,9 @@ def test_invalid_names(name):
 
 def test_security_params():
     n, h, a = security_params("normal"), security_params("home"), security_params("away")
-    assert n == {"grace": 3.0, "move_required": 0.08, "match_thresh": 0.40, "guard_alert": True}
-    assert h["grace"] == 5.0 and h["move_required"] == 0.08 and h["guard_alert"] is False
-    assert a["grace"] == 1.0 and a["move_required"] == 0.0 and a["guard_alert"] is True
+    assert n == {"grace": 3.0, "match_thresh": 0.40, "guard_alert": True}
+    assert h["grace"] == 5.0 and h["guard_alert"] is False
+    assert a["grace"] == 1.0 and a["guard_alert"] is True
     assert a["match_thresh"] == pytest.approx(0.45)
     with pytest.raises(ValueError):
         security_params("party")

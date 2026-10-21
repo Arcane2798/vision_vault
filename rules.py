@@ -67,7 +67,6 @@ DEFAULT_LEVEL = "normal"
 DEFAULT_NIGHT_START, DEFAULT_NIGHT_END = "23:00", "06:00"
 
 _NORMAL = {"grace": 3.0,          # seconds an unknown must be seen before alerting
-           "move_required": 0.08,  # fraction of frame width an unknown must travel (0 = none)
            "match_thresh": 0.40,   # min cosine similarity for a face match
            "guard_alert": True}    # also alert the guard house (Phase 2)
 
@@ -82,8 +81,7 @@ def security_params(level: str) -> dict:
     if level == "home":
         params.update(grace=5.0, guard_alert=False)
     elif level == "away":
-        params.update(grace=1.0, move_required=0.0,
-                      match_thresh=_NORMAL["match_thresh"] + 0.05)
+        params.update(grace=1.0, match_thresh=_NORMAL["match_thresh"] + 0.05)
     return params
 
 

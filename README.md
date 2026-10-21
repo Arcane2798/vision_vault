@@ -12,8 +12,8 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
 - **Guard houses see the gate, not the home.** Most township security stops at the entrance. Vision Vault gives every
   home its own AI watcher and connects it back to the guard house, so a break-in at one house is known township-wide
   immediately.
-- **Fewer false alarms, less alarm fatigue.** Residents and registered visitors never trigger alerts; posters, statues and
-  people just passing by are filtered out by tracking and movement rules. Guards only hear about real unknowns.
+- **Fewer false alarms, less alarm fatigue.** Residents and registered visitors never trigger alerts; brief glimpses are
+  filtered out by tracking and a grace period. Guards only hear about real unknowns.
 - **Visitor registration that the camera understands.** Homeowners register a visitor with a time window — the same idea
   as a gated community's visitor pass — and the system enforces it automatically.
 - **Privacy by design.** Faces, footage and logs stay on the home's own machine. Only alerts leave the house.
@@ -25,7 +25,7 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
 |---|---|
 | Real-time person detection and tracking (YOLOv8n + ByteTrack) | ✅ |
 | Face recognition of enrolled residents (InsightFace) | ✅ |
-| Intrusion rules that cut false alarms: minimum track age, movement check (ignores posters/statues), 3 s grace period | ✅ |
+| Intrusion rules that cut false alarms: minimum track age and a grace period set by the security level | ✅ |
 | Evidence: snapshot + 10 s clip (5 s before, 5 s after), re-encoded to H.264 for browser playback | ✅ |
 | Telegram alert to the homeowner with photo | ✅ |
 | Web dashboard: live feed, real-time alerts, incident history with filters, incident review (confirm / dismiss + notes), 14-day trend | ✅ |

@@ -100,8 +100,6 @@ class VisionEngine:
         self.thread = None
 
         self.track_age = {}      # track_id -> frames seen
-        self.first_pos = {}      # track_id -> first (cx, cy)
-        self.moved = set()       # track_ids that have actually moved
 
 
     # ---------- enrollment (with per-person disk caching) ----------
@@ -350,9 +348,9 @@ class VisionEngine:
     def _reset_tracks(self):
         """Forget every track: a new source restarts ByteTrack ids at 1."""
         for d in (self.identity, self.last_faces, self.last_checked, self.verify_fail,
-                  self.unknown_since, self.track_age, self.first_pos):
+                  self.unknown_since, self.track_age):
             d.clear()
-        for s in (self.alerted, self.guest_alerted, self.moved):
+        for s in (self.alerted, self.guest_alerted):
             s.clear()
         predictor = getattr(self.detector, "predictor", None)
         for tracker in getattr(predictor, "trackers", None) or []:
@@ -438,7 +436,7 @@ class VisionEngine:
             current_unknown = set()
             pending = []              # (tid, event_type, name) to trigger after drawing
             seen_known = set()        # recognised people in this frame
-            in_view = []              # [{name, kind}] for /api/status (static figures excluded)
+            in_view = []              # [{name, kind}] for /api/status
             now = time.time()
             if now >= self._next_level_check:
                 self._refresh_level(now)
@@ -463,10 +461,6 @@ class VisionEngine:
                     person_w, person_h = x2 - x1, y2 - y1
                     if person_w < 20 or person_h < 20:
                         continue
-                    cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-                    fx, fy = self.first_pos.setdefault(tid, (cx, cy))
-                    if abs(cx - fx) + abs(cy - fy) > params["move_required"] * frame_w:
-                        self.moved.add(tid)
                     self.track_age[tid] = self.track_age.get(tid, 0) + 1
                     if self.track_age[tid] < MIN_TRACK_FRAMES:
                         continue
@@ -518,13 +512,6 @@ class VisionEngine:
                     name = self.identity.get(tid, "unknown")
                     if name != "unknown" and name not in known:
                         name = self.identity[tid] = "unknown"   # person was deleted
-                    moved = tid in self.moved or params["move_required"] <= 0
-                    if name == "unknown" and not moved:
-                        # hasn't moved: could be a poster or statue. Grey box, never alert.
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (150, 150, 150), 1)
-                        cv2.putText(frame, "static?", (x1, max(20, y1 - 8)),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
-                        continue
                     if name == "unknown":
                         current_unknown.add(tid)
                         self.unknown_since.setdefault(tid, now)

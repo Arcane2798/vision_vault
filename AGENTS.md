@@ -49,7 +49,7 @@ Each agent commits only its own paths. Cross-area changes are requested in the a
  VisionEngine thread (engine.py)
    YOLOv8n + ByteTrack → person tracks
    InsightFace on head crop → matched identity or "unknown"
-   Rules: track ≥ 10 frames, must have moved, unknown for 3 s → intrusion
+   Rules: track ≥ 10 frames, unknown for the grace period (3 s at Normal) → intrusion
         │ annotated JPEG                       │ intrusion
         ▼                                      ▼
    /video (MJPEG stream)           vault_utils.py: snapshot, clip (5 s pre + 5 s post,
@@ -139,7 +139,7 @@ The frame's top-right corner shows the effective level (`NORMAL`, `HOME`, `AWAY`
 **`people` table:** `id, name (= faces/ folder, unique, case-insensitive), role ('family'|'guest'), valid_from, valid_to, created_at`.
 Pure rules live in `rules.py` (`visitor_allowed`, `classify_person`, `valid_person_name`). A guest window bound that is
 NULL is open-ended. Live-frame colours: family green, visitor in window cyan (`guest:<name>`), visitor outside window
-orange, unknown red, static figure grey.
+orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no posters in the demo.)
 
 ## Feature map (owner's list, Tue 20 Oct)
 | # | Feature | Status | Where in plan |
@@ -162,7 +162,7 @@ orange, unknown red, static figure grey.
 
 ### Done
 - [x] Person detection + ByteTrack tracking, face recognition against `faces/`
-- [x] Intrusion rules (min track age, must move, 3 s grace), static-figure suppression
+- [x] Intrusion rules (min track age, grace period by security level); static-figure filter removed Wed 21 Oct
 - [x] Snapshot + pre/post-roll clip recording, H.264 conversion for browser playback
 - [x] SQLite event log with review status/notes
 - [x] Telegram alerts with photo
@@ -214,9 +214,9 @@ orange, unknown red, static figure grey.
       photoUrl: "/api/people/{id}/photo", lastSeen: ISO|null, createdAt: ISO}`. `active` = family, or guest whose window contains now.
 - [x] **Security level (feature 5.1):** levels `home` | `normal` | `away`, stored in a `settings` table (`key, value`), default `normal`.
       Pure function `security_params(level) -> dict` gives the rule thresholds:
-      `home` — GRACE 5 s, MOVE_REQUIRED 0.08, no guard-house copy;
-      `normal` — current defaults (GRACE 3 s, MOVE_REQUIRED 0.08);
-      `away` — GRACE 1 s, MOVE_REQUIRED 0 (a standing stranger also alerts), MATCH_THRESH raised by 0.05 (stricter face match).
+      `home` — GRACE 5 s, no guard-house copy;
+      `normal` — current defaults (GRACE 3 s);
+      `away` — GRACE 1 s, MATCH_THRESH raised by 0.05 (stricter face match).
       Engine `set_security_level(level)` under `self.lock`; the current level is drawn in the frame corner.
       **Night schedule (owner request, Tue 20 Oct):** settings `night_enabled` (default off), `night_start` / `night_end` ("HH:MM", default
       "23:00" / "06:00", local machine time, window may cross midnight). Pure function
