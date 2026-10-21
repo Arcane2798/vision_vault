@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { securityService } from '@/services';
 import type { SecuritySettings, SecurityUpdate } from '@/types';
 
-/** Re-check often enough that the night schedule switching on/off shows up without a reload. */
+/** Re-check often enough that the away-from-home dates switching on/off shows up without a reload. */
 const REFRESH_MS = 30000;
 
 interface SecurityContextValue {

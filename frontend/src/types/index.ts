@@ -114,13 +114,6 @@ export interface TrendPoint {
 /** off = no alerts or recordings (e.g. a party), optionally until offUntil */
 export type SecurityLevel = 'off' | 'normal' | 'high';
 
-/** Daily sleep time: auto High between start and end (local "HH:MM", may cross midnight). API name: night. */
-export interface NightSchedule {
-  enabled: boolean;
-  start: string;
-  end: string;
-}
-
 /** Away from home (e.g. a vacation): auto High between from and to (ISO; null = open-ended). */
 export interface AwaySchedule {
   enabled: boolean;
@@ -129,17 +122,16 @@ export interface AwaySchedule {
 }
 
 /** Why a schedule forces High right now. */
-export type HighReason = 'sleep' | 'away';
+export type HighReason = 'away';
 
 /** GET /api/security */
 export interface SecuritySettings {
   /** level chosen by the homeowner */
   level: SecurityLevel;
-  /** level the engine actually uses now (high while the sleep time or away dates apply) */
+  /** level the engine actually uses now (high while the away dates apply) */
   effectiveLevel: SecurityLevel;
   /** set while a schedule forces High (also when High is chosen by hand) */
   highReason: HighReason | null;
-  night: NightSchedule;
   away: AwaySchedule;
   /** with level "off": when alerts come back on (ISO), null = until turned back on */
   offUntil: string | null;
@@ -151,7 +143,6 @@ export interface SecuritySettings {
 /** PUT /api/security */
 export interface SecurityUpdate {
   level?: SecurityLevel;
-  night?: Partial<NightSchedule>;
   away?: Partial<AwaySchedule>;
   /** with level "off": ISO end time, null = until turned back on */
   offUntil?: string | null;
@@ -186,7 +177,7 @@ export interface LiveStatus {
   /** unknown people currently in view */
   unknownCount: number;
   cameraName: string;
-  /** effective level (night schedule applied) */
+  /** effective level (away dates applied) */
   securityLevel?: SecurityLevel;
   /** who is in view right now (missing on older backends) */
   peopleInView?: PersonInView[];

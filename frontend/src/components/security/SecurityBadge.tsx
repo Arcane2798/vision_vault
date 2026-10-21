@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Moon, Plane, Shield, ShieldAlert, ShieldOff } from 'lucide-react';
+import { Plane, Shield, ShieldAlert, ShieldOff } from 'lucide-react';
 import { useSecurity } from '@/context/SecurityContext';
 import type { SecurityLevel } from '@/types';
 import { cn, effectiveLevelText, scheduleHighActive, securityLevelLabel } from '@/utils/format';
@@ -16,8 +16,8 @@ export function SecurityBadge() {
   if (!security) return null;
   const scheduled = scheduleHighActive(security);
   const { cls, Icon } = LEVEL_STYLE[security.effectiveLevel];
-  // the icon (moon = sleep time, plane = away from home) says why; the label stays just "High"
-  const BadgeIcon = scheduled ? (security.highReason === 'away' ? Plane : Moon) : Icon;
+  // the plane icon says High comes from the away-from-home dates; the label stays just "High"
+  const BadgeIcon = scheduled ? Plane : Icon;
   return (
     <Link
       to="/live"

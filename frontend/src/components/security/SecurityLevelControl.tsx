@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Moon, Plane } from 'lucide-react';
+import { Plane } from 'lucide-react';
 import { useSecurity } from '@/context/SecurityContext';
 import type { SecurityLevel, SecurityUpdate } from '@/types';
 import { cn, effectiveLevelText, formatDateTime, formatUntil, fromDateTimeLocal, scheduleHighActive, securityLevelLabel, toDateTimeLocal } from '@/utils/format';
@@ -11,32 +11,26 @@ import { LEVEL_STYLE } from './SecurityBadge';
 
 const LEVELS: Array<{ value: SecurityLevel; description: string }> = [
   { value: 'off', description: 'No alerts or recordings, e.g. while you have a party. Choose how long; it switches back on by itself.' },
-  { value: 'normal', description: 'Default: alert 3 s after an unknown person appears.' },
-  { value: 'high', description: 'Most sensitive: alerts the moment any stranger appears, even partly visible. Used automatically during sleep time and while you are away from home.' },
+  { value: 'normal', description: 'Default: alerts 5 s after an unknown person has been in view (seen for 10 frames).' },
+  { value: 'high', description: 'Most sensitive: also waits 5 s, but is stricter about face matches, detects partly visible people and starts counting sooner (3 frames). Used automatically while you are away from home.' },
 ];
 
 /** quick timers for Off */
 const OFF_HOURS = [1, 2, 4, 8];
 
-/** Normal / High segmented control plus the two schedules that switch to High: daily sleep time and away-from-home dates. */
+/** Normal / High segmented control plus the the away-from-home dates that switch to High. */
 export function SecurityLevelControl() {
   const { security, error, update, reload } = useSecurity();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
   const [awayFrom, setAwayFrom] = useState('');
   const [awayTo, setAwayTo] = useState('');
   const [offOpen, setOffOpen] = useState(false);
   const [offUntilInput, setOffUntilInput] = useState('');
 
   // keep the inputs in sync with the backend unless the user is editing them
-  const savedStart = security?.night.start ?? '';
-  const savedEnd = security?.night.end ?? '';
   const savedAwayFrom = toDateTimeLocal(security?.away.from ?? null);
   const savedAwayTo = toDateTimeLocal(security?.away.to ?? null);
-  useEffect(() => setStart(savedStart), [savedStart]);
-  useEffect(() => setEnd(savedEnd), [savedEnd]);
   useEffect(() => setAwayFrom(savedAwayFrom), [savedAwayFrom]);
   useEffect(() => setAwayTo(savedAwayTo), [savedAwayTo]);
 
@@ -68,10 +62,7 @@ export function SecurityLevelControl() {
     );
   }
 
-  const night = security.night;
   const away = security.away;
-  const timesDirty = start !== night.start || end !== night.end;
-  const timesValid = /^\d{2}:\d{2}$/.test(start) && /^\d{2}:\d{2}$/.test(end) && start !== end;
   const awayDirty = awayFrom !== savedAwayFrom || awayTo !== savedAwayTo;
   const awayValid = !awayFrom || !awayTo || awayFrom < awayTo;
   const scheduled = scheduleHighActive(security);
@@ -162,33 +153,6 @@ export function SecurityLevelControl() {
           ))}
         </ul>
 
-        {/* daily sleep time (API: night) */}
-        <div className="space-y-3 border-t border-line pt-4">
-          <ScheduleHeader
-            icon={<Moon className="h-4 w-4 text-ink-2" aria-hidden />}
-            title="Sleep time - auto High"
-            hint="Every night between these times, while everyone is asleep."
-            on={night.enabled}
-            busy={busy}
-            onToggle={() => save({ night: { enabled: !night.enabled } }, night.enabled ? 'Sleep time turned off.' : 'Sleep time turned on.')}
-          />
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="space-y-1 text-xs font-medium text-ink-2">
-              <span className="block">From</span>
-              <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="w-32 [color-scheme:dark]" />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-ink-2">
-              <span className="block">Until</span>
-              <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="w-32 [color-scheme:dark]" />
-            </label>
-            {timesDirty && (
-              <Button size="sm" variant="primary" disabled={!timesValid} loading={busy} onClick={() => save({ night: { start, end } }, `Sleep time saved: ${start} - ${end}.`)}>
-                Save times
-              </Button>
-            )}
-          </div>
-        </div>
-
         {/* away from home, e.g. a vacation */}
         <div className="space-y-3 border-t border-line pt-4">
           <ScheduleHeader
@@ -226,16 +190,12 @@ export function SecurityLevelControl() {
 
         {scheduled && (
           <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-red-300">
-            {security.highReason === 'away' ? (
+            
               <>
                 Away from home: the camera is in <b>High</b>
                 {away.to ? <> until {formatDateTime(away.to)}</> : ' until you turn this off'}, then returns to {securityLevelLabel[security.level]}.
               </>
-            ) : (
-              <>
-                Sleep time: the camera is in <b>High</b> until {night.end}, then returns to {securityLevelLabel[security.level]}.
-              </>
-            )}
+            
           </p>
         )}
 
