@@ -84,6 +84,16 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 | `frontend/.env.local` | Frontend settings (live mode, websocket, auth off) |
 | `.env` | `TG_TOKEN`, `TG_CHAT_ID`, optional `VIDEO_SOURCE`; optional `GUARD_TG_TOKEN` (separate guard bot; with no `GUARD_TG_CHAT_ID` it messages `TG_CHAT_ID`, so one account gets two bot chats) and `GUARD_TG_CHAT_ID` (guard-house chat; with neither set there is no guard Telegram copy) and `HOUSE_UNIT` (e.g. `No. 12, Jalan Elmina 3/1`); `GEMINI_API_KEY` (AI assistant; unset = `/api/chat` returns 503) and optional `CHAT_MODEL` (default `gemini-3.5-flash-lite`, set in `chat.DEFAULT_MODEL`; `gemini-3.8-flash` allows only 20 free requests/day). There is no backend `.env.example`; copy these lines:<br>`# GUARD_TG_CHAT_ID=-1001234567890`<br>`# HOUSE_UNIT=No. 12, Jalan Elmina 3/1`<br>`# GEMINI_API_KEY=your-key-from-aistudio.google.com`<br>`# CHAT_MODEL=gemini-3.5-flash-lite` |
 
+## Vision settings (`.env`, added Wed 21 Oct)
+| Key | Default | Meaning |
+|---|---|---|
+| `VISION_MODE` | (empty) | `legacy` = pre-Wed-21-Oct behaviour: 640x480, buffalo_s recogniser, face check every 8 frames |
+| `CAPTURE_SIZE` | `1280x720` | Camera capture size. Faces are cropped from this; YOLO/stream/clips use a 640-wide copy |
+| `FACE_RECOGNIZER` | `buffalo_l` | InsightFace pack for recognition (ResNet-50). Cache: `faces/embeddings_<pack>.pkl` (`embeddings.pkl` for buffalo_s) |
+| `FACE_DETECTOR` | `buffalo_s` | Pack for face detection (fast det_500m). Only detection + recognition run, no landmark/age models |
+| `FACE_CHECK_FRAMES` | `3` | Frames between face checks while a person is unknown; any match during the grace period cancels the alert |
+Measured on the i7-10510U: face check 110 ms (was 262 ms), engine 7–10 FPS on `test1.mp4` with 2–3 people.
+
 ## Setup & run
 ```bash
 pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python requests imageio-ffmpeg python-multipart google-genai

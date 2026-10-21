@@ -9,7 +9,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 from ultralytics import YOLO
-from insightface.app import FaceAnalysis
+from insightface import model_zoo
+from insightface.app.common import Face
+from insightface.utils.storage import ensure_available
 
 from rules import (DEFAULT_LEVEL, DEFAULT_NIGHT_END, DEFAULT_NIGHT_START,
                    FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, SECURITY_LEVELS,
@@ -17,23 +19,37 @@ from rules import (DEFAULT_LEVEL, DEFAULT_NIGHT_END, DEFAULT_NIGHT_START,
                    high_reason, normalize_level, security_params, should_alert_guard,
                    valid_away_window, valid_hhmm)
 from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
-                         ClipRecorder, get_settings, guard_chat_id, guard_token, house_unit,
+                         ClipRecorder, env, get_settings, guard_chat_id, guard_token, house_unit,
                          init_db, load_people, log_event, send_telegram,
                          set_settings, sync_people)
 
 VERIFY_INTERVAL = 30      # frames between re-checks of an already-recognized person
 VERIFY_FAILS = 2          # consecutive mismatches before the lock is released
 
-# GRACE / MOVE_REQUIRED / MATCH_THRESH depend on the security level: see rules.security_params
+# ---- vision settings (.env). VISION_MODE=legacy restores the pre-Wed-21-Oct behaviour. ----
+# Faces are cropped from the full capture (1280x720) while YOLO, drawing and streaming use a
+# 640-wide copy, so a face at the door has about 2x the pixels. Face detection uses buffalo_s's
+# fast detector; recognition uses buffalo_l's ResNet-50 (much more accurate, ~110 ms per check
+# on an i7-10510U vs 262 ms for the old full buffalo_s pipeline, which also ran unused models).
+LEGACY = (env("VISION_MODE", "") or "").lower() == "legacy"
+FACE_DETECTOR = env("FACE_DETECTOR", "buffalo_s")                          # det_500m
+FACE_RECOGNIZER = env("FACE_RECOGNIZER", "buffalo_s" if LEGACY else "buffalo_l")
+CAPTURE_W, CAPTURE_H = (int(v) for v in
+                        (env("CAPTURE_SIZE", "640x480" if LEGACY else "1280x720")).lower().split("x"))
+PROCESS_W = 640           # YOLO / overlay / stream / clip width
+# frames between face checks while a person is unknown: any match during the grace period
+# cancels the alert, so more looks = fewer false alarms on residents, no extra delay for intruders
+FACE_REC_INTERVAL = int(env("FACE_CHECK_FRAMES", "8" if LEGACY else "3"))
+
+# GRACE / MATCH_THRESH depend on the security level: see rules.security_params
 TG_COOLDOWN = 15.0        # min seconds between Telegram messages of the same event type
-FACE_REC_INTERVAL = 8     # frames between face-recognition attempts per person
 CLIP_PRE_SEC = 5          # seconds of video kept before an event
 CLIP_POST_SEC = 5         # seconds recorded after the (last) event; clips use the measured FPS
 IMG_EXT = {".jpg", ".jpeg", ".png"}
 
 PERSON_CONF = 0.55       # ignore weak "person" detections
 MIN_TRACK_FRAMES = 10    # a track must exist this many frames before it counts
-MIN_FACE_PX = 40         # ignore faces smaller than this (garbage embeddings)
+MIN_FACE_PX = 40         # ignore faces narrower than this, in capture pixels (garbage embeddings)
 MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
 
 LEVEL_COLOR = {"normal": (0, 255, 255), "high": (0, 0, 255)}  # BGR
@@ -52,6 +68,39 @@ FACE_BOX_COLOR = (255, 255, 255)
 VIEW_KIND = {GUEST_OUTSIDE: "guest_outside"}
 
 
+class FaceModel:
+    """Face detector + recogniser with the FaceAnalysis.get() interface the engine uses.
+    Only detection and recognition run (no landmark / age / gender models)."""
+
+    def __init__(self, detector_pack=FACE_DETECTOR, recognizer_pack=FACE_RECOGNIZER):
+        det_dir = ensure_available("models", detector_pack, root="~/.insightface")
+        rec_dir = det_dir if recognizer_pack == detector_pack else \
+            ensure_available("models", recognizer_pack, root="~/.insightface")
+        self.det = model_zoo.get_model(self._find(det_dir, "det_"), providers=["CPUExecutionProvider"])
+        self.det.prepare(ctx_id=-1, input_size=(320, 320), det_thresh=0.5)
+        self.rec = model_zoo.get_model(self._find(rec_dir, "w600k"), providers=["CPUExecutionProvider"])
+        self.rec.prepare(ctx_id=-1)
+        self.name = recognizer_pack       # embeddings are only comparable within one recogniser
+        print(f"[faces] detector {detector_pack}, recogniser {recognizer_pack}")
+
+    @staticmethod
+    def _find(folder, prefix):
+        for f in sorted(os.listdir(folder)):
+            if f.startswith(prefix) and f.endswith(".onnx"):
+                return os.path.join(folder, f)
+        raise FileNotFoundError(f"no {prefix}*.onnx in {folder}")
+
+    def get(self, img):
+        bboxes, kpss = self.det.detect(img, max_num=0, metric="default")
+        faces = []
+        for i in range(bboxes.shape[0]):
+            face = Face(bbox=bboxes[i, :4], kps=kpss[i] if kpss is not None else None,
+                        det_score=bboxes[i, 4])
+            self.rec.get(img, face)
+            faces.append(face)
+        return faces
+
+
 class VisionEngine:
     def __init__(self, source=0, camera_name=CAMERA_NAME):
         self.source = source
@@ -63,13 +112,14 @@ class VisionEngine:
         self.progress = None           # 0..1 position in a video file, None for a camera
         self.camera_name = camera_name
 
-        # Lightweight detector and CPU-optimized face analyzer
+        # Lightweight person detector; face detector + recogniser (see FaceModel)
         self.detector = YOLO("yolov8n.pt")
-        self.face_app = FaceAnalysis(name="buffalo_s")
-        self.face_app.prepare(ctx_id=-1, det_size=(320, 320))
+        self.face_app = FaceModel()
 
         self.faces_path = Path(FACES_DIR)
-        self.cache_file = self.faces_path / "embeddings.pkl"
+        # one cache per recogniser: switching models (or VISION_MODE=legacy) never mixes embeddings
+        self.cache_file = self.faces_path / ("embeddings.pkl" if self.face_app.name == "buffalo_s"
+                                             else f"embeddings_{self.face_app.name}.pkl")
         self.known = {}           # name -> (n, 512) embeddings; swapped whole under self.lock
         self.people = {}          # name -> people row; swapped whole under self.lock
         self._reload_lock = threading.Lock()   # serialises reload_people() calls
@@ -372,8 +422,14 @@ class VisionEngine:
             cap = cv2.VideoCapture(source, backend)
         if not cap.isOpened():
             print(f"[camera] could not open video source {source!r}")
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        if not isinstance(source, str):
+            # MJPG keeps USB webcams (e.g. the C922) at full frame rate at 720p
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAPTURE_W)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAPTURE_H)
+        if not isinstance(source, str):
+            print(f"[camera] capturing at {int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))}x"
+                  f"{int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))}")
         return cap
 
     def _reset_tracks(self):
@@ -459,10 +515,16 @@ class VisionEngine:
                 continue
             failed_reads = 0
 
-            # keep processing size the same as the webcam (video files are often 1080p)
+            # `full` (<= CAPTURE_W wide) is only used for face crops; YOLO, drawing, streaming
+            # and clips use the PROCESS_W-wide `frame`. Video files are often 1080p.
             h0, w0 = frame.shape[:2]
-            if w0 > 640:
-                frame = cv2.resize(frame, (640, int(h0 * 640 / w0)))
+            if w0 > CAPTURE_W:
+                frame = cv2.resize(frame, (CAPTURE_W, int(h0 * CAPTURE_W / w0)))
+            full = frame
+            if full.shape[1] > PROCESS_W:
+                frame = cv2.resize(full, (PROCESS_W, int(full.shape[0] * PROCESS_W / full.shape[1])),
+                                   interpolation=cv2.INTER_AREA)
+            scale = full.shape[1] / frame.shape[1]      # frame -> full coordinates
 
             current_unknown = set()
             pending = []              # (tid, event_type, name) to trigger after drawing
@@ -503,9 +565,11 @@ class VisionEngine:
                     if since_check >= interval:
                         self.last_checked[tid] = frame_count
 
-                        # head & shoulders only (top 55% of the person)
-                        head_y2 = min(frame_h, y1 + int(person_h * 0.55))
-                        head_crop = frame[y1:head_y2, x1:x2]
+                        # head & shoulders only (top 55% of the person), cut from the full capture
+                        hx1, hy1 = int(x1 * scale), int(y1 * scale)
+                        hx2 = min(full.shape[1], int(x2 * scale))
+                        hy2 = min(full.shape[0], int((y1 + person_h * 0.55) * scale))
+                        head_crop = full[hy1:hy2, hx1:hx2]
 
                         if head_crop.size > 0:
                             detected_faces = self.face_app.get(head_crop)
@@ -513,13 +577,13 @@ class VisionEngine:
                                               if d.det_score >= MIN_DET_SCORE
                                               and (d.bbox[2] - d.bbox[0]) >= MIN_FACE_PX]
                             if detected_faces:
-                                # one face per person: nearest to the head anchor
-                                ax, ay = person_w / 2, person_h * 0.15
+                                # one face per person: nearest to the head anchor (crop coords)
+                                ax, ay = person_w * scale / 2, person_h * scale * 0.15
                                 f = min(detected_faces, key=lambda d:
                                         (((d.bbox[0] + d.bbox[2]) / 2 - ax) ** 2 +
                                          ((d.bbox[1] + d.bbox[3]) / 2 - ay) ** 2))
-                                box = (int(f.bbox[0] + x1), int(f.bbox[1] + y1),
-                                       int(f.bbox[2] + x1), int(f.bbox[3] + y1))
+                                box = (int(f.bbox[0] / scale + x1), int(f.bbox[1] / scale + y1),
+                                       int(f.bbox[2] / scale + x1), int(f.bbox[3] / scale + y1))
                                 n, s = self._identify(f.normed_embedding, known,
                                                       params["match_thresh"])
                                 print(f"[face] track {tid}: {n} {s:.2f} face={int(f.bbox[2]-f.bbox[0])}px")
