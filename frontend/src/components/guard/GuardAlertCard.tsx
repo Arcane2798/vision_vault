@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ItemsBadge } from '@/components/incidents/ItemsBadge';
 import { CheckCircle2, ImageOff, Loader2, MapPin, Play, ShieldAlert, X } from 'lucide-react';
 import { guardService } from '@/services';
 import type { GuardAlert } from '@/types';
@@ -37,6 +38,7 @@ function OpenAlert({ alert, now, onAcknowledged }: { alert: GuardAlert; now: num
               <span className="break-words">{alert.houseUnit}</span>
             </p>
             <p className="mt-1 text-sm text-ink-2">{alert.cameraName}</p>
+            <ItemsBadge items={alert.items} className="mt-2 text-sm" />
           </div>
           <p className="text-lg text-white">
             <span className="font-semibold tabular-nums">{formatTime(alert.timestamp)}</span>

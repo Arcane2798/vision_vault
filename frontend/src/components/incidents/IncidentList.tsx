@@ -4,6 +4,7 @@ import type { Incident } from '@/types';
 import { eventTypeLabel, formatConfidence, formatDateTime, incidentHeadline, incidentIdentity, isRuleBased } from '@/utils/format';
 import { IncidentStatusBadge } from '@/components/ui/StatusBadge';
 import { GuardNotifiedBadge } from './GuardNotifiedBadge';
+import { ItemsBadge } from './ItemsBadge';
 
 /** Table on desktop, cards on mobile. Each row opens the incident details. */
 export function IncidentList({ incidents, showSnapshot = true }: { incidents: Incident[]; showSnapshot?: boolean }) {
@@ -53,6 +54,7 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
                   <div className="flex flex-col items-start gap-1">
                     <IncidentStatusBadge status={i.status} />
                     {i.guardNotified && <GuardNotifiedBadge />}
+                    <ItemsBadge items={i.items} />
                   </div>
                 </td>
                 <td className="px-2 text-ink-3">
@@ -79,6 +81,7 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
                 <div className="flex flex-wrap gap-1">
                   <IncidentStatusBadge status={i.status} />
                   {i.guardNotified && <GuardNotifiedBadge />}
+                    <ItemsBadge items={i.items} />
                 </div>
               </div>
             </Link>

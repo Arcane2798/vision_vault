@@ -162,7 +162,7 @@ def test_guard_alerts_list(client):
     alerts = client.get("/api/guard/alerts").json()
     assert [x["id"] for x in alerts] == [str(b), str(a)]
     x = alerts[1]
-    assert set(x) == {"id", "timestamp", "houseUnit", "cameraName", "snapshotUrl", "clipUrl",
+    assert set(x) == {"id", "timestamp", "houseUnit", "cameraName", "snapshotUrl", "clipUrl", "items",
                       "clipReady", "acknowledgedAt", "ackNote"}
     assert x["houseUnit"] == "No. 12, Test Lane" and x["snapshotUrl"].endswith("/snapshots/s.jpg")
     assert x["clipUrl"] is None and x["clipReady"] is False and x["acknowledgedAt"] is None
@@ -231,3 +231,14 @@ def test_security_away_400(client, away):
 def _iso_utc(epoch):
     from datetime import datetime, timezone
     return datetime.fromtimestamp(epoch, timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def test_incident_items(client):
+    import vault_utils
+    eid = add_event(items=["knife"], guard_notified=True)
+    assert client.get(f"/api/incidents/{eid}").json()["items"] == ["knife"]
+    vault_utils.set_event_items(eid, ["knife", "scissors"])
+    assert client.get(f"/api/incidents/{eid}").json()["items"] == ["knife", "scissors"]
+    assert client.get("/api/guard/alerts").json()[0]["items"] == ["knife", "scissors"]
+    plain = add_event()
+    assert client.get(f"/api/incidents/{plain}").json()["items"] == []

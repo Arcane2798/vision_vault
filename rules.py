@@ -61,6 +61,24 @@ def classify_person(name: str, person: Optional[dict], now: float) -> str:
     return GUEST_OUTSIDE
 
 
+# ---------- intruder's items (feature 10) ----------
+def items_near(person_box, items, margin: float = 0.15) -> list:
+    """Labels of items whose box overlaps the person's box grown by `margin` of its size
+    (a knife held at arm's length sticks out of the person box). Sorted, no duplicates.
+    `items` is [(label, (x1, y1, x2, y2)), ...]."""
+    x1, y1, x2, y2 = person_box
+    mx, my = (x2 - x1) * margin, (y2 - y1) * margin
+    gx1, gy1, gx2, gy2 = x1 - mx, y1 - my, x2 + mx, y2 + my
+    found = {label for label, (a1, b1, a2, b2) in items
+             if a1 < gx2 and a2 > gx1 and b1 < gy2 and b2 > gy1}
+    return sorted(found)
+
+
+def items_text(items) -> str:
+    """"knife, scissors" for Telegram / logs."""
+    return ", ".join(items)
+
+
 # ---------- track housekeeping ----------
 def stale_tracks(last_seen: dict, now: float, max_age: float) -> set:
     """Track ids not seen for more than `max_age` seconds (their state can be dropped)."""

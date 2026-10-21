@@ -112,7 +112,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/video` | MJPEG stream (use `<img>`, not `<video>`) |
 | GET | `/clips/*`, `/snapshots/*` | Static evidence files |
 | GET | `/api/cameras` | Single camera `cam-01`; POST/PUT/DELETE return 501 |
-| GET | `/api/incidents` | `?search&cameraId&status&from&to&sort`; search also matches `identity`. Incident JSON includes `identity` (`unknown` or the visitor's name) `guardNotified: bool` (alert reached the guard house: every intrusion), `guardAcknowledgedAt: ISO|null`, `guardAckNote: string|null`, and `clipReady: bool` — `clipUrl` appears as soon as recording starts, but play it only when `clipReady` is true (≈ 5–10 s after the alert; false when there is no clip) |
+| GET | `/api/incidents` | `?search&cameraId&status&from&to&sort`; search also matches `identity`. Incident JSON includes `identity` (`unknown` or the visitor's name) `guardNotified: bool` (alert reached the guard house: every intrusion), `guardAcknowledgedAt: ISO|null`, `guardAckNote: string|null`, `items: string[]` (e.g. `["knife"]`, seen near the unknown person; `events.items`), and `clipReady: bool` — `clipUrl` appears as soon as recording starts, but play it only when `clipReady` is true (≈ 5–10 s after the alert; false when there is no clip) |
 | GET / PATCH | `/api/incidents/{id}` | PATCH `{status, notes}`; status ∈ new, under_review, confirmed, dismissed |
 | GET | `/api/dashboard/summary`, `/api/dashboard/trend?days=14` | |
 | WS | `/api/ws/events` | `{type:"alert", data: Incident}` and `{type:"camera_status", ...}` |
@@ -127,7 +127,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | POST | `/api/people/{id}/photos` | multipart `photos` → `Person` (same photo checks as create) |
 | POST | `/api/people/reload` | re-read `faces/` (photos copied in by hand) and re-embed only changed folders → `Person[]`. The People page "Refresh faces" button calls it |
 | GET | `/api/people/{id}/photo` | first photo as a JPEG thumbnail (≤ 320 px); 404 if none. `faces/` itself is never served |
-| GET | `/api/guard/alerts` | `?limit=50` (1–200) → newest first, only events with `guard_notified = 1`: `[{id: string, timestamp, houseUnit, cameraName, snapshotUrl: string\|null, clipUrl: string\|null, clipReady, acknowledgedAt: ISO\|null, ackNote: string\|null}]`. **No identity or people data.** `houseUnit` = `HOUSE_UNIT` (fallback "This home") |
+| GET | `/api/guard/alerts` | `?limit=50` (1–200) → newest first, only events with `guard_notified = 1`: `[{id: string, timestamp, houseUnit, cameraName, snapshotUrl: string\|null, clipUrl: string\|null, clipReady, acknowledgedAt: ISO\|null, ackNote: string\|null, items: string[]}]`. **No identity or people data.** `houseUnit` = `HOUSE_UNIT` (fallback "This home") |
 | POST | `/api/guard/alerts/{id}/ack` | JSON `{note?: string}` (≤ 200 chars, body optional) → that alert. The first ack sets `acknowledgedAt` and sends the homeowner a Telegram text ("🛡 Guard house acknowledged the alert at HH:MM — note"); a repeat keeps the time and only updates the note (if given). 404 if not a guard alert; 400 note too long |
 | GET | `/api/source` | `{kind: "camera"\|"file", name, finished, progress: 0..1\|null, videos: [{name, sizeBytes, modifiedAt}]}` — what the engine watches |
 | PUT | `/api/source` | `{kind: "camera"}` or `{kind: "file", name}` → same shape as GET. Test videos play **once** in real time (frames skipped if the engine is slower), stamped `TEST VIDEO`, then hold the last frame. Same name again = restart. 404 unknown video |
@@ -166,7 +166,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 | 7 | Guard-house alert & dashboard | ✅ Telegram copy + mock Guard House view (/guard) with acknowledge | Phase 2: alert to guard-house Telegram. Dashboard for many homes = KIV (pitch only) |
 | 8 | AI assistant (live feed, locate family) | ✅ Gemini chat with tools + confirm (needs GEMINI_API_KEY) | Phase 1: `lastSeen` per person. Phase 2: chatbot + tools |
 | 9 | Path tracking | ✅ done (trail on live frame + snapshot) | Phase 3: trail drawn on live frame + burned into snapshot |
-| 10 | Intruder's items detection | ❌ | Phase 3 (optional): COCO `knife` / `scissors` / `baseball bat` near an unknown person |
+| 10 | Intruder's items detection | ✅ prototype (knife / scissors / baseball bat near an unknown person; untested on a real knife) | Phase 3 (optional): COCO `knife` / `scissors` / `baseball bat` near an unknown person |
 
 "Locate family members" is honest only as **"last seen at the front door at 14:32"** because there is one camera. Say it that way in the UI and chatbot.
 
@@ -308,7 +308,7 @@ Real deployment = a separate township server for many homes (KIV); the demo is o
 - [x] Prune engine per-track state for tracks unseen > 30 s (do this together with path trails, which share the same state)
 - [x] **Path tracking (feature 9):** keep a `deque(maxlen=60)` of foot points per track; draw the trail as a polyline on the
       live frame (red for unknown, faded for others) and burn the unknown's trail into the intrusion snapshot.
-- [ ] Optional quick win **(feature 10):** run YOLO on classes person + `knife`, `scissors`, `baseball bat`; if one overlaps an
+- [x] Optional quick win **(feature 10):** run YOLO on classes person + `knife`, `scissors`, `baseball bat`; if one overlaps an
       unknown person's box, store it in a new `items` column, add "⚠ carrying knife" to the Telegram text, and show it on the incident.
       YOLOv8n finds knives poorly, so present this as a prototype.
 - [ ] Demo rehearsal with `test_videos/test1.mp4` and live webcam; tidy sample data in `vault.db`

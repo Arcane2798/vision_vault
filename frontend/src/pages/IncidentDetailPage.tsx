@@ -14,6 +14,7 @@ import { ErrorState, LoadingState } from '@/components/ui/States';
 import { AiPredictionTag, IncidentStatusBadge } from '@/components/ui/StatusBadge';
 import { DetectionOverlay } from '@/components/cameras/DetectionOverlay';
 import { GuardNotifiedBadge } from '@/components/incidents/GuardNotifiedBadge';
+import { ItemsBadge } from '@/components/incidents/ItemsBadge';
 
 /** Re-fetch this often while the clip is being converted. */
 const CLIP_POLL_MS = 3000;
@@ -72,6 +73,7 @@ export default function IncidentDetailPage() {
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ItemsBadge items={inc.items} />
           {inc.guardNotified && <GuardNotifiedBadge />}
           <IncidentStatusBadge status={inc.status} />
         </div>
@@ -136,6 +138,7 @@ export default function IncidentDetailPage() {
               <Row label="Time">{formatDateTime(inc.timestamp)}</Row>
               <Row label="Event">{eventTypeLabel(inc.label)}</Row>
               <Row label="Identity">{incidentIdentity(inc)}</Row>
+              {!!inc.items?.length && <Row label="Carrying">{inc.items.join(', ')} (AI prototype)</Row>}
               {ruleBased ? (
                 <Row label="Detection">Rule-based alert (no model confidence)</Row>
               ) : (

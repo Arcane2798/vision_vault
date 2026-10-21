@@ -149,3 +149,16 @@ def test_stale_tracks():
     assert stale_tracks(seen, 200.0, 30.0) == {1, 2, 3}
     assert stale_tracks({}, 0, 30.0) == set()
 
+
+def test_items_near():
+    from rules import items_near, items_text
+    person = (100, 100, 200, 400)                       # 100 wide, 300 tall
+    knife_in_hand = ("knife", (190, 250, 230, 270))      # overlaps the right edge
+    knife_at_arm = ("knife", (205, 250, 214, 260))       # outside the box, inside the 15% margin
+    bat_far = ("baseball bat", (400, 100, 450, 300))
+    assert items_near(person, [knife_in_hand, bat_far]) == ["knife"]
+    assert items_near(person, [knife_at_arm]) == ["knife"]
+    assert items_near(person, [knife_at_arm], margin=0) == []
+    assert items_near(person, [knife_in_hand, ("scissors", (120, 120, 130, 130)), knife_at_arm]) == ["knife", "scissors"]
+    assert items_near(person, []) == []
+    assert items_text(["knife", "scissors"]) == "knife, scissors"

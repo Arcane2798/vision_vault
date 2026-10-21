@@ -28,7 +28,8 @@ def init_db():
                      ("clip_ready", "INTEGER DEFAULT 0"),    # 1 once the H.264 clip is playable
                      ("guard_notified", "INTEGER DEFAULT 0"),   # 1 = shown to the guard house
                      ("guard_ack_at", "REAL"),                   # epoch of the guard's first ack
-                     ("guard_ack_note", "TEXT")):
+                     ("guard_ack_note", "TEXT"),
+                     ("items", "TEXT")):                        # "knife,scissors" seen on the intruder
         if col not in have:
             con.execute(f"ALTER TABLE events ADD COLUMN {col} {ddl}")
     # clips older than this were finished (or abandoned by a crash/restart): don't show "processing" forever
@@ -101,17 +102,29 @@ def load_people():
         con.close()
 
 def log_event(camera, track_id, identity, event_type,
-              clip_path=None, snapshot_path=None, guard_notified=False):
+              clip_path=None, snapshot_path=None, guard_notified=False, items=None):
     """Insert an event row; returns its id."""
     con = sqlite3.connect(DB_PATH)
     try:
         cur = con.execute(
             "INSERT INTO events (ts, camera, track_id, identity, event_type,"
-            " clip_path, snapshot_path, guard_notified) VALUES (?,?,?,?,?,?,?,?)",
+            " clip_path, snapshot_path, guard_notified, items) VALUES (?,?,?,?,?,?,?,?,?)",
             (time.time(), camera, track_id, identity, event_type,
-             clip_path, snapshot_path, int(bool(guard_notified))))
+             clip_path, snapshot_path, int(bool(guard_notified)),
+             ",".join(items) if items else None))
         con.commit()
         return cur.lastrowid
+    finally:
+        con.close()
+
+
+def set_event_items(event_id, items):
+    """Replace the items seen on an intruder (an item may only show up after the alert)."""
+    con = sqlite3.connect(DB_PATH, timeout=10)
+    try:
+        con.execute("UPDATE events SET items=? WHERE id=?",
+                    (",".join(items) if items else None, event_id))
+        con.commit()
     finally:
         con.close()
 

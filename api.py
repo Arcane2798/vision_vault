@@ -203,7 +203,8 @@ def _incident(r, base):
            "clipReady": bool(clip and r.get("clip_ready")),
            "guardNotified": bool(r.get("guard_notified")),   # shown to the guard house
            "guardAcknowledgedAt": _iso(r["guard_ack_at"]) if r.get("guard_ack_at") else None,
-           "guardAckNote": r.get("guard_ack_note")}
+           "guardAckNote": r.get("guard_ack_note"),
+           "items": _items(r)}           # e.g. ["knife"]: seen near the unknown person
     if snap:
         out["snapshotUrl"] = snap
     if clip:
@@ -226,7 +227,12 @@ def _guard_alert(r, base):
             "cameraName": r["camera"] or "", "snapshotUrl": snap, "clipUrl": clip,
             "clipReady": bool(clip and r.get("clip_ready")),
             "acknowledgedAt": _iso(r["guard_ack_at"]) if r.get("guard_ack_at") else None,
-            "ackNote": r.get("guard_ack_note")}
+            "ackNote": r.get("guard_ack_note"),
+            "items": _items(r)}
+
+
+def _items(r):
+    return [i for i in (r.get("items") or "").split(",") if i]
 
 
 def dashboard_summary(running):
