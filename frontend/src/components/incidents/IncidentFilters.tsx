@@ -1,6 +1,5 @@
 import { Search, X } from 'lucide-react';
-import type { Camera, IncidentQuery, IncidentStatus } from '@/types';
-import { incidentStatusLabel } from '@/utils/format';
+import type { Camera, IncidentQuery } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Field';
 
@@ -12,10 +11,10 @@ interface Props {
 
 export function IncidentFilters({ value, cameras, onChange }: Props) {
   const set = <K extends keyof IncidentQuery>(k: K, v: IncidentQuery[K]) => onChange({ ...value, [k]: v });
-  const active = !!(value.search || value.cameraId || value.status || value.from || value.to);
+  const active = !!(value.search || value.cameraId || value.from || value.to);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(12rem,2fr)_repeat(5,minmax(8rem,1fr))_auto]" role="search">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(12rem,2fr)_repeat(4,minmax(8rem,1fr))_auto]" role="search">
       <div className="relative sm:col-span-2 lg:col-span-1">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" aria-hidden />
         <Input aria-label="Search incidents" placeholder="Search ID, camera, location, label…" value={value.search ?? ''} onChange={(e) => set('search', e.target.value)} className="pl-9" />
@@ -25,14 +24,6 @@ export function IncidentFilters({ value, cameras, onChange }: Props) {
         {cameras.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}
-          </option>
-        ))}
-      </Select>
-      <Select aria-label="Status" value={value.status ?? ''} onChange={(e) => set('status', e.target.value as IncidentStatus | '')}>
-        <option value="">All statuses</option>
-        {(Object.keys(incidentStatusLabel) as IncidentStatus[]).map((s) => (
-          <option key={s} value={s}>
-            {incidentStatusLabel[s]}
           </option>
         ))}
       </Select>

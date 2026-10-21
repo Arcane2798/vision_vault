@@ -50,10 +50,16 @@ def test_invalid_names(name):
 
 
 def test_security_params():
-    n, h = security_params("normal"), security_params("high")
-    assert n == {"grace": 3.0, "match_thresh": 0.40, "guard_alert": True}
-    assert h["grace"] == 1.0 and h["guard_alert"] is True       # guard alerted at every level
-    assert h["match_thresh"] == pytest.approx(0.45)
+    n, h, o = security_params("normal"), security_params("high"), security_params("off")
+    assert n == {"alerts": True, "grace": 3.0, "match_thresh": 0.40, "person_conf": 0.55,
+                 "min_track_frames": 10, "departure_filter": True, "guard_alert": True}
+    # High is more sensitive than Normal on every knob
+    assert h["grace"] == 0.0 < n["grace"]
+    assert h["person_conf"] < n["person_conf"] and h["min_track_frames"] < n["min_track_frames"]
+    assert h["match_thresh"] == pytest.approx(0.45) and h["match_thresh"] > n["match_thresh"]
+    assert h["departure_filter"] is False and h["alerts"] and h["guard_alert"]
+    # Off: still tracks, never alerts
+    assert o["alerts"] is False and o["guard_alert"] is False
     for old in ("home", "away", "party"):                      # removed levels are rejected
         with pytest.raises(ValueError):
             security_params(old)
@@ -180,3 +186,18 @@ def test_family_tracker_rules():
     assert presence_status(ARRIVED, 100.0, 90.0) == HOME
     assert presence_status(LEFT, 100.0, 150.0) == HOME                          # seen inside after leaving
     assert presence_status(None, None, 50.0) == HOME
+
+
+def test_off_level_and_timer():
+    from rules import off_active
+    night = datetime(2026, 10, 25, 2, 0)          # inside the 23:00-06:00 sleep time
+    t = night.timestamp()
+    assert off_active("off", None, t) and off_active("off", t + 60, t)
+    assert not off_active("off", t - 1, t) and not off_active("normal", None, t)
+    # Off beats the sleep schedule while it lasts (a party at night) ...
+    assert effective_level("off", True, "23:00", "06:00", night, off_until=t + 3600) == "off"
+    assert effective_level("off", True, "23:00", "06:00", night) == "off"           # until turned on
+    # ... and afterwards the level it resumes to applies again, schedules included
+    assert effective_level("off", False, "23:00", "06:00", night, off_until=t - 1,
+                           resume_level="normal") == "normal"
+    assert effective_level("off", True, "23:00", "06:00", night, off_until=t - 1) == "high"

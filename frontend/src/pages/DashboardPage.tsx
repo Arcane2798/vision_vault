@@ -12,7 +12,7 @@ import { LinkButton } from '@/components/ui/Button';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/States';
-import { IncidentStatusBadge } from '@/components/ui/StatusBadge';
+import { GuardNotifiedBadge } from '@/components/incidents/GuardNotifiedBadge';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TrendChart } from '@/components/dashboard/TrendChart';
 import { LiveStatusStrip } from '@/components/live/LiveStatusStrip';
@@ -20,10 +20,10 @@ import { FamilyTrackerCard } from '@/components/family/FamilyTrackerCard';
 
 export default function DashboardPage() {
   const { can } = useAuth();
-  const { alerts } = useRealtime();
+  const { alerts, guardAcks } = useRealtime();
   // refetch when a new alert arrives so counters stay correct
   const changed = useDataVersion('incidents'); // e.g. reviewed from the assistant chat
-  const refreshKey = `${alerts[0]?.id}-${changed}`;
+  const refreshKey = `${alerts[0]?.id}-${guardAcks[0]?.id}-${guardAcks[0]?.guardAckNote}-${changed}`;
   const summary = useAsync(() => dashboardService.summary(), [refreshKey], config.refreshIntervalMs);
   const trend = useAsync(() => dashboardService.trend(14), [], config.refreshIntervalMs * 4);
   const recent = useAsync(() => incidentService.list({ sort: 'newest' }).then((l) => l.slice(0, 6)), [refreshKey], config.refreshIntervalMs);
@@ -69,12 +69,12 @@ export default function DashboardPage() {
           />
           <StatCard label="Incidents today" value={s?.incidentsToday} hint="Flagged by AI since midnight" icon={<ShieldAlert className="h-4 w-4" />} loading={summary.initialLoading} />
           <StatCard
-            label="Unresolved alerts"
-            value={s?.unresolvedAlerts}
-            hint="New or under review - need a decision"
+            label="Awaiting guard house"
+            value={s?.awaitingGuard ?? 0}
+            hint={s && (s.awaitingGuard ?? 0) > 0 ? 'Alerts the guard house has not acknowledged yet' : 'Every alert has a guard response'}
             icon={<BellRing className="h-4 w-4" />}
-            tone={s && s.unresolvedAlerts > 0 ? 'danger' : 'ok'}
-            to="/incidents?status=new"
+            tone={s && (s.awaitingGuard ?? 0) > 0 ? 'danger' : 'ok'}
+            to="/incidents"
             loading={summary.initialLoading}
           />
           <StatCard label="Total incidents" value={s?.totalIncidents} hint="All recorded detections" icon={<ListChecks className="h-4 w-4" />} loading={summary.initialLoading} />
@@ -83,7 +83,7 @@ export default function DashboardPage() {
 
       <div className="mt-4 grid gap-4 xl:grid-cols-5">
         <Card className="xl:col-span-3">
-          <CardHeader title="Incident trend" subtitle="Last 14 days · potential (AI-flagged) vs confirmed by a reviewer" />
+          <CardHeader title="Incident trend" subtitle="Intrusion alerts per day · last 14 days" />
           <div className="p-4">
             {trend.initialLoading ? (
               <LoadingState />
@@ -126,9 +126,11 @@ export default function DashboardPage() {
                       </div>
                       <p className="truncate text-xs text-ink-3">{incidentHeadline(i)}</p>
                     </div>
-                    <span className="hidden sm:block">
-                      <IncidentStatusBadge status={i.status} />
-                    </span>
+                    {i.guardNotified && (
+                      <span className="hidden sm:block">
+                        <GuardNotifiedBadge acknowledged={!!i.guardAcknowledgedAt} />
+                      </span>
+                    )}
                   </Link>
                 </li>
               ))}

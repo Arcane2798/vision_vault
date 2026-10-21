@@ -75,13 +75,14 @@ export const cameraStatusLabel: Record<CameraStatus, string> = {
   offline: 'Offline',
 };
 
-export const securityLevelLabel: Record<SecurityLevel, string> = { normal: 'Normal', high: 'High' };
+export const securityLevelLabel: Record<SecurityLevel, string> = { off: 'Off', normal: 'Normal', high: 'High' };
 
 /** True when a schedule (sleep time or away-from-home dates) is what puts the engine in High right now. */
 export const scheduleHighActive = (s: SecuritySettings) => s.highReason !== null && s.level !== 'high';
 
 /** "High (sleep time until 06:00)" / "High (away from home until 28 Oct, 12:00)" while a schedule applies, else the level name. */
 export function effectiveLevelText(s: SecuritySettings): string {
+  if (s.effectiveLevel === 'off') return s.offUntil ? `Off until ${formatUntil(s.offUntil)}` : 'Off';
   if (!scheduleHighActive(s)) return securityLevelLabel[s.effectiveLevel];
   if (s.highReason === 'away') return `High (away from home${s.away.to ? ` until ${shortDateTime.format(new Date(s.away.to))}` : ''})`;
   return `High (sleep time until ${s.night.end})`;
@@ -144,3 +145,9 @@ export const fromDateTimeLocal = (value: string): string | undefined => (value ?
 export const roleLabel: Record<Role, string> = { admin: 'Administrator', operator: 'Security operator', viewer: 'Viewer' };
 
 export const cn = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ');
+
+/** "23:30" today, else "Sat 25 Oct, 01:00". */
+export function formatUntil(iso: string): string {
+  const d = new Date(iso);
+  return sameDay(d, new Date()) ? hourMinute.format(d) : shortDateTime.format(d);
+}

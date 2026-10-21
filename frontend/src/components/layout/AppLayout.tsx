@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
-import { FlaskConical, ShieldAlert, X } from 'lucide-react';
+import { FlaskConical, ShieldAlert, ShieldCheck, X } from 'lucide-react';
 import { isMock } from '@/config/env';
 import { useRealtime } from '@/context/RealtimeContext';
 import { ChatProvider, useChat } from '@/context/ChatContext';
 import { SecurityProvider } from '@/context/SecurityContext';
 import { ChatPanel } from '@/components/chat/ChatPanel';
-import { cn, incidentHeadline } from '@/utils/format';
+import { cn, formatGuardAck, incidentHeadline } from '@/utils/format';
 import { GuardNotifiedBadge } from '@/components/incidents/GuardNotifiedBadge';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -51,20 +51,39 @@ function AlertToast() {
   const { toast, dismissToast } = useRealtime();
   const chat = useChat();
   if (!toast) return null;
+  const inc = toast.incident;
+  const ack = toast.kind === 'guard_ack';
   return (
     // moves left of the open assistant panel so it never covers the chat input
-    <div role="alert" className={cn('fixed bottom-4 right-4 z-50 w-[min(24rem,calc(100vw-2rem))] rounded-xl border border-warn/40 bg-surface-1 p-4 shadow-2xl', chat.open && 'sm:right-[27rem]')}>
+    <div
+      role="alert"
+      className={cn(
+        'fixed bottom-4 right-4 z-50 w-[min(24rem,calc(100vw-2rem))] rounded-xl border bg-surface-1 p-4 shadow-2xl',
+        ack ? 'border-green-500/50' : 'border-warn/40',
+        chat.open && 'sm:right-[27rem]',
+      )}
+    >
       <div className="flex gap-3">
-        <ShieldAlert className="h-5 w-5 shrink-0 text-warn" aria-hidden />
+        {ack ? <ShieldCheck className="h-5 w-5 shrink-0 text-green-400" aria-hidden /> : <ShieldAlert className="h-5 w-5 shrink-0 text-warn" aria-hidden />}
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Security alert at your door</p>
-          <p className="mt-0.5 text-sm text-ink-2">
-            {incidentHeadline(toast)} · {toast.cameraName}
-          </p>
-          {toast.guardNotified && <GuardNotifiedBadge className="mt-1.5" />}
-          <p className="mt-1 text-xs text-ink-3">Automated alert - review the snapshot and clip before acting.</p>
-          <Link to={`/incidents/${toast.id}`} onClick={dismissToast} className="mt-2 inline-block text-sm font-medium text-blue-300 hover:underline">
-            Review incident →
+          {ack ? (
+            <>
+              <p className="text-sm font-semibold">Guard house responded</p>
+              <p className="mt-0.5 text-sm text-ink-2">
+                {inc.guardAcknowledgedAt ? formatGuardAck(inc.guardAcknowledgedAt, inc.guardAckNote) : 'Acknowledged'} · {incidentHeadline(inc)}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold">Security alert at your door</p>
+              <p className="mt-0.5 text-sm text-ink-2">
+                {incidentHeadline(inc)} · {inc.cameraName}
+              </p>
+              {inc.guardNotified && <GuardNotifiedBadge className="mt-1.5" />}
+            </>
+          )}
+          <Link to={`/incidents/${inc.id}`} onClick={dismissToast} className="mt-2 inline-block text-sm font-medium text-blue-300 hover:underline">
+            View incident →
           </Link>
         </div>
         <button onClick={dismissToast} aria-label="Dismiss" className="self-start rounded p-1 text-ink-3 hover:bg-surface-3">

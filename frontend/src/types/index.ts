@@ -100,6 +100,8 @@ export interface DashboardSummary {
   incidentsToday: number;
   totalIncidents: number;
   unresolvedAlerts: number;
+  /** intrusions sent to the guard house in the last 24 h that it has not acknowledged yet */
+  awaitingGuard?: number;
 }
 
 export interface TrendPoint {
@@ -109,7 +111,8 @@ export interface TrendPoint {
 }
 
 /** Security level (feature 5.1): how strict the intrusion rules are. */
-export type SecurityLevel = 'normal' | 'high';
+/** off = no alerts or recordings (e.g. a party), optionally until offUntil */
+export type SecurityLevel = 'off' | 'normal' | 'high';
 
 /** Daily sleep time: auto High between start and end (local "HH:MM", may cross midnight). API name: night. */
 export interface NightSchedule {
@@ -138,6 +141,10 @@ export interface SecuritySettings {
   highReason: HighReason | null;
   night: NightSchedule;
   away: AwaySchedule;
+  /** with level "off": when alerts come back on (ISO), null = until turned back on */
+  offUntil: string | null;
+  /** the level "off" returns to */
+  resumeLevel: SecurityLevel;
   updatedAt: string | null;
 }
 
@@ -146,6 +153,8 @@ export interface SecurityUpdate {
   level?: SecurityLevel;
   night?: Partial<NightSchedule>;
   away?: Partial<AwaySchedule>;
+  /** with level "off": ISO end time, null = until turned back on */
+  offUntil?: string | null;
 }
 
 /** A recorded video in the backend's test_videos/ folder. */
@@ -316,6 +325,8 @@ export interface GuardAckRequest {
 
 export type RealtimeEvent =
   | { type: 'alert'; data: Incident }
+  /** the guard house acknowledged an alert (or changed its note) */
+  | { type: 'guard_ack'; data: Incident }
   | { type: 'detection'; data: Detection }
   | { type: 'camera_status'; data: { cameraId: string; status: CameraStatus } };
 

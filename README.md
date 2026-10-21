@@ -29,8 +29,8 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
 | Intrusion rules that cut false alarms: minimum track age and a grace period set by the security level | ✅ |
 | Evidence: snapshot (with the intruder's path) + 10 s clip, re-encoded to H.264 for browser playback | ✅ |
 | Telegram alert to the homeowner with photo | ✅ |
-| Web dashboard: live feed, real-time alerts, incident history and review, 14-day trend | ✅ |
-| Security levels Normal / High, switched to High automatically during sleep time and while away from home | ✅ |
+| Web dashboard: live feed, real-time alerts, incident history, 14-day trend; fully autonomous (no manual review) and shows the guard house's response live | ✅ |
+| Security levels Off (with a timer, e.g. for a party) / Normal / High (most sensitive: alerts the moment a stranger appears), High switched on automatically during sleep time and while away from home | ✅ |
 | Visitor registration with time windows (e.g. "allow Ali Saturday 2–6 pm") | ✅ |
 | Township guard house: alert with house address and photo, Guard House screen with acknowledge | ✅ |
 | AI assistant "Viva Bot": ask about incidents, who is home, register visitors, set vacation dates (confirm before any change) | ✅ |
@@ -64,8 +64,8 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
 | Page | What it shows |
 |---|---|
 | **Dashboard** | Live engine status (FPS, who is at the door), counters, 14-day trend, recent incidents, **family tracker** (who is home / out) |
-| **Live Monitoring** | Live annotated feed, security level (Normal / High), **sleep time** and **away-from-home** schedules that switch to High |
-| **Incidents** | History with search and filters; each incident has the snapshot, clip, identity, items carried, guard-house status and review notes |
+| **Live Monitoring** | Live annotated feed, security level (Off with a timer / Normal / High), **sleep time** and **away-from-home** schedules that switch to High |
+| **Incidents** | History with search and filters; each incident has the snapshot, clip, identity, items carried and the guard house's response |
 | **Residents & Visitors** | Register faces by photo upload; give visitors an allowed time window |
 | **House map** | Floor plan with people per room, live or replayed from recorded room videos (upload one per room), and a **safe way out** for each resident |
 | **Test with Video** | Run the system on a recorded video instead of the camera |

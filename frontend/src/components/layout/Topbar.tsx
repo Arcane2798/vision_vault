@@ -6,8 +6,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useChat } from '@/context/ChatContext';
 import { useRealtime } from '@/context/RealtimeContext';
 import type { ConnectionState } from '@/types';
-import { cn, formatRelative, incidentHeadline, roleLabel } from '@/utils/format';
-import { IncidentStatusBadge } from '@/components/ui/StatusBadge';
+import { cn, formatGuardAck, formatRelative, incidentHeadline, roleLabel } from '@/utils/format';
+import { GuardNotifiedBadge } from '@/components/incidents/GuardNotifiedBadge';
 import { SecurityBadge } from '@/components/security/SecurityBadge';
 
 const connectionUi: Record<ConnectionState, { label: string; dot: string }> = {
@@ -29,7 +29,9 @@ function useClickOutside(onOutside: () => void) {
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
   const { user, logout } = useAuth();
-  const { connection, alerts, unseen, markSeen, clearAlerts } = useRealtime();
+  const { connection, alerts: newAlerts, guardAcks, unseen, markSeen, clearAlerts } = useRealtime();
+  // alerts from this session (with any guard response), plus responses to older alerts
+  const alerts = [...newAlerts, ...guardAcks.filter((g) => !newAlerts.some((a) => a.id === g.id))];
   const [bellOpen, setBellOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const bellRef = useClickOutside(() => setBellOpen(false));
@@ -101,9 +103,12 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
                         <span className="text-xs text-ink-3">{formatRelative(a.timestamp)}</span>
                       </div>
                       <p className="mt-0.5 text-xs text-ink-2">{incidentHeadline(a)}</p>
-                      <div className="mt-1.5">
-                        <IncidentStatusBadge status={a.status} />
-                      </div>
+                      {a.guardNotified && (
+                        <div className="mt-1.5">
+                          <GuardNotifiedBadge acknowledged={!!a.guardAcknowledgedAt} />
+                        </div>
+                      )}
+                      {a.guardAcknowledgedAt && <p className="mt-1 text-xs text-green-300">Guard house: {formatGuardAck(a.guardAcknowledgedAt, a.guardAckNote)}</p>}
                     </Link>
                   </li>
                 ))}

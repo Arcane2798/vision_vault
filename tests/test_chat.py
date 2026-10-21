@@ -57,10 +57,13 @@ def test_write_tools_change_nothing(client, engine):
     before_sec = dict(engine.sec)
     t = chat.ChatTools(engine)
 
-    a = t.review_incident(eid, "confirmed", "real intruder")
-    assert a == {"summary": a["summary"], "kind": "request", "method": "PATCH",
-                 "path": f"/api/incidents/{eid}",
-                 "body": {"status": "confirmed", "notes": "real intruder"}}
+    assert not hasattr(t, "review_incident") and "review_incident" not in chat.TOOL_NAMES
+    a = t.set_security_level("off", "2099-10-24T23:30")
+    assert a["body"] == {"level": "off", "offUntil": "2099-10-24T15:30:00Z"}
+    assert "back to Normal" in a["summary"]
+    assert t.set_security_level("off")["body"] == {"level": "off", "offUntil": None}
+    assert t.run("set_security_level", {"level": "off", "until": "2001-01-01T00:00"})[1]   # past
+    assert t.run("set_security_level", {"level": "high", "until": "2099-01-01"})[1]       # only for off
     a = t.set_security_level("high")
     assert a["method"] == "PUT" and a["path"] == "/api/security" and a["body"] == {"level": "high"}
     a = t.add_or_update_guest("ali", "2026-10-24T14:00", "2026-10-24T18:00")
@@ -77,7 +80,6 @@ def test_write_tools_change_nothing(client, engine):
     assert not err and "Confirm" in res["note"]
     assert t.run("set_security_level", {"level": "party"})[1]
     assert t.run("set_security_level", {"level": "away"})[1]     # removed level
-    assert t.run("review_incident", {"id": eid, "status": "bogus"})[1]
     assert t.run("add_or_update_guest", {"name": "x/y"})[1]
     assert t.run("add_or_update_guest", {"name": "Q", "valid_from": "2026-10-25",
                                          "valid_to": "2026-10-24T00:00"})[1]
@@ -85,12 +87,6 @@ def test_write_tools_change_nothing(client, engine):
     assert sql("SELECT * FROM events") == before_events
     assert sql("SELECT * FROM people") == before_people
     assert engine.sec == before_sec
-
-
-def test_review_keeps_existing_notes(client, engine):
-    eid = add_event()
-    sql("UPDATE events SET notes='old' WHERE id=?", (eid,))
-    assert chat.ChatTools(engine).review_incident(eid, "dismissed")["body"]["notes"] == "old"
 
 
 def test_run_chat_with_fake_model(client, engine):

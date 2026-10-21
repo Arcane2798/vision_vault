@@ -96,7 +96,7 @@ def test_dashboard_summary(client, engine):
     sql("UPDATE events SET status='under_review' WHERE id=?", (b,))
     s = client.get("/api/dashboard/summary").json()
     assert s == {"activeCameras": 1, "totalCameras": 1, "incidentsToday": 2,
-                 "totalIncidents": 3, "unresolvedAlerts": 2}
+                 "totalIncidents": 3, "unresolvedAlerts": 2, "awaitingGuard": 0}
     engine.running = False
     assert client.get("/api/dashboard/summary").json()["activeCameras"] == 0
 
@@ -128,6 +128,7 @@ def test_security_roundtrip(client):
     assert g == {"level": "normal", "effectiveLevel": "normal", "highReason": None,
                  "night": {"enabled": False, "start": "23:00", "end": "06:00"},
                  "away": {"enabled": False, "from": None, "to": None},
+                 "offUntil": None, "resumeLevel": "normal",
                  "updatedAt": None}
     p = client.put("/api/security", json={"level": "high",
                                           "night": {"start": "22:30"}}).json()
@@ -284,3 +285,44 @@ def test_chat_who_is_home(client, engine):
     vault_utils.log_movement("Azhad", "arrived", "camera")
     res, err = chat.ChatTools(engine).run("who_is_home", {})
     assert not err and res[0]["name"] == "Azhad" and res[0]["status"] == "home"
+
+
+def test_security_off_with_timer(client):
+    from datetime import datetime, timezone
+    client.put("/api/security", json={"level": "high"})
+    until = datetime.fromtimestamp(time.time() + 3 * 3600, timezone.utc).isoformat().replace("+00:00", "Z")
+    s = client.put("/api/security", json={"level": "off", "offUntil": until}).json()
+    assert s["level"] == "off" and s["effectiveLevel"] == "off" and s["resumeLevel"] == "high"
+    assert s["offUntil"][:16] == until[:16]
+    assert client.get("/api/status").json()["securityLevel"] == "off"
+    # until turned back on
+    s = client.put("/api/security", json={"level": "off", "offUntil": None}).json()
+    assert s["offUntil"] is None and s["resumeLevel"] == "high"
+    # turning it back on clears the timer
+    s = client.put("/api/security", json={"level": "normal"}).json()
+    assert s["level"] == "normal" and s["offUntil"] is None
+    past = datetime.fromtimestamp(time.time() - 60, timezone.utc).isoformat().replace("+00:00", "Z")
+    assert client.put("/api/security", json={"level": "off", "offUntil": past}).status_code == 400
+    assert client.put("/api/security", json={"offUntil": until}).status_code == 400   # not Off
+
+
+def test_awaiting_guard_count(client):
+    now = time.time()
+    add_event(ts=now - 60, guard_notified=True)                # waiting for the guard house
+    acked = add_event(ts=now - 30, guard_notified=True)
+    add_event(ts=now - 3 * 86400, guard_notified=True)        # too old to still be waiting
+    add_event("Ali", "guest_outside_window", ts=now)          # homeowner only
+    client.post(f"/api/guard/alerts/{acked}/ack", json={"note": "Guard dispatched"})
+    assert client.get("/api/dashboard/summary").json()["awaitingGuard"] == 1
+
+
+def test_websocket_pushes_guard_ack(client):
+    eid = add_event(ts=time.time(), guard_notified=True)
+    with client.websocket_connect("/api/ws/events") as ws:
+        assert ws.receive_json()["type"] == "camera_status"
+        client.post(f"/api/guard/alerts/{eid}/ack", json={"note": "Guard dispatched"})
+        msg = ws.receive_json()
+        assert msg["type"] == "guard_ack" and msg["data"]["id"] == str(eid)
+        assert msg["data"]["guardAckNote"] == "Guard dispatched" and msg["data"]["guardAcknowledgedAt"]
+        client.post(f"/api/guard/alerts/{eid}/ack", json={"note": "Checking CCTV"})   # note changed
+        assert ws.receive_json()["data"]["guardAckNote"] == "Checking CCTV"

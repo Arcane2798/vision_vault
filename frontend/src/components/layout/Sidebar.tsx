@@ -66,9 +66,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             Switch to Guard House view
           </LinkButton>
         </div>
-        <p className="border-t border-line p-4 text-[11px] leading-relaxed text-ink-3">
-          AI results are <b className="text-ink-2">potential</b> incidents until reviewed by an authorised person.
-        </p>
       </aside>
     </>
   );

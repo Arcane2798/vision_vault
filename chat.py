@@ -174,19 +174,6 @@ class ChatTools:
                 "note": "There is only one camera, so this is the last time they passed it."}
 
     # ----- write: build a PendingAction only -----
-    def review_incident(self, id, status, notes=None):
-        if status not in STATUSES:
-            raise ToolError(f"status must be one of {', '.join(sorted(STATUSES))}")
-        rows = _rows("SELECT * FROM events WHERE id=?", (int(id),))
-        if not rows:
-            raise ToolError(f"Incident {id} was not found.")
-        if notes is None:
-            notes = rows[0]["notes"]    # PATCH replaces notes, so keep the existing ones
-        label = status.replace("_", " ")
-        self.pending = request_action(
-            f"Mark incident #{int(id)} as {label}" + (f' with note "{notes}"' if notes else ""),
-            "PATCH", f"/api/incidents/{int(id)}", {"status": status, "notes": notes})
-        return self.pending
 
     def add_or_update_guest(self, name, valid_from=None, valid_to=None):
         name = (name or "").strip()
@@ -218,11 +205,25 @@ class ChatTools:
                  "since": fmt_local(_epoch(p["since"])), "lastSeen": fmt_local(_epoch(p["lastSeen"]))}
                 for p in family_status(self.engine)]
 
-    def set_security_level(self, level):
+    def set_security_level(self, level, until=None):
         if level not in SECURITY_LEVELS:
             raise ToolError(f"level must be one of {', '.join(SECURITY_LEVELS)}")
-        self.pending = request_action(f"Switch security level to {level.capitalize()}",
-                                      "PUT", "/api/security", {"level": level})
+        if level != "off":
+            if until:
+                raise ToolError("'until' only applies when turning alerts off.")
+            self.pending = request_action(f"Switch security level to {level.capitalize()}",
+                                          "PUT", "/api/security", {"level": level})
+            return self.pending
+        end = parse_local(until, "until", end_of_day=True)
+        if end is not None and end <= datetime.now().timestamp():
+            raise ToolError("'until' must be in the future.")
+        resume = self.engine.get_security().get("resume_level", "normal")
+        current = self.engine.get_security()["level"]
+        back = current if current != "off" else resume
+        summary = (f"Turn alerts off until {fmt_local(end)}, then back to {back.capitalize()}" if end
+                   else "Turn alerts off until you turn them back on")
+        self.pending = request_action(summary, "PUT", "/api/security",
+                                      {"level": "off", "offUntil": iso_or_none(end)})
         return self.pending
 
     def set_away_from_home(self, leaving=None, back=None, enabled=True):
@@ -297,14 +298,6 @@ TOOLS = [
                     "in view now, or when they were last seen.",
      "parameters": {"type": "object", "properties": {"name": {"type": "string"}},
                       "required": ["name"]}},
-    {"name": "review_incident",
-     "description": "Prepare a review of an incident (status + optional notes) for the user to "
-                    "confirm. Does not change anything by itself.",
-     "parameters": {"type": "object", "properties": {
-         "id": {"type": "integer"},
-         "status": {"type": "string", "enum": sorted(STATUSES)},
-         "notes": {"type": "string", "description": "Omit to keep the existing notes."}},
-         "required": ["id", "status"]}},
     {"name": "add_or_update_guest",
      "description": "Prepare registering a visitor or changing a visitor's allowed time window, for "
                     "the user to confirm. Works for new and existing names; a new visitor still "
@@ -320,10 +313,13 @@ TOOLS = [
      "parameters": {"type": "object", "properties": {}}},
     {"name": "set_security_level",
      "description": "Prepare switching the security level for the user to confirm. normal = default "
-                    "(alert 3 s after an unknown person appears); high = alert after 1 s with a stricter "
-                    "face match. The guard house is alerted at both levels.",
+                    "(alert 3 s after an unknown person appears); high = most sensitive, alert at once "
+                    "(used when everyone is asleep or away); off = no alerts or recordings, e.g. during "
+                    "a party, optionally until a time. The guard house is alerted at Normal and High.",
      "parameters": {"type": "object", "properties": {
-         "level": {"type": "string", "enum": list(SECURITY_LEVELS)}},
+         "level": {"type": "string", "enum": list(SECURITY_LEVELS)},
+         "until": {"type": "string", "description": "Only with level off: when alerts come back on. "
+                   "Omit to keep them off until turned on. " + _LOCAL_DT}},
          "required": ["level"]}},
     {"name": "set_away_from_home",
      "description": "Prepare the away-from-home dates (a trip or vacation) for the user to confirm. "
@@ -336,7 +332,7 @@ TOOLS = [
          "enabled": {"type": "boolean", "description": "false = turn away from home off."}}}},
 ]
 TOOL_NAMES = {t["name"] for t in TOOLS}
-WRITE_TOOLS = {"review_incident", "add_or_update_guest", "set_security_level",
+WRITE_TOOLS = {"add_or_update_guest", "set_security_level",
                "set_away_from_home"}
 
 SYSTEM = """You are Viva Bot, the AI assistant inside Vision Vault, a smart home security dashboard for one home \
@@ -351,7 +347,8 @@ How to answer:
 - Say "residents" and "visitors" (never "guests"), and "guard house".
 - High security is used automatically during the sleep time and while the family is away from \
 home (set_away_from_home, e.g. for a vacation).
-- Write tools (review_incident, add_or_update_guest, set_security_level, set_away_from_home) only \
+- Incidents are handled automatically (homeowner and guard house are alerted); there is no review step.
+- Write tools (add_or_update_guest, set_security_level, set_away_from_home) only \
 prepare an action. \
 After calling one, tell the user to press Confirm; never say it is already done.
 - Pass dates to tools as local time like 2026-10-24T14:00. Resolve words like "today" or \

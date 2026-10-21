@@ -2,7 +2,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import type { Incident } from '@/types';
 import { eventTypeLabel, formatConfidence, formatDateTime, incidentHeadline, incidentIdentity, isRuleBased } from '@/utils/format';
-import { IncidentStatusBadge } from '@/components/ui/StatusBadge';
 import { GuardNotifiedBadge } from './GuardNotifiedBadge';
 import { ItemsBadge } from './ItemsBadge';
 
@@ -20,7 +19,7 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
               <th className="px-4 py-2.5 font-medium">Date &amp; time</th>
               <th className="px-4 py-2.5 font-medium">Camera</th>
               <th className="px-4 py-2.5 font-medium">Event</th>
-              <th className="px-4 py-2.5 font-medium">Status</th>
+              <th className="px-4 py-2.5 font-medium">Response</th>
               <th className="sr-only">Open</th>
             </tr>
           </thead>
@@ -52,8 +51,7 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
                 </td>
                 <td className="px-4 py-2">
                   <div className="flex flex-col items-start gap-1">
-                    <IncidentStatusBadge status={i.status} />
-                    {i.guardNotified && <GuardNotifiedBadge />}
+                    {i.guardNotified ? <GuardNotifiedBadge acknowledged={!!i.guardAcknowledgedAt} /> : <span className="text-xs text-ink-3">Homeowner alerted</span>}
                     <ItemsBadge items={i.items} />
                   </div>
                 </td>
@@ -79,8 +77,7 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
                 <p className="text-xs text-ink-2">{incidentHeadline(i)}</p>
                 <p className="text-xs text-ink-3">{formatDateTime(i.timestamp)}</p>
                 <div className="flex flex-wrap gap-1">
-                  <IncidentStatusBadge status={i.status} />
-                  {i.guardNotified && <GuardNotifiedBadge />}
+                  {i.guardNotified && <GuardNotifiedBadge acknowledged={!!i.guardAcknowledgedAt} />}
                     <ItemsBadge items={i.items} />
                 </div>
               </div>

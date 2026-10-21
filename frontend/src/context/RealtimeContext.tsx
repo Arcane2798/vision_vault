@@ -18,9 +18,16 @@ interface RealtimeContextValue {
   detectionsFor(cameraId: string): Detection[];
   /** status overrides pushed by the backend since the camera list was loaded */
   cameraStatus: Record<string, CameraStatus>;
-  /** a short-lived toast for the newest alert */
-  toast: Incident | null;
+  /** the guard house's responses received since the dashboard opened, newest first */
+  guardAcks: Incident[];
+  /** a short-lived toast: a new intrusion alert or the guard house's response */
+  toast: Toast | null;
   dismissToast(): void;
+}
+
+export interface Toast {
+  kind: 'alert' | 'guard_ack';
+  incident: Incident;
 }
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
@@ -32,7 +39,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const [unseen, setUnseen] = useState(0);
   const [detections, setDetections] = useState<Detection[]>([]);
   const [cameraStatus, setCameraStatus] = useState<Record<string, CameraStatus>>({});
-  const [toast, setToast] = useState<Incident | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const [guardAcks, setGuardAcks] = useState<Incident[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -41,7 +49,13 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       if (e.type === 'alert') {
         setAlerts((a) => [e.data, ...a.filter((x) => x.id !== e.data.id)].slice(0, MAX_ALERTS));
         setUnseen((n) => n + 1);
-        setToast(e.data);
+        setToast({ kind: 'alert', incident: e.data });
+      } else if (e.type === 'guard_ack') {
+        setGuardAcks((a) => [e.data, ...a.filter((x) => x.id !== e.data.id)].slice(0, MAX_ALERTS));
+        // the bell's alert entry shows the response too
+        setAlerts((a) => a.map((x) => (x.id === e.data.id ? e.data : x)));
+        setUnseen((n) => n + 1);
+        setToast({ kind: 'guard_ack', incident: e.data });
       } else if (e.type === 'detection') {
         if (e.data.confidence < config.minConfidence) return;
         setDetections((d) => [...d.filter((x) => Date.now() - new Date(x.timestamp).getTime() < DETECTION_TTL_MS), e.data]);
@@ -77,13 +91,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       alerts,
       unseen,
       markSeen: () => setUnseen(0),
-      clearAlerts: () => (setAlerts([]), setUnseen(0)),
+      clearAlerts: () => (setAlerts([]), setGuardAcks([]), setUnseen(0)),
+      guardAcks,
       detectionsFor,
       cameraStatus,
       toast,
       dismissToast: () => setToast(null),
     }),
-    [connection, alerts, unseen, detectionsFor, cameraStatus, toast],
+    [connection, alerts, guardAcks, unseen, detectionsFor, cameraStatus, toast],
   );
   return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;
 }

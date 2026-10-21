@@ -133,16 +133,20 @@ def stale_tracks(last_seen: dict, now: float, max_age: float) -> set:
 
 
 # ---------- security level (feature 5.1) ----------
-SECURITY_LEVELS = ("normal", "high")
+SECURITY_LEVELS = ("off", "normal", "high")
 DEFAULT_LEVEL = "normal"
 # levels saved before Wed 21 Oct; "home" (no guard alert) was dropped so a home invasion
 # with residents inside still reaches the guard house
 LEGACY_LEVELS = {"home": "normal", "away": "high"}
 DEFAULT_NIGHT_START, DEFAULT_NIGHT_END = "23:00", "06:00"
 
-_NORMAL = {"grace": 3.0,          # seconds an unknown must be seen before alerting
-           "match_thresh": 0.40,   # min cosine similarity for a face match
-           "guard_alert": True}    # also alert the guard house (on at every level)
+_NORMAL = {"alerts": True,          # raise intrusion / visitor alerts at all (off at level "off")
+           "grace": 3.0,            # seconds an unknown must be seen before alerting
+           "match_thresh": 0.40,    # min cosine similarity for a face match
+           "person_conf": 0.55,     # weakest YOLO "person" detection that counts
+           "min_track_frames": 10,  # frames a person must be tracked before the rules apply
+           "departure_filter": True,  # someone walking out from inside is not an intruder
+           "guard_alert": True}     # also alert the guard house
 
 _HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
@@ -153,8 +157,20 @@ def security_params(level: str) -> dict:
         raise ValueError(f"unknown security level {level!r}")
     params = dict(_NORMAL)
     if level == "high":
-        params.update(grace=1.0, match_thresh=_NORMAL["match_thresh"] + 0.05)
+        # nobody should be at the door (asleep or away from home): the slightest sign of a
+        # stranger alerts at once - no grace period, weaker and partly visible people count,
+        # rules apply after 3 frames, a stricter face match, and no "someone leaving" exception
+        params.update(grace=0.0, match_thresh=_NORMAL["match_thresh"] + 0.05, person_conf=0.35,
+                      min_track_frames=3, departure_filter=False)
+    elif level == "off":
+        # e.g. a party: people are still tracked and shown, but nothing is recorded or alerted
+        params.update(alerts=False, guard_alert=False)
     return params
+
+
+def off_active(level: str, off_until, now: float) -> bool:
+    """Level "off" holds until `off_until` (epoch; None = until the homeowner turns it back on)."""
+    return level == "off" and (off_until is None or now < off_until)
 
 
 def normalize_level(value):
@@ -233,9 +249,16 @@ def high_reason(night_enabled: bool, night_start: str, night_end: str, now,
 
 def effective_level(level: str, night_enabled: bool, night_start: str,
                     night_end: str, now, away_enabled: bool = False,
-                    away_from=None, away_to=None) -> str:
-    """The level the engine should use: 'high' while the sleep time or the away-from-home
-    dates apply, else `level`."""
+                    away_from=None, away_to=None, off_until=None,
+                    resume_level: str = DEFAULT_LEVEL) -> str:
+    """The level the engine should use. "off" (chosen by the homeowner, e.g. for a party) wins
+    over the schedules until `off_until`, then `resume_level` applies. Otherwise 'high' while the
+    sleep time or the away-from-home dates apply, else `level`."""
+    if level == "off":
+        epoch = now.timestamp() if hasattr(now, "hour") else now
+        if off_active(level, off_until, epoch):
+            return "off"
+        level = resume_level
     if high_reason(night_enabled, night_start, night_end, now,
                    away_enabled, away_from, away_to):
         return "high"

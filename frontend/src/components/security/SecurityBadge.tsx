@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
-import { Moon, Plane, Shield, ShieldAlert } from 'lucide-react';
+import { Moon, Plane, Shield, ShieldAlert, ShieldOff } from 'lucide-react';
 import { useSecurity } from '@/context/SecurityContext';
 import type { SecurityLevel } from '@/types';
 import { cn, effectiveLevelText, scheduleHighActive, securityLevelLabel } from '@/utils/format';
 
 export const LEVEL_STYLE: Record<SecurityLevel, { cls: string; Icon: typeof Shield }> = {
+  off: { cls: 'border-line bg-surface-2 text-ink-2', Icon: ShieldOff },
   normal: { cls: 'border-brand/40 bg-brand/10 text-blue-300', Icon: Shield },
   high: { cls: 'border-danger/40 bg-danger/10 text-red-300', Icon: ShieldAlert },
 };

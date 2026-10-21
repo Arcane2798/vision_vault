@@ -18,7 +18,7 @@ from rules import (DEFAULT_LEVEL, DEFAULT_NIGHT_END, DEFAULT_NIGHT_START,
                    FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, SECURITY_LEVELS,
                    UNKNOWN, classify_person, effective_level, guard_alert_due,
                    high_reason, is_departing, items_near, items_text, movement_direction,
-                   normalize_level, security_params, should_alert_guard, stale_tracks,
+                   normalize_level, off_active, security_params, should_alert_guard, stale_tracks,
                    valid_away_window, valid_hhmm)
 from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
                          ClipRecorder, env, get_settings, guard_chat_id, guard_token, house_unit,
@@ -50,14 +50,14 @@ CLIP_PRE_SEC = 5          # seconds of video kept before an event
 CLIP_POST_SEC = 5         # seconds recorded after the (last) event; clips use the measured FPS
 IMG_EXT = {".jpg", ".jpeg", ".png"}
 
-PERSON_CONF = 0.55       # ignore weak "person" detections
+PERSON_CONF = 0.55       # weakest "person" detection at level Normal (per level: rules.security_params)
 # Intruder's items (feature 10): COCO classes YOLOv8n already knows, found in the same pass as
 # people. A prototype: the nano model misses many knives, so a hit is a strong hint, a miss
 # proves nothing. Items need a lower confidence than people to be found at all.
 ITEM_CLASSES = {34: "baseball bat", 43: "knife", 76: "scissors"}
 ITEM_CONF = 0.25
 ITEM_COLOR = (255, 0, 255)   # magenta (BGR)
-MIN_TRACK_FRAMES = 10    # a track must exist this many frames before it counts
+MIN_TRACK_FRAMES = 10    # Normal-level default; per level: rules.security_params
 MIN_FACE_PX = 40         # ignore faces narrower than this, in capture pixels (garbage embeddings)
 MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
 
@@ -73,7 +73,7 @@ TRAIL_LEN = 60           # foot points kept per track for the path trail (~8 s a
 TRACK_FORGET_SEC = 30.0  # drop all state of a track not seen for this long (bounded memory)
 PRUNE_INTERVAL = 5.0     # seconds between stale-track sweeps
 
-LEVEL_COLOR = {"normal": (0, 255, 255), "high": (0, 0, 255)}  # BGR
+LEVEL_COLOR = {"off": (170, 170, 170), "normal": (0, 255, 255), "high": (0, 0, 255)}  # BGR
 LEVEL_CHECK_INTERVAL = 1.0   # seconds between sleep-time / away-date re-checks
 _UNSET = object()            # "argument not given" (None means "clear")
 
@@ -151,7 +151,10 @@ class VisionEngine:
         self.security = {"level": DEFAULT_LEVEL, "night_enabled": False,
                          "night_start": DEFAULT_NIGHT_START,
                          "night_end": DEFAULT_NIGHT_END, "away_enabled": False,
-                         "away_from": None, "away_to": None, "updated_at": None}
+                         "away_from": None, "away_to": None,
+                         "off_until": None,              # level "off" ends then (None = until turned on)
+                         "resume_level": DEFAULT_LEVEL,  # level to return to after "off"
+                         "updated_at": None}
         self.level = DEFAULT_LEVEL           # effective level used by the rules
         self.high_reason = None              # "sleep" / "away" while a schedule forces High
         self.params = security_params(DEFAULT_LEVEL)
@@ -297,7 +300,9 @@ class VisionEngine:
             if valid_hhmm(stored.get(key, (None,))[0]):
                 sec[key] = stored[key][0]
         sec["away_enabled"] = stored.get("away_enabled", ("0",))[0] == "1"
-        for key in ("away_from", "away_to"):
+        resume = normalize_level(stored.get("resume_level", (None,))[0])
+        sec["resume_level"] = resume if resume in ("normal", "high") else DEFAULT_LEVEL
+        for key in ("away_from", "away_to", "off_until"):
             try:
                 sec[key] = float(stored[key][0]) if stored.get(key, ("",))[0] else None
             except ValueError:
@@ -309,11 +314,21 @@ class VisionEngine:
         self._refresh_level(time.time())
 
     def _refresh_level(self, now):
-        """Recompute the effective level (sleep time / away dates) and its rule thresholds."""
+        """Recompute the effective level (Off timer / sleep time / away dates) and its thresholds."""
         with self.lock:
             s = self.security
-            reason = high_reason(s["night_enabled"], s["night_start"], s["night_end"], now,
-                                 s["away_enabled"], s["away_from"], s["away_to"])
+            expired = (s["resume_level"] if s["level"] == "off"
+                       and not off_active("off", s["off_until"], now) else None)
+        if expired:
+            # the Off timer ran out: go back to the level chosen before (persisted)
+            print(f"[security] Off timer ended -> {expired}")
+            self.set_security(level=expired)
+            return
+        with self.lock:
+            s = self.security
+            reason = None if s["level"] == "off" else high_reason(
+                s["night_enabled"], s["night_start"], s["night_end"], now,
+                s["away_enabled"], s["away_from"], s["away_to"])
             level = "high" if reason else s["level"]
             if level != self.level:
                 print(f"[security] effective level -> {level}" + (f" ({reason})" if reason else ""))
@@ -323,12 +338,23 @@ class VisionEngine:
             self._next_level_check = now + LEVEL_CHECK_INTERVAL
 
     def set_security(self, level=None, night_enabled=None, night_start=None,
-                     night_end=None, away_enabled=None, away_from=_UNSET, away_to=_UNSET):
+                     night_end=None, away_enabled=None, away_from=_UNSET, away_to=_UNSET,
+                     off_until=_UNSET):
         """Change the level, sleep time and/or away-from-home dates, persist, apply at once.
-        `away_from` / `away_to` are epochs; None clears a bound (open-ended), omitted = unchanged.
-        Raises ValueError on an unknown level, a bad "HH:MM" or an away range that ends first."""
+        `away_from` / `away_to` / `off_until` are epochs; None clears a bound (open-ended),
+        omitted = unchanged. Choosing "off" remembers the current level to return to when
+        `off_until` passes. Raises ValueError on an unknown level, a bad "HH:MM", an away range
+        that ends first, or an Off timer that is not in the future."""
         if level is not None and level not in SECURITY_LEVELS:
             raise ValueError(f"level must be one of {', '.join(SECURITY_LEVELS)}")
+        with self.lock:
+            current, resume = self.security["level"], self.security["resume_level"]
+        target = level if level is not None else current
+        if off_until is not _UNSET:
+            if target != "off":
+                raise ValueError("an Off timer only applies when the level is Off")
+            if off_until is not None and off_until <= time.time():
+                raise ValueError("the Off timer must end in the future")
         for t in (night_start, night_end):
             if t is not None and not valid_hhmm(t):
                 raise ValueError(f"bad time {t!r}: use 24-hour HH:MM")
@@ -340,6 +366,16 @@ class VisionEngine:
         changes = {}
         if level is not None:
             changes["security_level"] = level
+            if level == "off":
+                if current != "off":
+                    resume = current
+                changes["resume_level"] = resume
+                if off_until is _UNSET:
+                    off_until = None            # no timer given: off until turned back on
+            else:
+                off_until = None                # leaving Off clears its timer
+        if off_until is not _UNSET:
+            changes["off_until"] = "" if off_until is None else repr(float(off_until))
         if night_enabled is not None:
             changes["night_enabled"] = "1" if night_enabled else "0"
         if night_start is not None:
@@ -358,6 +394,9 @@ class VisionEngine:
                 s = self.security
                 if level is not None:
                     s["level"] = level
+                    s["resume_level"] = resume
+                if off_until is not _UNSET:
+                    s["off_until"] = off_until
                 if night_enabled is not None:
                     s["night_enabled"] = bool(night_enabled)
                 if night_start is not None:
@@ -588,7 +627,7 @@ class VisionEngine:
                 self._next_prune = now + PRUNE_INTERVAL
 
             res = self.detector.track(frame, classes=[0, *ITEM_CLASSES],
-                                      conf=min(PERSON_CONF, ITEM_CONF),
+                                      conf=min(params["person_conf"], ITEM_CONF),
                                       persist=True, tracker="bytetrack.yaml",
                                       verbose=False)[0]
             new_items = []            # (tid, labels) seen on an already-alerted intruder
@@ -599,7 +638,7 @@ class VisionEngine:
                 classes = res.boxes.cls.int().cpu().tolist()
                 confs = res.boxes.conf.cpu().tolist()
                 persons = [(b, t) for b, t, c, p in zip(boxes, ids, classes, confs)
-                           if c == 0 and p >= PERSON_CONF]
+                           if c == 0 and p >= params["person_conf"]]
                 items = [(ITEM_CLASSES[c], tuple(int(v) for v in b), p)
                          for b, c, p in zip(boxes, classes, confs) if c in ITEM_CLASSES]
                 for label, (ix1, iy1, ix2, iy2), p in items:
@@ -621,7 +660,7 @@ class VisionEngine:
                         first_h.append(person_h / frame_h)
                     last_h.append(person_h / frame_h)
                     self.track_age[tid] = self.track_age.get(tid, 0) + 1
-                    if self.track_age[tid] < MIN_TRACK_FRAMES:
+                    if self.track_age[tid] < params["min_track_frames"]:
                         continue
 
                     current_name = self.identity.get(tid, "unknown")
@@ -675,8 +714,8 @@ class VisionEngine:
                         name = self.identity[tid] = "unknown"   # person was deleted
                     if name != "unknown":
                         self.track_names[tid] = name
-                    elif (DEPARTURE_FILTER and tid not in self.alerted
-                          and is_departing(first_h, last_h)):
+                    elif (DEPARTURE_FILTER and params["departure_filter"]
+                          and tid not in self.alerted and is_departing(first_h, last_h)):
                         self.departing.add(tid)
                     if name == "unknown" and tid in self.departing:
                         # someone from inside walking out, face not seen: no alert
@@ -697,7 +736,7 @@ class VisionEngine:
                     if name == "unknown":
                         current_unknown.add(tid)
                         self.unknown_since.setdefault(tid, now)
-                        if (now - self.unknown_since[tid] >= params["grace"]
+                        if (params["alerts"] and now - self.unknown_since[tid] >= params["grace"]
                                 and tid not in self.alerted):
                             self.alerted.add(tid)
                             pending.append((tid, "intrusion", "unknown"))
@@ -708,7 +747,7 @@ class VisionEngine:
                     in_view.append({"name": name, "kind": VIEW_KIND.get(kind, kind)})
                     if kind != UNKNOWN:
                         seen_known.add(name)
-                    if kind == GUEST_OUTSIDE and tid not in self.guest_alerted:
+                    if params["alerts"] and kind == GUEST_OUTSIDE and tid not in self.guest_alerted:
                         self.guest_alerted.add(tid)
                         pending.append((tid, GUEST_OUTSIDE, name))
 
@@ -781,7 +820,7 @@ class VisionEngine:
 
     @staticmethod
     def _draw_level(frame, level):
-        """Security level in the top-right corner: "NORMAL" or "HIGH"."""
+        """Security level in the top-right corner: "OFF", "NORMAL" or "HIGH"."""
         text = level.upper()
         font, scale, thick = cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2
         (tw, th), _ = cv2.getTextSize(text, font, scale, thick)

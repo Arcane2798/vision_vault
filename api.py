@@ -34,6 +34,7 @@ THUMB_SIDE = 320
 VIDEO_DIR = Path("test_videos")    # recorded test videos (git-ignored)
 VIDEO_EXT = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
 MAX_VIDEO_BYTES = 500 * 1024 * 1024
+GUARD_WAIT_SEC = 24 * 3600          # guard responses are watched / counted this long after an alert
 
 
 class StatusUpdate(BaseModel):
@@ -59,6 +60,7 @@ class SecurityUpdate(BaseModel):
     level: Optional[str] = None
     night: Optional[NightUpdate] = None
     away: Optional[AwayUpdate] = None
+    offUntil: Optional[str] = None      # with level "off": ISO end time, null = until turned on
 
 
 class MapCameraUpdate(BaseModel):
@@ -301,13 +303,17 @@ def family_status(engine):
 
 def dashboard_summary(running):
     """Counts for the dashboard cards (also used by the chat assistant)."""
-    rows = _rows("SELECT ts, status FROM events")
+    rows = _rows("SELECT ts, status, guard_notified, guard_ack_at FROM events")
     today = date.today()
+    recent = time.time() - GUARD_WAIT_SEC
     return {"activeCameras": 1 if running else 0, "totalCameras": 1,
             "incidentsToday": sum(_local_day(r["ts"]) == today for r in rows),
             "totalIncidents": len(rows),
             "unresolvedAlerts": sum((r["status"] or "new") in ("new", "under_review")
-                                    for r in rows)}
+                                    for r in rows),
+            # the system is autonomous: what still needs someone is the guard house's response
+            "awaitingGuard": sum(bool(r["guard_notified"]) and r["guard_ack_at"] is None
+                                 and r["ts"] >= recent for r in rows)}
 
 
 def person_json(r, last_seen, now, faces_dir):
@@ -375,6 +381,8 @@ def create_router(engine):
                 "away": {"enabled": s["away_enabled"],
                          "from": _iso(s["away_from"]) if s["away_from"] is not None else None,
                          "to": _iso(s["away_to"]) if s["away_to"] is not None else None},
+                "offUntil": _iso(s["off_until"]) if s.get("off_until") is not None else None,
+                "resumeLevel": s.get("resume_level", "normal"),
                 "updatedAt": _iso(s["updated_at"]) if s["updated_at"] else None}
 
     @router.get("/security")
@@ -393,6 +401,8 @@ def create_router(engine):
                 away["away_from"] = _parse_iso(body.away.from_, "away.from")
             if "to" in given:
                 away["away_to"] = _parse_iso(body.away.to, "away.to")
+        if "offUntil" in body.model_fields_set:
+            away["off_until"] = _parse_iso(body.offUntil, "offUntil")
         try:
             engine.set_security(level=body.level, night_enabled=night.enabled,
                                 night_start=night.start, night_end=night.end, **away)
@@ -824,12 +834,22 @@ def create_router(engine):
         await ws.accept()
         base = str(ws.base_url).rstrip("/")
         last = (_rows("SELECT COALESCE(MAX(id),0) AS m FROM events")[0]["m"])
+        # guard-house responses already known when this dashboard connected
+        acks = {r["id"]: (r["guard_ack_at"], r["guard_ack_note"]) for r in
+                _rows("SELECT id, guard_ack_at, guard_ack_note FROM events WHERE guard_ack_at IS NOT NULL")}
         online = None
         try:
             while True:
                 for r in _rows("SELECT * FROM events WHERE id>? ORDER BY id", (last,)):
                     last = r["id"]
                     await ws.send_json({"type": "alert", "data": _incident(r, base)})
+                # the guard house acknowledged (or changed its note): tell the homeowner's dashboard
+                for r in _rows("SELECT * FROM events WHERE guard_ack_at IS NOT NULL AND ts > ?",
+                               (time.time() - GUARD_WAIT_SEC,)):
+                    seen = (r["guard_ack_at"], r["guard_ack_note"])
+                    if acks.get(r["id"]) != seen:
+                        acks[r["id"]] = seen
+                        await ws.send_json({"type": "guard_ack", "data": _incident(r, base)})
                 if online != engine.running:
                     online = engine.running
                     await ws.send_json({"type": "camera_status", "data": {

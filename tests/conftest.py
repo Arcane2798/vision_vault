@@ -27,7 +27,8 @@ class FakeEngine:
         self.in_view = []
         self.sec = {"level": "normal", "night_enabled": False, "night_start": "23:00",
                     "night_end": "06:00", "away_enabled": False, "away_from": None,
-                    "away_to": None, "updated_at": None}
+                    "away_to": None, "off_until": None, "resume_level": "normal",
+                    "updated_at": None}
 
     def get_status(self):
         return {"running": self.running, "fps": 5.2, "unknown_count": 1,
@@ -47,10 +48,12 @@ class FakeEngine:
 
     def get_security(self):
         s = dict(self.sec)
-        args = (s["night_enabled"], s["night_start"], s["night_end"], time.time(),
+        now = time.time()
+        args = (s["night_enabled"], s["night_start"], s["night_end"], now,
                 s["away_enabled"], s["away_from"], s["away_to"])
-        s["high_reason"] = rules.high_reason(*args)
-        s["effective_level"] = "high" if s["high_reason"] else s["level"]
+        s["high_reason"] = None if s["level"] == "off" else rules.high_reason(*args)
+        s["effective_level"] = rules.effective_level(s["level"], *args, off_until=s["off_until"],
+                                                     resume_level=s["resume_level"])
         return s
 
     def set_security(self, level=None, night_enabled=None, night_start=None, night_end=None,
@@ -60,6 +63,18 @@ class FakeEngine:
         for v in (night_start, night_end):
             if v is not None and not rules.valid_hhmm(v):
                 raise ValueError(f"bad time {v!r}")
+        if "off_until" in away:
+            target = level or self.sec["level"]
+            if target != "off":
+                raise ValueError("an Off timer only applies when the level is Off")
+            if away["off_until"] is not None and away["off_until"] <= time.time():
+                raise ValueError("the Off timer must end in the future")
+        if level == "off" and self.sec["level"] != "off":
+            self.sec["resume_level"] = self.sec["level"]
+        if level is not None and level != "off":
+            away["off_until"] = None
+        elif level == "off":
+            away.setdefault("off_until", None)
         new_from = away.get("away_from", self.sec["away_from"])
         new_to = away.get("away_to", self.sec["away_to"])
         if not rules.valid_away_window(new_from, new_to):
