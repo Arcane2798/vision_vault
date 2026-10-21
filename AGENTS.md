@@ -363,7 +363,7 @@ Real deployment = a separate township server for many homes (KIV); the demo is o
 | # | Feature | Status |
 |---|---|---|
 | S1 | Account login (head of house = admin) | KIV (owner chose to skip) |
-| S2 | Family members tracker (who is home / out) | ✅ `/api/family`, dashboard card, Viva Bot `who_is_home`. `DEPARTURE_FILTER` (⏸ paused Wed 21 Oct, default off; `DEPARTURE_FILTER=1` re-enables — it hid an intruder walking away from a living-room camera): an unknown who starts close to the camera and walks away is logged as "someone left" and does **not** raise an intrusion (`rules.is_departing`) |
+| S2 | Family members tracker (who is home / out) | ⏸ **paused (owner, Wed 21 Oct)** — README marks it paused; the code still runs it (dashboard card, `/api/family`, engine `_close_track`) until the owner decides to hide it. Was: `/api/family`, dashboard card, Viva Bot `who_is_home`. `DEPARTURE_FILTER` (⏸ paused Wed 21 Oct, default off; `DEPARTURE_FILTER=1` re-enables — it hid an intruder walking away from a living-room camera): an unknown who starts close to the camera and walks away is logged as "someone left" and does **not** raise an intrusion (`rules.is_departing`) |
 | S3 | Safe path suggestion | ✅ shortest route out avoiding intruder rooms, per resident (`house.safe_path`, `plan_safe_paths`) |
 | S4 | House map (track people across cameras) | ✅ concept: `/map` page. Floor plan + cameras in `house_map.json` (sample plan: edit to match the demo house). Recorded room videos (in `test_videos/`) are processed once into `house_map_timeline.json` (~1.3× video length on this CPU, slows the live camera meanwhile) and replayed; the live camera adds its room. |
 
