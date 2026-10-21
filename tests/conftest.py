@@ -25,8 +25,7 @@ class FakeEngine:
         self.calls = []
         self.last_seen = {}
         self.in_view = []
-        self.sec = {"level": "normal", "night_enabled": False, "night_start": "23:00",
-                    "night_end": "06:00", "away_enabled": False, "away_from": None,
+        self.sec = {"level": "normal", "away_enabled": False, "away_from": None,
                     "away_to": None, "off_until": None, "resume_level": "normal",
                     "updated_at": None}
 
@@ -49,20 +48,15 @@ class FakeEngine:
     def get_security(self):
         s = dict(self.sec)
         now = time.time()
-        args = (s["night_enabled"], s["night_start"], s["night_end"], now,
-                s["away_enabled"], s["away_from"], s["away_to"])
+        args = (now, s["away_enabled"], s["away_from"], s["away_to"])
         s["high_reason"] = None if s["level"] == "off" else rules.high_reason(*args)
         s["effective_level"] = rules.effective_level(s["level"], *args, off_until=s["off_until"],
                                                      resume_level=s["resume_level"])
         return s
 
-    def set_security(self, level=None, night_enabled=None, night_start=None, night_end=None,
-                     away_enabled=None, **away):
+    def set_security(self, level=None, away_enabled=None, **away):
         if level is not None:
             rules.security_params(level)          # ValueError on unknown level
-        for v in (night_start, night_end):
-            if v is not None and not rules.valid_hhmm(v):
-                raise ValueError(f"bad time {v!r}")
         if "off_until" in away:
             target = level or self.sec["level"]
             if target != "off":
@@ -79,9 +73,7 @@ class FakeEngine:
         new_to = away.get("away_to", self.sec["away_to"])
         if not rules.valid_away_window(new_from, new_to):
             raise ValueError("away-from-home start must be before its end")
-        for k, v in (("level", level), ("night_enabled", night_enabled),
-                     ("night_start", night_start), ("night_end", night_end),
-                     ("away_enabled", away_enabled)):
+        for k, v in (("level", level), ("away_enabled", away_enabled)):
             if v is not None:
                 self.sec[k] = v
         self.sec.update(away)                     # None clears a bound

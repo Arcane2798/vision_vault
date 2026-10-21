@@ -4,7 +4,7 @@ import pytest
 
 import rules
 from rules import (classify_person, effective_level, guard_ack_message, guard_alert_due,
-                   in_night_window, security_params, should_alert_guard, valid_hhmm,
+                   security_params, should_alert_guard,
                    valid_person_name, visitor_allowed)
 
 
@@ -51,10 +51,10 @@ def test_invalid_names(name):
 
 def test_security_params():
     n, h, o = security_params("normal"), security_params("high"), security_params("off")
-    assert n == {"alerts": True, "grace": 3.0, "match_thresh": 0.40, "person_conf": 0.55,
+    assert n == {"alerts": True, "grace": 5.0, "match_thresh": 0.40, "person_conf": 0.55,
                  "min_track_frames": 10, "departure_filter": True, "guard_alert": True}
-    # High is more sensitive than Normal on every knob
-    assert h["grace"] == 0.0 < n["grace"]
+    # High: same 5 s grace as Normal, more sensitive on every other knob
+    assert h["grace"] == n["grace"] == 5.0
     assert h["person_conf"] < n["person_conf"] and h["min_track_frames"] < n["min_track_frames"]
     assert h["match_thresh"] == pytest.approx(0.45) and h["match_thresh"] > n["match_thresh"]
     assert h["departure_filter"] is False and h["alerts"] and h["guard_alert"]
@@ -64,44 +64,18 @@ def test_security_params():
         with pytest.raises(ValueError):
             security_params(old)
     security_params("high")["grace"] = 99      # must return a copy
-    assert security_params("normal")["grace"] == 3.0
-
-
-@pytest.mark.parametrize("v,ok", [("00:00", True), ("23:59", True), ("06:30", True),
-                                  ("24:00", False), ("6:30", False), ("12:60", False),
-                                  ("12:5", False), ("", False), (None, False), (630, False),
-                                  ("12:30 ", False), ("ab:cd", False)])
-def test_valid_hhmm(v, ok):
-    assert valid_hhmm(v) is ok
-
-
-def test_night_window_same_day():
-    assert in_night_window("09:00", "17:00", 9 * 60)
-    assert in_night_window("09:00", "17:00", 17 * 60 - 1)
-    assert not in_night_window("09:00", "17:00", 17 * 60)
-    assert not in_night_window("09:00", "17:00", 9 * 60 - 1)
-
-
-def test_night_window_crosses_midnight():
-    for m in (23 * 60, 23 * 60 + 59, 0, 3 * 60, 6 * 60 - 1):
-        assert in_night_window("23:00", "06:00", m)
-    for m in (6 * 60, 12 * 60, 23 * 60 - 1):
-        assert not in_night_window("23:00", "06:00", m)
-
-
-def test_night_window_empty_when_equal():
-    assert not any(in_night_window("10:00", "10:00", m) for m in range(0, 1440, 7))
+    assert security_params("normal")["grace"] == 5.0
 
 
 def test_effective_level():
-    night = datetime(2026, 10, 20, 2, 0)
     day = datetime(2026, 10, 20, 14, 0)
-    assert effective_level("normal", True, "23:00", "06:00", night) == "high"
-    assert effective_level("normal", True, "23:00", "06:00", day) == "normal"
-    assert effective_level("normal", False, "23:00", "06:00", night) == "normal"
-    assert effective_level("high", True, "23:00", "06:00", day) == "high"
-    assert effective_level("normal", True, "23:00", "06:00", night.timestamp()) == "high"
-    assert effective_level("normal", True, "23:00", "06:00", day.timestamp()) == "normal"
+    trip = (True, day.timestamp() - 60, day.timestamp() + 60)
+    assert effective_level("normal", day) == "normal"
+    assert effective_level("high", day) == "high"
+    assert effective_level("normal", day, *trip) == "high"
+    assert effective_level("normal", day.timestamp(), *trip) == "high"
+    assert effective_level("normal", day.timestamp() + 120, *trip) == "normal"
+    assert effective_level("normal", day, False, *trip[1:]) == "normal"
 
 
 def test_guard_rules():
@@ -130,22 +104,22 @@ def test_normalize_level_maps_old_saved_levels():
     assert normalize_level(None) is None
 
 
-def test_high_reason_sleep_and_away():
+def test_high_reason_away():
+    import rules as r
     from rules import high_reason, in_away_window, valid_away_window
-    night = datetime(2026, 10, 25, 2, 0)                  # 02:00, inside 23:00-06:00
+    assert not hasattr(r, "in_night_window") and not hasattr(r, "valid_hhmm")   # sleep time removed
     day = datetime(2026, 10, 25, 14, 0)
     trip_from, trip_to = datetime(2026, 10, 24, 18, 0).timestamp(), datetime(2026, 10, 28, 12, 0).timestamp()
-    assert high_reason(True, "23:00", "06:00", night) == "sleep"
-    assert high_reason(True, "23:00", "06:00", day) is None
-    assert high_reason(False, "23:00", "06:00", day, True, trip_from, trip_to) == "away"
-    assert high_reason(True, "23:00", "06:00", night, True, trip_from, trip_to) == "away"   # away wins
-    assert high_reason(False, "23:00", "06:00", day, False, trip_from, trip_to) is None    # switched off
-    assert high_reason(False, "23:00", "06:00", datetime(2026, 10, 29, 9, 0), True, trip_from, trip_to) is None
+    assert high_reason(day) is None
+    assert high_reason(day, True, trip_from, trip_to) == "away"
+    assert high_reason(day.timestamp(), True, trip_from, trip_to) == "away"
+    assert high_reason(day, False, trip_from, trip_to) is None    # switched off
+    assert high_reason(datetime(2026, 10, 29, 9, 0), True, trip_from, trip_to) is None
     assert in_away_window(trip_from, trip_to, trip_from) and not in_away_window(trip_from, trip_to, trip_to)
     assert in_away_window(None, None, 0) and in_away_window(trip_from, None, trip_to + 1e6)
     assert valid_away_window(1, 2) and valid_away_window(None, 2) and valid_away_window(1, None)
     assert not valid_away_window(2, 2) and not valid_away_window(3, 2)
-    assert effective_level("normal", False, "23:00", "06:00", day, True, trip_from, trip_to) == "high"
+    assert effective_level("normal", day, True, trip_from, trip_to) == "high"
 
 
 def test_stale_tracks():
@@ -190,14 +164,14 @@ def test_family_tracker_rules():
 
 def test_off_level_and_timer():
     from rules import off_active
-    night = datetime(2026, 10, 25, 2, 0)          # inside the 23:00-06:00 sleep time
+    night = datetime(2026, 10, 25, 2, 0)          # inside the away dates below
     t = night.timestamp()
+    away = (True, t - 3600, t + 86400)
     assert off_active("off", None, t) and off_active("off", t + 60, t)
     assert not off_active("off", t - 1, t) and not off_active("normal", None, t)
-    # Off beats the sleep schedule while it lasts (a party at night) ...
-    assert effective_level("off", True, "23:00", "06:00", night, off_until=t + 3600) == "off"
-    assert effective_level("off", True, "23:00", "06:00", night) == "off"           # until turned on
-    # ... and afterwards the level it resumes to applies again, schedules included
-    assert effective_level("off", False, "23:00", "06:00", night, off_until=t - 1,
-                           resume_level="normal") == "normal"
-    assert effective_level("off", True, "23:00", "06:00", night, off_until=t - 1) == "high"
+    # Off beats the away dates while it lasts ...
+    assert effective_level("off", night, *away, off_until=t + 3600) == "off"
+    assert effective_level("off", night, *away) == "off"           # until turned on
+    # ... and afterwards the level it resumes to applies again, away dates included
+    assert effective_level("off", night, off_until=t - 1, resume_level="normal") == "normal"
+    assert effective_level("off", night, *away, off_until=t - 1) == "high"

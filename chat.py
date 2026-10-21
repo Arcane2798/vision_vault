@@ -142,9 +142,7 @@ class ChatTools:
         return {"cameraRunning": s["running"], "fps": s["fps"],
                 "unknownInView": s["unknown_count"], "securityLevel": s["security_level"],
                 "chosenLevel": sec["level"],
-                "highBecause": {"sleep": "sleep time", "away": "away from home"}.get(sec.get("high_reason")),
-                "sleepTime": ({"from": sec["night_start"], "until": sec["night_end"]}
-                              if sec["night_enabled"] else "off"),
+                "highBecause": {"away": "away from home"}.get(sec.get("high_reason")),
                 "awayFromHome": ({"leaving": fmt_local(sec["away_from"]) or "open",
                                   "back": fmt_local(sec["away_to"]) or "not set"}
                                  if sec["away_enabled"] else "off"),
@@ -313,8 +311,8 @@ TOOLS = [
      "parameters": {"type": "object", "properties": {}}},
     {"name": "set_security_level",
      "description": "Prepare switching the security level for the user to confirm. normal = default "
-                    "(alert 3 s after an unknown person appears); high = most sensitive, alert at once "
-                    "(used when everyone is asleep or away); off = no alerts or recordings, e.g. during "
+                    "(alert 5 s after an unknown person appears); high = most sensitive: same 5 s wait, "
+                    "stricter face match, catches partly visible people (e.g. when everyone is away); off = no alerts or recordings, e.g. during "
                     "a party, optionally until a time. The guard house is alerted at Normal and High.",
      "parameters": {"type": "object", "properties": {
          "level": {"type": "string", "enum": list(SECURITY_LEVELS)},
@@ -345,7 +343,7 @@ How to answer:
 - You only get text from the tools; you cannot see the camera. If asked to look at the video, say so.
 - There is only one camera, so locating someone means "last seen at the front door at 14:32".
 - Say "residents" and "visitors" (never "guests"), and "guard house".
-- High security is used automatically during the sleep time and while the family is away from \
+- High security is chosen by hand, or used automatically while the family is away from \
 home (set_away_from_home, e.g. for a vacation).
 - Incidents are handled automatically (homeowner and guard house are alerted); there is no review step.
 - Write tools (add_or_update_guest, set_security_level, set_away_from_home) only \

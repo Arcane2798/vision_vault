@@ -13,8 +13,7 @@ engine_mod = pytest.importorskip("engine")
 def bare_engine():
     e = engine_mod.VisionEngine.__new__(engine_mod.VisionEngine)   # skip __init__ (models, camera)
     e.lock = threading.Lock()
-    e.security = {"level": DEFAULT_LEVEL, "night_enabled": False, "night_start": "23:00",
-                  "night_end": "06:00", "away_enabled": False, "away_from": None, "away_to": None,
+    e.security = {"level": DEFAULT_LEVEL, "away_enabled": False, "away_from": None, "away_to": None,
                   "off_until": None, "resume_level": DEFAULT_LEVEL, "updated_at": None}
     e.level, e.params, e.high_reason, e._next_level_check = (
         DEFAULT_LEVEL, security_params(DEFAULT_LEVEL), None, 0)
@@ -44,10 +43,11 @@ def test_off_timer_resumes_previous_level(sent):
     assert vault_utils.get_settings()["security_level"][0] == "high"   # persisted
 
 
-def test_off_wins_over_sleep_time(sent):
+def test_off_wins_over_away_dates(sent):
     e = bare_engine()
-    e.set_security(night_enabled=True, night_start="00:00", night_end="23:59")
+    e.set_security(away_enabled=True, away_from=time.time() - 60, away_to=time.time() + 3600)
     assert e.get_security()["effective_level"] == "high"
+    assert e.get_security()["high_reason"] == "away"
     s = e.set_security(level="off")
     assert s["effective_level"] == "off" and s["high_reason"] is None
-    assert e.set_security(level="normal")["effective_level"] == "high"   # schedule applies again
+    assert e.set_security(level="normal")["effective_level"] == "high"   # away dates apply again

@@ -126,22 +126,21 @@ def test_status_shape(client, engine):
 def test_security_roundtrip(client):
     g = client.get("/api/security").json()
     assert g == {"level": "normal", "effectiveLevel": "normal", "highReason": None,
-                 "night": {"enabled": False, "start": "23:00", "end": "06:00"},
                  "away": {"enabled": False, "from": None, "to": None},
                  "offUntil": None, "resumeLevel": "normal",
                  "updatedAt": None}
-    p = client.put("/api/security", json={"level": "high",
-                                          "night": {"start": "22:30"}}).json()
+    # an older frontend may still send the removed sleep-time "night": ignored, not a 400
+    r = client.put("/api/security", json={"level": "high", "night": {"start": "25:00"}})
+    assert r.status_code == 200
+    p = r.json()
     assert p["level"] == "high" and p["effectiveLevel"] == "high"
-    assert p["night"] == {"enabled": False, "start": "22:30", "end": "06:00"}
+    assert "night" not in p and p["highReason"] is None
     assert p["updatedAt"].endswith("Z")
     assert client.get("/api/security").json() == p
     assert client.get("/api/status").json()["securityLevel"] == "high"
 
 
-@pytest.mark.parametrize("body", [{"level": "party"}, {"level": "home"}, {"level": "away"},
-                                  {"night": {"start": "25:00"}},
-                                  {"night": {"end": "6:00"}}])
+@pytest.mark.parametrize("body", [{"level": "party"}, {"level": "home"}, {"level": "away"}])
 def test_security_400(client, body):
     assert client.put("/api/security", json=body).status_code == 400
 

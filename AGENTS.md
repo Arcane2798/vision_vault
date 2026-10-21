@@ -63,7 +63,7 @@ Each agent commits only its own paths. Cross-area changes are requested in the a
  VisionEngine thread (engine.py)
    YOLOv8n + ByteTrack → person tracks
    InsightFace on head crop → matched identity or "unknown"
-   Rules: track ≥ 10 frames, unknown for the grace period (3 s at Normal) → intrusion
+   Rules: track ≥ 10 frames, unknown for the grace period (5 s at Normal and High) → intrusion
         │ annotated JPEG                       │ intrusion
         ▼                                      ▼
    /video (MJPEG stream)           vault_utils.py: snapshot, clip (5 s pre + 5 s post,
@@ -131,8 +131,8 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/api/dashboard/summary`, `/api/dashboard/trend?days=14` | summary adds `awaitingGuard` = intrusions sent to the guard house in the last 24 h without an acknowledgement (the dashboard card). There is **no review step** any more (owner decision Wed 21 Oct: the system is autonomous); `status` / `unresolvedAlerts` and `PATCH /api/incidents/{id}` remain in the API but the UI no longer uses them |
 | WS | `/api/ws/events` | `{type:"alert", data: Incident}`, `{type:"guard_ack", data: Incident}` (the guard house acknowledged an alert or changed its note, last 24 h; the dashboard shows a toast + bell entry) and `{type:"camera_status", ...}` |
 | GET | `/api/status` | `{running, fps, unknownCount, cameraName, securityLevel, peopleInView}` — live engine state; `securityLevel` = effective level; `peopleInView: [{name, kind}]` one entry per tracked person in the latest frame (static figures excluded), `kind` ∈ `family`, `guest_allowed`, `guest_outside`, `unknown` (name `unknown`) |
-| GET | `/api/security` | `{level, effectiveLevel, highReason: "sleep"\|"away"\|null, night: {enabled, start, end}, away: {enabled, from: ISO\|null, to: ISO\|null}, offUntil: ISO\|null, resumeLevel, updatedAt: ISO\|null}`. `night` = daily **sleep time**; `away` = **away-from-home** dates (vacation). Either forces `effectiveLevel` = `high`; `highReason` says which (away wins). `updatedAt` null until first change |
-| PUT | `/api/security` | `{level?, night?: {enabled?, start?, end?}, away?: {enabled?, from?, to?}, offUntil?: ISO\|null}` → same shape as GET. In `away`, omitted = unchanged, `null` = open-ended; turning `enabled` off keeps the dates. 400 on unknown level, bad "HH:MM" (24-hour, zero-padded), bad date, `from` ≥ `to`, an `offUntil` in the past, or `offUntil` without level `off`. Level `off` remembers the previous level (`resumeLevel`) and returns to it when `offUntil` passes; `offUntil: null` = until turned back on |
+| GET | `/api/security` | `{level, effectiveLevel, highReason: "away"\|null, away: {enabled, from: ISO\|null, to: ISO\|null}, offUntil: ISO\|null, resumeLevel, updatedAt: ISO\|null}`. `away` = **away-from-home** dates (vacation); they force `effectiveLevel` = `high` (`highReason` "away"). High is otherwise only chosen by hand. The sleep-time (`night`) schedule was removed Wed 21 Oct. `updatedAt` null until first change |
+| PUT | `/api/security` | `{level?, away?: {enabled?, from?, to?}, offUntil?: ISO\|null}` → same shape as GET. A `night` key from an older frontend is ignored (no 400). In `away`, omitted = unchanged, `null` = open-ended; turning `enabled` off keeps the dates. 400 on unknown level, bad date, `from` ≥ `to`, an `offUntil` in the past, or `offUntil` without level `off`. Level `off` remembers the previous level (`resumeLevel`) and returns to it when `offUntil` passes; `offUntil: null` = until turned back on |
 | POST | `/api/chat` | `{messages: [{role: "user"\|"assistant", content}]}` (last 20 kept) → `{reply, pendingAction: PendingAction\|null}` (shape in Phase 2). 503 `{detail: "Chat is not configured: add GEMINI_API_KEY to .env"}` without a key; free-tier quota → 200 with reply "Viva Bot is busy right now (Gemini free tier). Try again in a minute."; other AI errors → 502 `{detail}`; 400 no user message; 422 bad role. PendingAction dates are ISO UTC `Z` (the model works in Asia/Kuala_Lumpur time). Takes a few seconds: use a long client timeout |
 | GET | `/api/people` | `Person[]`, family first then by name (Person JSON in Phase 1 spec; `id` is a number) |
 | POST | `/api/people` | multipart `name, role (default family), validFrom?, validTo?, photos` (repeat `photos` per file) → 201 `Person`. 400 bad name/role/date, from > to, no photo, unreadable image or **no face found**; 409 name taken (case-insensitive) |
@@ -165,10 +165,10 @@ Clips are written at the engine's measured FPS (`vault_utils.clip_fps`), with 5 
 Dates in: ISO 8601; with no offset (e.g. `datetime-local` "2026-10-24T14:00") they mean the server's local time.
 Dates out: ISO UTC with `Z`. Uploads take ~1 s per photo (face embedding), so use a long client timeout.
 
-**`settings` table:** `key, value, updated_at` — keys `security_level`, `night_enabled` ("0"/"1"), `night_start`, `night_end`,
-`away_enabled` ("0"/"1"), `away_from`, `away_to` (epoch as text, "" = open-ended).
-Pure security rules: `rules.security_params`, `rules.effective_level`, `rules.high_reason`, `rules.in_night_window`,
-`rules.in_away_window`, `rules.valid_away_window`, `rules.valid_hhmm`.
+**`settings` table:** `key, value, updated_at` — keys `security_level`, `off_until`, `resume_level`,
+`away_enabled` ("0"/"1"), `away_from`, `away_to` (epoch as text, "" = open-ended). Old `night_*` rows may remain; they are unused.
+Pure security rules: `rules.security_params`, `rules.effective_level`, `rules.high_reason`,
+`rules.in_away_window`, `rules.valid_away_window`, `rules.off_active`.
 The frame's top-right corner shows only the effective level (`NORMAL` or `HIGH`); the dashboard explains why High is on.
 
 **`people` table:** `id, name (= faces/ folder, unique, case-insensitive), role ('family'|'guest'), valid_from, valid_to, created_at`.
@@ -184,7 +184,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 | 3 | Intrusion snapshot + clip | ✅ done (clip race + speed fixed) | Phase 2: `clip_ready` |
 | 4 | Telegram alert | ✅ done | Phase 2: guard-house copy, weapon note |
 | 5 | Web dashboard (live, history, analytics) | ✅ done (rebranded to Vision Vault) | Phase 0: rebrand, `/api/status` |
-| 5.1 | Security level control | ✅ done (Off with timer / Normal / High; auto-High during sleep time and away-from-home dates) | Phase 1: `security_level`; Off + stricter High added Wed 21 Oct |
+| 5.1 | Security level control | ✅ done (Off with timer / Normal / High; auto-High during away-from-home dates; 5 s grace at Normal and High) | Phase 1: `security_level`; Off + stricter High added Wed 21 Oct |
 | 6 | Visitor registration | ✅ done | Phase 1: `people` table + `/people` page — **core** |
 | 7 | Guard-house alert & dashboard | ✅ Telegram copy + mock Guard House view (/guard) with acknowledge | Phase 2: alert to guard-house Telegram. Dashboard for many homes = KIV (pitch only) |
 | 8 | AI assistant (live feed, locate family) | ✅ Gemini chat with tools + confirm (needs GEMINI_API_KEY) | Phase 1: `lastSeen` per person. Phase 2: chatbot + tools |
@@ -252,20 +252,17 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
       mapped by `rules.normalize_level`. Stored in a `settings` table (`key, value`), default `normal`.
       Pure function `security_params(level) -> dict` gives the rule thresholds:
       `off` — no alerts, recordings or guard copies (e.g. a party); people are still tracked. Wins over the schedules until `off_until` (settings key; "" = until turned on), then `resume_level` (`rules.off_active`, `rules.effective_level`);
-      `normal` — GRACE 3 s, MATCH_THRESH 0.40, person conf 0.55, 10 frames, departure filter on;
-      `high` (most sensitive, Wed 21 Oct) — GRACE 0 s, MATCH_THRESH 0.45, person conf 0.35, 3 frames, departure filter off. The guard house is alerted at Normal and High.
+      `normal` — GRACE 5 s, MATCH_THRESH 0.40, person conf 0.55, 10 frames, departure filter on;
+      `high` (most sensitive, Wed 21 Oct) — GRACE 5 s (same as Normal, owner decision Wed 21 Oct), MATCH_THRESH 0.45, person conf 0.35, 3 frames, departure filter off. The guard house is alerted at Normal and High.
       Engine `set_security_level(level)` under `self.lock`; the current level is drawn in the frame corner.
-      **Night schedule (owner request, Tue 20 Oct):** settings `night_enabled` (default off), `night_start` / `night_end` ("HH:MM", default
-      "23:00" / "06:00", local machine time, window may cross midnight). Pure function
-      `effective_level(level, night_enabled, night_start, night_end, now) -> str` = `high` inside the night window, else `level`.
-      The engine uses the **effective** level (re-check about once a second, not per frame) and draws it as `HIGH (night)` when the schedule applies.
-      API: `GET /api/security` → `{level, effectiveLevel, night: {enabled, start, end}, updatedAt}`;
-      `PUT /api/security` `{level?, night?: {enabled?, start?, end?}}` (400 on unknown level or bad "HH:MM"); `/api/status` adds `securityLevel` (= effective).
+      **Away-from-home dates** (`away_*` settings) force High (`effective_level(level, now, away_enabled, away_from, away_to, ...)`).
+      The sleep-time / night auto-High schedule was **removed** Wed 21 Oct (owner decision): High is chosen by hand or by the away dates.
+      The engine uses the **effective** level (re-check about once a second, not per frame).
+      API: `GET/PUT /api/security` (see Current API); `/api/status` adds `securityLevel` (= effective).
 - [x] **Frontend `/people` page** ("Residents & Visitors"): list family + visitors (thumbnail, role, window, active badge, "last seen 14:32"),
       add person with photo upload, edit visitor window, delete with confirm. Types in `types/index.ts`, calls in `services/index.ts`.
 - [x] **Frontend security level:** segmented control Normal / High (one-line description each) on the Live Monitoring page,
-      plus a small badge with the **effective** level in the top bar. Below it, a "Night mode — auto High" toggle with start/end
-      time inputs; when it's active now, show "High (night mode until 06:00)". Calls `GET/PUT /api/security`.
+      plus a small badge with the **effective** level in the top bar. (Night-mode toggle removed Wed 21 Oct.) Calls `GET/PUT /api/security`.
 
 ### Phase 2 — Chatbot with tool calling + guard-house alert (Thu 22)
 - [x] `POST /api/chat` `{messages}` → `{reply, pendingAction?}` using the **Google Gemini API** (`google-genai` SDK; owner switched from
@@ -280,7 +277,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
       `where_is(name)` (answers from `lastSeen`: "last seen at the front door at 14:32");
       write — (`review_incident` removed Wed 21 Oct: no review step) `add_or_update_guest(name, valid_from, valid_to)`, `set_security_level(level, until?)` (`until` only with `off`),
       `set_away_from_home(leaving?, back?, enabled?)` (vacation dates → `PUT /api/security {away}`; a bare "back" date = end of that day).
-      `get_live_status` also reports `chosenLevel`, `highBecause`, `sleepTime` and `awayFromHome`.
+      `get_live_status` also reports `chosenLevel`, `highBecause` and `awayFromHome`.
       `get_live_status` includes **who is in view right now**: engine `get_status()` adds `in_view: [{name, kind}]`
       (kind = family / guest_allowed / guest_outside / unknown) and `/api/status` adds `peopleInView: [{name, kind}]`.
       Text only — **no camera frames are sent to the AI** (keeps the "footage stays in the home" promise).

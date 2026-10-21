@@ -42,12 +42,6 @@ class StatusUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-class NightUpdate(BaseModel):
-    enabled: Optional[bool] = None
-    start: Optional[str] = None
-    end: Optional[str] = None
-
-
 class AwayUpdate(BaseModel):
     """Away-from-home dates (e.g. a vacation). Omitted = unchanged, null/"" = open-ended."""
     model_config = ConfigDict(populate_by_name=True)
@@ -58,7 +52,7 @@ class AwayUpdate(BaseModel):
 
 class SecurityUpdate(BaseModel):
     level: Optional[str] = None
-    night: Optional[NightUpdate] = None
+    # "night" (the removed sleep-time schedule) from an older frontend is ignored (extra keys)
     away: Optional[AwayUpdate] = None
     offUntil: Optional[str] = None      # with level "off": ISO end time, null = until turned on
 
@@ -371,13 +365,11 @@ def create_router(engine):
                 "securityLevel": s["security_level"],
                 "peopleInView": s.get("in_view", [])}
 
-    # ---------- security level + night schedule ----------
+    # ---------- security level + away-from-home dates ----------
     def security_json():
         s = engine.get_security()
         return {"level": s["level"], "effectiveLevel": s["effective_level"],
                 "highReason": s.get("high_reason"),
-                "night": {"enabled": s["night_enabled"], "start": s["night_start"],
-                          "end": s["night_end"]},
                 "away": {"enabled": s["away_enabled"],
                          "from": _iso(s["away_from"]) if s["away_from"] is not None else None,
                          "to": _iso(s["away_to"]) if s["away_to"] is not None else None},
@@ -391,7 +383,6 @@ def create_router(engine):
 
     @router.put("/security")
     def put_security(body: SecurityUpdate):
-        night = body.night or NightUpdate()
         away = {}
         if body.away is not None:
             given = body.away.model_fields_set
@@ -404,8 +395,7 @@ def create_router(engine):
         if "offUntil" in body.model_fields_set:
             away["off_until"] = _parse_iso(body.offUntil, "offUntil")
         try:
-            engine.set_security(level=body.level, night_enabled=night.enabled,
-                                night_start=night.start, night_end=night.end, **away)
+            engine.set_security(level=body.level, **away)
         except ValueError as e:
             raise HTTPException(400, str(e))
         return security_json()

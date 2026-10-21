@@ -155,7 +155,7 @@ def test_set_away_from_home_prepares_only(client, engine):
 def test_live_status_reports_schedules(client, engine):
     t = chat.ChatTools(engine)
     s = t.get_live_status()
-    assert s["sleepTime"] == "off" and s["awayFromHome"] == "off" and s["highBecause"] is None
+    assert "sleepTime" not in s and s["awayFromHome"] == "off" and s["highBecause"] is None
     engine.sec.update(away_enabled=True, away_from=None, away_to=None)
     s = t.get_live_status()
     assert s["highBecause"] == "away from home" and s["awayFromHome"]["back"] == "not set"

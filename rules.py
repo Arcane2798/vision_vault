@@ -4,7 +4,6 @@ No OpenCV / model / database imports here, so the tester agent can unit-test
 these functions directly.
 """
 import re
-from datetime import datetime
 from typing import Optional
 
 FAMILY, GUEST = "family", "guest"
@@ -138,17 +137,14 @@ DEFAULT_LEVEL = "normal"
 # levels saved before Wed 21 Oct; "home" (no guard alert) was dropped so a home invasion
 # with residents inside still reaches the guard house
 LEGACY_LEVELS = {"home": "normal", "away": "high"}
-DEFAULT_NIGHT_START, DEFAULT_NIGHT_END = "23:00", "06:00"
 
 _NORMAL = {"alerts": True,          # raise intrusion / visitor alerts at all (off at level "off")
-           "grace": 3.0,            # seconds an unknown must be seen before alerting
+           "grace": 5.0,            # seconds an unknown must be seen before alerting
            "match_thresh": 0.40,    # min cosine similarity for a face match
            "person_conf": 0.55,     # weakest YOLO "person" detection that counts
            "min_track_frames": 10,  # frames a person must be tracked before the rules apply
            "departure_filter": True,  # someone walking out from inside is not an intruder
            "guard_alert": True}     # also alert the guard house
-
-_HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
 
 def security_params(level: str) -> dict:
@@ -157,10 +153,10 @@ def security_params(level: str) -> dict:
         raise ValueError(f"unknown security level {level!r}")
     params = dict(_NORMAL)
     if level == "high":
-        # nobody should be at the door (asleep or away from home): the slightest sign of a
-        # stranger alerts at once - no grace period, weaker and partly visible people count,
-        # rules apply after 3 frames, a stricter face match, and no "someone leaving" exception
-        params.update(grace=0.0, match_thresh=_NORMAL["match_thresh"] + 0.05, person_conf=0.35,
+        # chosen by hand or forced by the away-from-home dates: same 5 s grace as Normal, but
+        # weaker and partly visible people count, rules apply after 3 frames, a stricter face
+        # match (a stranger is less likely to pass as family), and no "someone leaving" exception
+        params.update(match_thresh=_NORMAL["match_thresh"] + 0.05, person_conf=0.35,
                       min_track_frames=3, departure_filter=False)
     elif level == "off":
         # e.g. a party: people are still tracked and shown, but nothing is recorded or alerted
@@ -199,25 +195,6 @@ def guard_ack_message(hhmm: str, note=None) -> str:
     return f"{text} \u2014 {note}" if note else text
 
 
-def valid_hhmm(value) -> bool:
-    """True for a 24-hour "HH:MM" string such as "23:00" or "06:30"."""
-    return isinstance(value, str) and bool(_HHMM_RE.match(value))
-
-
-def _minutes(hhmm: str) -> int:
-    h, m = hhmm.split(":")
-    return int(h) * 60 + int(m)
-
-
-def in_night_window(start: str, end: str, minute_of_day: int) -> bool:
-    """True if minute_of_day (0..1439) is in [start, end). The window may cross midnight;
-    start == end means an empty window."""
-    s, e = _minutes(start), _minutes(end)
-    if s <= e:
-        return s <= minute_of_day < e
-    return minute_of_day >= s or minute_of_day < e
-
-
 def in_away_window(away_from, away_to, now: float) -> bool:
     """True if epoch `now` is in [away_from, away_to). A None bound is open-ended."""
     return (away_from is None or now >= away_from) and (away_to is None or now < away_to)
@@ -228,38 +205,26 @@ def valid_away_window(away_from, away_to) -> bool:
     return away_from is None or away_to is None or away_from < away_to
 
 
-def high_reason(night_enabled: bool, night_start: str, night_end: str, now,
-                away_enabled: bool = False, away_from=None, away_to=None):
-    """Why a schedule forces High right now: "away" (away-from-home dates, e.g. a vacation),
-    "sleep" (the daily sleep time) or None.
-
-    `now` is a datetime (local time) or epoch seconds (converted with the machine's local time).
-    """
-    if hasattr(now, "hour"):
-        local, epoch = now, now.timestamp()
-    else:
-        local, epoch = datetime.fromtimestamp(now), now
+def high_reason(now, away_enabled: bool = False, away_from=None, away_to=None):
+    """Why a schedule forces High right now: "away" (away-from-home dates, e.g. a vacation)
+    or None. `now` is a datetime (local time) or epoch seconds."""
+    epoch = now.timestamp() if hasattr(now, "hour") else now
     if away_enabled and in_away_window(away_from, away_to, epoch):
         return "away"
-    if night_enabled and in_night_window(night_start, night_end,
-                                         local.hour * 60 + local.minute):
-        return "sleep"
     return None
 
 
-def effective_level(level: str, night_enabled: bool, night_start: str,
-                    night_end: str, now, away_enabled: bool = False,
+def effective_level(level: str, now, away_enabled: bool = False,
                     away_from=None, away_to=None, off_until=None,
                     resume_level: str = DEFAULT_LEVEL) -> str:
     """The level the engine should use. "off" (chosen by the homeowner, e.g. for a party) wins
-    over the schedules until `off_until`, then `resume_level` applies. Otherwise 'high' while the
-    sleep time or the away-from-home dates apply, else `level`."""
+    over the away dates until `off_until`, then `resume_level` applies. Otherwise 'high' while
+    the away-from-home dates apply, else `level`."""
     if level == "off":
         epoch = now.timestamp() if hasattr(now, "hour") else now
         if off_active(level, off_until, epoch):
             return "off"
         level = resume_level
-    if high_reason(night_enabled, night_start, night_end, now,
-                   away_enabled, away_from, away_to):
+    if high_reason(now, away_enabled, away_from, away_to):
         return "high"
     return level

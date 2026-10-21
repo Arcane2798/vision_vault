@@ -14,12 +14,12 @@ from insightface import model_zoo
 from insightface.app.common import Face
 from insightface.utils.storage import ensure_available
 
-from rules import (DEFAULT_LEVEL, DEFAULT_NIGHT_END, DEFAULT_NIGHT_START,
+from rules import (DEFAULT_LEVEL,
                    FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, SECURITY_LEVELS,
                    UNKNOWN, classify_person, effective_level, guard_alert_due,
                    high_reason, is_departing, items_near, items_text, movement_direction,
                    normalize_level, off_active, security_params, should_alert_guard, stale_tracks,
-                   valid_away_window, valid_hhmm)
+                   valid_away_window)
 from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
                          ClipRecorder, env, get_settings, guard_chat_id, guard_token, house_unit,
                          init_db, load_people, log_event, log_movement, send_telegram,
@@ -74,7 +74,7 @@ TRACK_FORGET_SEC = 30.0  # drop all state of a track not seen for this long (bou
 PRUNE_INTERVAL = 5.0     # seconds between stale-track sweeps
 
 LEVEL_COLOR = {"off": (170, 170, 170), "normal": (0, 255, 255), "high": (0, 0, 255)}  # BGR
-LEVEL_CHECK_INTERVAL = 1.0   # seconds between sleep-time / away-date re-checks
+LEVEL_CHECK_INTERVAL = 1.0   # seconds between Off-timer / away-date re-checks
 _UNSET = object()            # "argument not given" (None means "clear")
 
 # box colour (BGR) and label per decision; see rules.classify_person
@@ -146,17 +146,15 @@ class VisionEngine:
         self._reload_lock = threading.Lock()   # serialises reload_people() calls
         self.last_seen = {}       # name -> epoch of last frame a known person was in view (self.lock)
 
-        # security level, sleep time ("night_*") and away-from-home dates ("away_*", epochs),
+        # security level and away-from-home dates ("away_*", epochs),
         # all under self.lock; loaded from settings in start()
-        self.security = {"level": DEFAULT_LEVEL, "night_enabled": False,
-                         "night_start": DEFAULT_NIGHT_START,
-                         "night_end": DEFAULT_NIGHT_END, "away_enabled": False,
+        self.security = {"level": DEFAULT_LEVEL, "away_enabled": False,
                          "away_from": None, "away_to": None,
                          "off_until": None,              # level "off" ends then (None = until turned on)
                          "resume_level": DEFAULT_LEVEL,  # level to return to after "off"
                          "updated_at": None}
         self.level = DEFAULT_LEVEL           # effective level used by the rules
-        self.high_reason = None              # "sleep" / "away" while a schedule forces High
+        self.high_reason = None              # "away" while the away dates forces High
         self.params = security_params(DEFAULT_LEVEL)
         self._next_level_check = 0.0
 
@@ -295,10 +293,6 @@ class VisionEngine:
         level = normalize_level(stored.get("security_level", (None,))[0])
         if level in SECURITY_LEVELS:
             sec["level"] = level
-        sec["night_enabled"] = stored.get("night_enabled", ("0",))[0] == "1"
-        for key in ("night_start", "night_end"):
-            if valid_hhmm(stored.get(key, (None,))[0]):
-                sec[key] = stored[key][0]
         sec["away_enabled"] = stored.get("away_enabled", ("0",))[0] == "1"
         resume = normalize_level(stored.get("resume_level", (None,))[0])
         sec["resume_level"] = resume if resume in ("normal", "high") else DEFAULT_LEVEL
@@ -314,7 +308,7 @@ class VisionEngine:
         self._refresh_level(time.time())
 
     def _refresh_level(self, now):
-        """Recompute the effective level (Off timer / sleep time / away dates) and its thresholds."""
+        """Recompute the effective level (Off timer / away dates) and its thresholds."""
         with self.lock:
             s = self.security
             expired = (s["resume_level"] if s["level"] == "off"
@@ -327,8 +321,7 @@ class VisionEngine:
         with self.lock:
             s = self.security
             reason = None if s["level"] == "off" else high_reason(
-                s["night_enabled"], s["night_start"], s["night_end"], now,
-                s["away_enabled"], s["away_from"], s["away_to"])
+                now, s["away_enabled"], s["away_from"], s["away_to"])
             level = "high" if reason else s["level"]
             if level != self.level:
                 print(f"[security] effective level -> {level}" + (f" ({reason})" if reason else ""))
@@ -337,13 +330,12 @@ class VisionEngine:
             self.params = security_params(level)
             self._next_level_check = now + LEVEL_CHECK_INTERVAL
 
-    def set_security(self, level=None, night_enabled=None, night_start=None,
-                     night_end=None, away_enabled=None, away_from=_UNSET, away_to=_UNSET,
+    def set_security(self, level=None, away_enabled=None, away_from=_UNSET, away_to=_UNSET,
                      off_until=_UNSET):
-        """Change the level, sleep time and/or away-from-home dates, persist, apply at once.
+        """Change the level and/or away-from-home dates, persist, apply at once.
         `away_from` / `away_to` / `off_until` are epochs; None clears a bound (open-ended),
         omitted = unchanged. Choosing "off" remembers the current level to return to when
-        `off_until` passes. Raises ValueError on an unknown level, a bad "HH:MM", an away range
+        `off_until` passes. Raises ValueError on an unknown level, an away range
         that ends first, or an Off timer that is not in the future."""
         if level is not None and level not in SECURITY_LEVELS:
             raise ValueError(f"level must be one of {', '.join(SECURITY_LEVELS)}")
@@ -355,9 +347,6 @@ class VisionEngine:
                 raise ValueError("an Off timer only applies when the level is Off")
             if off_until is not None and off_until <= time.time():
                 raise ValueError("the Off timer must end in the future")
-        for t in (night_start, night_end):
-            if t is not None and not valid_hhmm(t):
-                raise ValueError(f"bad time {t!r}: use 24-hour HH:MM")
         with self.lock:
             new_from = self.security["away_from"] if away_from is _UNSET else away_from
             new_to = self.security["away_to"] if away_to is _UNSET else away_to
@@ -376,12 +365,6 @@ class VisionEngine:
                 off_until = None                # leaving Off clears its timer
         if off_until is not _UNSET:
             changes["off_until"] = "" if off_until is None else repr(float(off_until))
-        if night_enabled is not None:
-            changes["night_enabled"] = "1" if night_enabled else "0"
-        if night_start is not None:
-            changes["night_start"] = night_start
-        if night_end is not None:
-            changes["night_end"] = night_end
         if away_enabled is not None:
             changes["away_enabled"] = "1" if away_enabled else "0"
         if away_from is not _UNSET:
@@ -397,12 +380,6 @@ class VisionEngine:
                     s["resume_level"] = resume
                 if off_until is not _UNSET:
                     s["off_until"] = off_until
-                if night_enabled is not None:
-                    s["night_enabled"] = bool(night_enabled)
-                if night_start is not None:
-                    s["night_start"] = night_start
-                if night_end is not None:
-                    s["night_end"] = night_end
                 if away_enabled is not None:
                     s["away_enabled"] = bool(away_enabled)
                 if away_from is not _UNSET:
@@ -417,7 +394,7 @@ class VisionEngine:
         return self.set_security(level=level)
 
     def get_security(self):
-        """{level, effective_level, high_reason, night_*, away_enabled, away_from, away_to, updated_at}."""
+        """{level, effective_level, high_reason, away_enabled, away_from, away_to, updated_at}."""
         with self.lock:
             return dict(self.security, effective_level=self.level, high_reason=self.high_reason)
 
