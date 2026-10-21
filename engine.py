@@ -14,7 +14,8 @@ from insightface.app import FaceAnalysis
 from rules import (DEFAULT_LEVEL, DEFAULT_NIGHT_END, DEFAULT_NIGHT_START,
                    FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, SECURITY_LEVELS,
                    UNKNOWN, classify_person, effective_level, guard_alert_due,
-                   normalize_level, security_params, should_alert_guard, valid_hhmm)
+                   high_reason, normalize_level, security_params, should_alert_guard,
+                   valid_away_window, valid_hhmm)
 from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
                          ClipRecorder, get_settings, guard_chat_id, guard_token, house_unit,
                          init_db, load_people, log_event, send_telegram,
@@ -36,7 +37,8 @@ MIN_FACE_PX = 40         # ignore faces smaller than this (garbage embeddings)
 MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
 
 LEVEL_COLOR = {"normal": (0, 255, 255), "high": (0, 0, 255)}  # BGR
-LEVEL_CHECK_INTERVAL = 1.0   # seconds between night-schedule re-checks
+LEVEL_CHECK_INTERVAL = 1.0   # seconds between sleep-time / away-date re-checks
+_UNSET = object()            # "argument not given" (None means "clear")
 
 # box colour (BGR) and label per decision; see rules.classify_person
 STYLE = {
@@ -73,11 +75,14 @@ class VisionEngine:
         self._reload_lock = threading.Lock()   # serialises reload_people() calls
         self.last_seen = {}       # name -> epoch of last frame a known person was in view (self.lock)
 
-        # security level + night schedule (all under self.lock); loaded from settings in start()
+        # security level, sleep time ("night_*") and away-from-home dates ("away_*", epochs),
+        # all under self.lock; loaded from settings in start()
         self.security = {"level": DEFAULT_LEVEL, "night_enabled": False,
                          "night_start": DEFAULT_NIGHT_START,
-                         "night_end": DEFAULT_NIGHT_END, "updated_at": None}
+                         "night_end": DEFAULT_NIGHT_END, "away_enabled": False,
+                         "away_from": None, "away_to": None, "updated_at": None}
         self.level = DEFAULT_LEVEL           # effective level used by the rules
+        self.high_reason = None              # "sleep" / "away" while a schedule forces High
         self.params = security_params(DEFAULT_LEVEL)
         self._next_level_check = 0.0
 
@@ -211,6 +216,12 @@ class VisionEngine:
         for key in ("night_start", "night_end"):
             if valid_hhmm(stored.get(key, (None,))[0]):
                 sec[key] = stored[key][0]
+        sec["away_enabled"] = stored.get("away_enabled", ("0",))[0] == "1"
+        for key in ("away_from", "away_to"):
+            try:
+                sec[key] = float(stored[key][0]) if stored.get(key, ("",))[0] else None
+            except ValueError:
+                sec[key] = None
         times = [t for _, t in stored.values() if t]
         sec["updated_at"] = max(times) if times else None
         with self.lock:
@@ -218,26 +229,34 @@ class VisionEngine:
         self._refresh_level(time.time())
 
     def _refresh_level(self, now):
-        """Recompute the effective level (night schedule) and its rule thresholds."""
+        """Recompute the effective level (sleep time / away dates) and its rule thresholds."""
         with self.lock:
             s = self.security
-            level = effective_level(s["level"], s["night_enabled"],
-                                    s["night_start"], s["night_end"], now)
+            reason = high_reason(s["night_enabled"], s["night_start"], s["night_end"], now,
+                                 s["away_enabled"], s["away_from"], s["away_to"])
+            level = "high" if reason else s["level"]
             if level != self.level:
-                print(f"[security] effective level -> {level}")
+                print(f"[security] effective level -> {level}" + (f" ({reason})" if reason else ""))
             self.level = level
+            self.high_reason = reason
             self.params = security_params(level)
             self._next_level_check = now + LEVEL_CHECK_INTERVAL
 
     def set_security(self, level=None, night_enabled=None, night_start=None,
-                     night_end=None):
-        """Change the level and/or night schedule, persist it, apply it at once.
-        Raises ValueError on an unknown level or a bad "HH:MM"."""
+                     night_end=None, away_enabled=None, away_from=_UNSET, away_to=_UNSET):
+        """Change the level, sleep time and/or away-from-home dates, persist, apply at once.
+        `away_from` / `away_to` are epochs; None clears a bound (open-ended), omitted = unchanged.
+        Raises ValueError on an unknown level, a bad "HH:MM" or an away range that ends first."""
         if level is not None and level not in SECURITY_LEVELS:
             raise ValueError(f"level must be one of {', '.join(SECURITY_LEVELS)}")
         for t in (night_start, night_end):
             if t is not None and not valid_hhmm(t):
                 raise ValueError(f"bad time {t!r}: use 24-hour HH:MM")
+        with self.lock:
+            new_from = self.security["away_from"] if away_from is _UNSET else away_from
+            new_to = self.security["away_to"] if away_to is _UNSET else away_to
+        if not valid_away_window(new_from, new_to):
+            raise ValueError("away-from-home start must be before its end")
         changes = {}
         if level is not None:
             changes["security_level"] = level
@@ -247,6 +266,12 @@ class VisionEngine:
             changes["night_start"] = night_start
         if night_end is not None:
             changes["night_end"] = night_end
+        if away_enabled is not None:
+            changes["away_enabled"] = "1" if away_enabled else "0"
+        if away_from is not _UNSET:
+            changes["away_from"] = "" if away_from is None else repr(float(away_from))
+        if away_to is not _UNSET:
+            changes["away_to"] = "" if away_to is None else repr(float(away_to))
         if changes:
             updated = set_settings(changes)
             with self.lock:
@@ -259,6 +284,12 @@ class VisionEngine:
                     s["night_start"] = night_start
                 if night_end is not None:
                     s["night_end"] = night_end
+                if away_enabled is not None:
+                    s["away_enabled"] = bool(away_enabled)
+                if away_from is not _UNSET:
+                    s["away_from"] = away_from
+                if away_to is not _UNSET:
+                    s["away_to"] = away_to
                 s["updated_at"] = updated
             self._refresh_level(time.time())
         return self.get_security()
@@ -267,9 +298,9 @@ class VisionEngine:
         return self.set_security(level=level)
 
     def get_security(self):
-        """{level, effective_level, night_enabled, night_start, night_end, updated_at}."""
+        """{level, effective_level, high_reason, night_*, away_enabled, away_from, away_to, updated_at}."""
         with self.lock:
-            return dict(self.security, effective_level=self.level)
+            return dict(self.security, effective_level=self.level, high_reason=self.high_reason)
 
     def _identify(self, emb, known, thresh):
         best, best_score = "unknown", 0.0
@@ -443,7 +474,6 @@ class VisionEngine:
             with self.lock:
                 known, people = self.known, self.people
                 params, level = self.params, self.level
-                night = level != self.security["level"]
             frame_count += 1
             frame_h, frame_w = frame.shape[:2]
 
@@ -555,7 +585,7 @@ class VisionEngine:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
             cv2.putText(frame, f"Unknown: {len(current_unknown)}", (15, 60),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
-            self._draw_level(frame, level, night)
+            self._draw_level(frame, level)
             if self.is_file and self.source != self.default_source:
                 cv2.putText(frame, f"TEST VIDEO: {Path(self.source).name}", (15, frame_h - 15),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
@@ -584,9 +614,9 @@ class VisionEngine:
         cap.release()
 
     @staticmethod
-    def _draw_level(frame, level, night):
-        """Security level in the top-right corner, e.g. "HIGH (night)"."""
-        text = level.upper() + (" (night)" if night else "")
+    def _draw_level(frame, level):
+        """Security level in the top-right corner: "NORMAL" or "HIGH"."""
+        text = level.upper()
         font, scale, thick = cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2
         (tw, th), _ = cv2.getTextSize(text, font, scale, thick)
         x, y = frame.shape[1] - tw - 15, 30

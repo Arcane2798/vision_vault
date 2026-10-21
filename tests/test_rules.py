@@ -122,3 +122,21 @@ def test_normalize_level_maps_old_saved_levels():
     assert normalize_level("away") == "high"
     assert normalize_level("normal") == "normal" and normalize_level("high") == "high"
     assert normalize_level(None) is None
+
+
+def test_high_reason_sleep_and_away():
+    from rules import high_reason, in_away_window, valid_away_window
+    night = datetime(2026, 10, 25, 2, 0)                  # 02:00, inside 23:00-06:00
+    day = datetime(2026, 10, 25, 14, 0)
+    trip_from, trip_to = datetime(2026, 10, 24, 18, 0).timestamp(), datetime(2026, 10, 28, 12, 0).timestamp()
+    assert high_reason(True, "23:00", "06:00", night) == "sleep"
+    assert high_reason(True, "23:00", "06:00", day) is None
+    assert high_reason(False, "23:00", "06:00", day, True, trip_from, trip_to) == "away"
+    assert high_reason(True, "23:00", "06:00", night, True, trip_from, trip_to) == "away"   # away wins
+    assert high_reason(False, "23:00", "06:00", day, False, trip_from, trip_to) is None    # switched off
+    assert high_reason(False, "23:00", "06:00", datetime(2026, 10, 29, 9, 0), True, trip_from, trip_to) is None
+    assert in_away_window(trip_from, trip_to, trip_from) and not in_away_window(trip_from, trip_to, trip_to)
+    assert in_away_window(None, None, 0) and in_away_window(trip_from, None, trip_to + 1e6)
+    assert valid_away_window(1, 2) and valid_away_window(None, 2) and valid_away_window(1, None)
+    assert not valid_away_window(2, 2) and not valid_away_window(3, 2)
+    assert effective_level("normal", False, "23:00", "06:00", day, True, trip_from, trip_to) == "high"

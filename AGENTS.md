@@ -107,8 +107,8 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/api/dashboard/summary`, `/api/dashboard/trend?days=14` | |
 | WS | `/api/ws/events` | `{type:"alert", data: Incident}` and `{type:"camera_status", ...}` |
 | GET | `/api/status` | `{running, fps, unknownCount, cameraName, securityLevel, peopleInView}` — live engine state; `securityLevel` = effective level; `peopleInView: [{name, kind}]` one entry per tracked person in the latest frame (static figures excluded), `kind` ∈ `family`, `guest_allowed`, `guest_outside`, `unknown` (name `unknown`) |
-| GET | `/api/security` | `{level, effectiveLevel, night: {enabled, start, end}, updatedAt: ISO\|null}` (`updatedAt` null until first change) |
-| PUT | `/api/security` | `{level?, night?: {enabled?, start?, end?}}` → same shape as GET. 400 on unknown level or bad "HH:MM" (24-hour, zero-padded) |
+| GET | `/api/security` | `{level, effectiveLevel, highReason: "sleep"\|"away"\|null, night: {enabled, start, end}, away: {enabled, from: ISO\|null, to: ISO\|null}, updatedAt: ISO\|null}`. `night` = daily **sleep time**; `away` = **away-from-home** dates (vacation). Either forces `effectiveLevel` = `high`; `highReason` says which (away wins). `updatedAt` null until first change |
+| PUT | `/api/security` | `{level?, night?: {enabled?, start?, end?}, away?: {enabled?, from?, to?}}` → same shape as GET. In `away`, omitted = unchanged, `null` = open-ended; turning `enabled` off keeps the dates. 400 on unknown level, bad "HH:MM" (24-hour, zero-padded), bad date, or `from` ≥ `to` |
 | POST | `/api/chat` | `{messages: [{role: "user"\|"assistant", content}]}` (last 20 kept) → `{reply, pendingAction: PendingAction\|null}` (shape in Phase 2). 503 `{detail: "Chat is not configured: add GEMINI_API_KEY to .env"}` without a key; free-tier quota → 200 with reply "Viva Bot is busy right now (Gemini free tier). Try again in a minute."; other AI errors → 502 `{detail}`; 400 no user message; 422 bad role. PendingAction dates are ISO UTC `Z` (the model works in Asia/Kuala_Lumpur time). Takes a few seconds: use a long client timeout |
 | GET | `/api/people` | `Person[]`, family first then by name (Person JSON in Phase 1 spec; `id` is a number) |
 | POST | `/api/people` | multipart `name, role (default family), validFrom?, validTo?, photos` (repeat `photos` per file) → 201 `Person`. 400 bad name/role/date, from > to, no photo, unreadable image or **no face found**; 409 name taken (case-insensitive) |
@@ -132,9 +132,11 @@ Clips are written at the engine's measured FPS (`vault_utils.clip_fps`), with 5 
 Dates in: ISO 8601; with no offset (e.g. `datetime-local` "2026-10-24T14:00") they mean the server's local time.
 Dates out: ISO UTC with `Z`. Uploads take ~1 s per photo (face embedding), so use a long client timeout.
 
-**`settings` table:** `key, value, updated_at` — keys `security_level`, `night_enabled` ("0"/"1"), `night_start`, `night_end`.
-Pure security rules: `rules.security_params`, `rules.effective_level`, `rules.in_night_window`, `rules.valid_hhmm`.
-The frame's top-right corner shows the effective level (`NORMAL`, `HIGH`, or `HIGH (night)`).
+**`settings` table:** `key, value, updated_at` — keys `security_level`, `night_enabled` ("0"/"1"), `night_start`, `night_end`,
+`away_enabled` ("0"/"1"), `away_from`, `away_to` (epoch as text, "" = open-ended).
+Pure security rules: `rules.security_params`, `rules.effective_level`, `rules.high_reason`, `rules.in_night_window`,
+`rules.in_away_window`, `rules.valid_away_window`, `rules.valid_hhmm`.
+The frame's top-right corner shows only the effective level (`NORMAL` or `HIGH`); the dashboard explains why High is on.
 
 **`people` table:** `id, name (= faces/ folder, unique, case-insensitive), role ('family'|'guest'), valid_from, valid_to, created_at`.
 Pure rules live in `rules.py` (`visitor_allowed`, `classify_person`, `valid_person_name`). A guest window bound that is
@@ -149,7 +151,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 | 3 | Intrusion snapshot + clip | ✅ done (clip race + speed fixed) | Phase 2: `clip_ready` |
 | 4 | Telegram alert | ✅ done | Phase 2: guard-house copy, weapon note |
 | 5 | Web dashboard (live, history, analytics) | ✅ done (rebranded to Vision Vault) | Phase 0: rebrand, `/api/status` |
-| 5.1 | Security level control | ✅ done (Normal / High, incl. night auto-High) | Phase 1: `security_level`; reduced to two levels Wed 21 Oct |
+| 5.1 | Security level control | ✅ done (Normal / High; auto-High during sleep time and away-from-home dates) | Phase 1: `security_level`; two levels + away dates added Wed 21 Oct |
 | 6 | Visitor registration | ✅ done | Phase 1: `people` table + `/people` page — **core** |
 | 7 | Guard-house alert & dashboard | ✅ Telegram copy + mock Guard House view (/guard) with acknowledge | Phase 2: alert to guard-house Telegram. Dashboard for many homes = KIV (pitch only) |
 | 8 | AI assistant (live feed, locate family) | ✅ Gemini chat with tools + confirm (needs GEMINI_API_KEY) | Phase 1: `lastSeen` per person. Phase 2: chatbot + tools |

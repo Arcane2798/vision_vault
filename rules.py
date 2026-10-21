@@ -131,16 +131,41 @@ def in_night_window(start: str, end: str, minute_of_day: int) -> bool:
     return minute_of_day >= s or minute_of_day < e
 
 
-def effective_level(level: str, night_enabled: bool, night_start: str,
-                    night_end: str, now) -> str:
-    """The level the engine should use: 'high' inside an enabled night window, else `level`.
+def in_away_window(away_from, away_to, now: float) -> bool:
+    """True if epoch `now` is in [away_from, away_to). A None bound is open-ended."""
+    return (away_from is None or now >= away_from) and (away_to is None or now < away_to)
+
+
+def valid_away_window(away_from, away_to) -> bool:
+    """An away-from-home range must start before it ends (open-ended bounds are fine)."""
+    return away_from is None or away_to is None or away_from < away_to
+
+
+def high_reason(night_enabled: bool, night_start: str, night_end: str, now,
+                away_enabled: bool = False, away_from=None, away_to=None):
+    """Why a schedule forces High right now: "away" (away-from-home dates, e.g. a vacation),
+    "sleep" (the daily sleep time) or None.
 
     `now` is a datetime (local time) or epoch seconds (converted with the machine's local time).
     """
-    if not night_enabled:
-        return level
-    if not hasattr(now, "hour"):
-        now = datetime.fromtimestamp(now)
-    if in_night_window(night_start, night_end, now.hour * 60 + now.minute):
+    if hasattr(now, "hour"):
+        local, epoch = now, now.timestamp()
+    else:
+        local, epoch = datetime.fromtimestamp(now), now
+    if away_enabled and in_away_window(away_from, away_to, epoch):
+        return "away"
+    if night_enabled and in_night_window(night_start, night_end,
+                                         local.hour * 60 + local.minute):
+        return "sleep"
+    return None
+
+
+def effective_level(level: str, night_enabled: bool, night_start: str,
+                    night_end: str, now, away_enabled: bool = False,
+                    away_from=None, away_to=None) -> str:
+    """The level the engine should use: 'high' while the sleep time or the away-from-home
+    dates apply, else `level`."""
+    if high_reason(night_enabled, night_start, night_end, now,
+                   away_enabled, away_from, away_to):
         return "high"
     return level

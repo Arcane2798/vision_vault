@@ -109,20 +109,33 @@ export interface TrendPoint {
 /** Security level (feature 5.1): how strict the intrusion rules are. */
 export type SecurityLevel = 'normal' | 'high';
 
-/** Night schedule: auto High between start and end (local "HH:MM", may cross midnight). */
+/** Daily sleep time: auto High between start and end (local "HH:MM", may cross midnight). API name: night. */
 export interface NightSchedule {
   enabled: boolean;
   start: string;
   end: string;
 }
 
+/** Away from home (e.g. a vacation): auto High between from and to (ISO; null = open-ended). */
+export interface AwaySchedule {
+  enabled: boolean;
+  from: string | null;
+  to: string | null;
+}
+
+/** Why a schedule forces High right now. */
+export type HighReason = 'sleep' | 'away';
+
 /** GET /api/security */
 export interface SecuritySettings {
   /** level chosen by the homeowner */
   level: SecurityLevel;
-  /** level the engine actually uses now (high while the night schedule applies) */
+  /** level the engine actually uses now (high while the sleep time or away dates apply) */
   effectiveLevel: SecurityLevel;
+  /** set while a schedule forces High (also when High is chosen by hand) */
+  highReason: HighReason | null;
   night: NightSchedule;
+  away: AwaySchedule;
   updatedAt: string | null;
 }
 
@@ -130,6 +143,7 @@ export interface SecuritySettings {
 export interface SecurityUpdate {
   level?: SecurityLevel;
   night?: Partial<NightSchedule>;
+  away?: Partial<AwaySchedule>;
 }
 
 /** A recorded video in the backend's test_videos/ folder. */

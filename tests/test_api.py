@@ -125,8 +125,9 @@ def test_status_shape(client, engine):
 
 def test_security_roundtrip(client):
     g = client.get("/api/security").json()
-    assert g == {"level": "normal", "effectiveLevel": "normal",
+    assert g == {"level": "normal", "effectiveLevel": "normal", "highReason": None,
                  "night": {"enabled": False, "start": "23:00", "end": "06:00"},
+                 "away": {"enabled": False, "from": None, "to": None},
                  "updatedAt": None}
     p = client.put("/api/security", json={"level": "high",
                                           "night": {"start": "22:30"}}).json()
@@ -199,3 +200,34 @@ def test_guard_ack_errors(client, sent):
     assert client.post(f"/api/guard/alerts/{g}/ack", json={"note": "x" * 201}).status_code == 400
     assert client.post(f"/api/guard/alerts/{g}/ack", json={"note": "x" * 200}).status_code == 200
     assert sql("SELECT guard_ack_at FROM events WHERE id=?", (plain,))[0][0] is None
+
+
+def test_security_away_from_home(client):
+    now = time.time()
+    p = client.put("/api/security", json={"away": {
+        "enabled": True, "from": _iso_utc(now - 3600), "to": _iso_utc(now + 86400)}}).json()
+    assert p["level"] == "normal"                      # chosen level is unchanged
+    assert p["effectiveLevel"] == "high" and p["highReason"] == "away"
+    assert p["away"]["enabled"] is True and p["away"]["from"].endswith("Z")
+    assert client.get("/api/status").json()["securityLevel"] == "high"
+    # turning it off keeps the dates for next time
+    off = client.put("/api/security", json={"away": {"enabled": False}}).json()
+    assert off["effectiveLevel"] == "normal" and off["highReason"] is None
+    assert off["away"]["from"] == p["away"]["from"]
+    # null clears a bound (open-ended)
+    cleared = client.put("/api/security", json={"away": {"to": None}}).json()
+    assert cleared["away"]["to"] is None and cleared["away"]["from"] == p["away"]["from"]
+
+
+@pytest.mark.parametrize("away", [
+    {"from": "2026-10-28T12:00", "to": "2026-10-24T18:00"},     # ends before it starts
+    {"from": "2026-10-24T18:00", "to": "2026-10-24T18:00"},     # empty range
+    {"from": "next friday"},                                     # not a date
+])
+def test_security_away_400(client, away):
+    assert client.put("/api/security", json={"away": away}).status_code == 400
+
+
+def _iso_utc(epoch):
+    from datetime import datetime, timezone
+    return datetime.fromtimestamp(epoch, timezone.utc).isoformat().replace("+00:00", "Z")

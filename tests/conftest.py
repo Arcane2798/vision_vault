@@ -26,7 +26,8 @@ class FakeEngine:
         self.last_seen = {}
         self.in_view = []
         self.sec = {"level": "normal", "night_enabled": False, "night_start": "23:00",
-                    "night_end": "06:00", "updated_at": None}
+                    "night_end": "06:00", "away_enabled": False, "away_from": None,
+                    "away_to": None, "updated_at": None}
 
     def get_status(self):
         return {"running": self.running, "fps": 5.2, "unknown_count": 1,
@@ -46,20 +47,29 @@ class FakeEngine:
 
     def get_security(self):
         s = dict(self.sec)
-        s["effective_level"] = rules.effective_level(
-            s["level"], s["night_enabled"], s["night_start"], s["night_end"], time.time())
+        args = (s["night_enabled"], s["night_start"], s["night_end"], time.time(),
+                s["away_enabled"], s["away_from"], s["away_to"])
+        s["high_reason"] = rules.high_reason(*args)
+        s["effective_level"] = "high" if s["high_reason"] else s["level"]
         return s
 
-    def set_security(self, level=None, night_enabled=None, night_start=None, night_end=None):
+    def set_security(self, level=None, night_enabled=None, night_start=None, night_end=None,
+                     away_enabled=None, **away):
         if level is not None:
             rules.security_params(level)          # ValueError on unknown level
         for v in (night_start, night_end):
             if v is not None and not rules.valid_hhmm(v):
                 raise ValueError(f"bad time {v!r}")
+        new_from = away.get("away_from", self.sec["away_from"])
+        new_to = away.get("away_to", self.sec["away_to"])
+        if not rules.valid_away_window(new_from, new_to):
+            raise ValueError("away-from-home start must be before its end")
         for k, v in (("level", level), ("night_enabled", night_enabled),
-                     ("night_start", night_start), ("night_end", night_end)):
+                     ("night_start", night_start), ("night_end", night_end),
+                     ("away_enabled", away_enabled)):
             if v is not None:
                 self.sec[k] = v
+        self.sec.update(away)                     # None clears a bound
         self.sec["updated_at"] = time.time()
 
     def get_source(self):
