@@ -107,9 +107,9 @@ export interface TrendPoint {
 }
 
 /** Security level (feature 5.1): how strict the intrusion rules are. */
-export type SecurityLevel = 'home' | 'normal' | 'away';
+export type SecurityLevel = 'normal' | 'high';
 
-/** Night schedule: auto Away between start and end (local "HH:MM", may cross midnight). */
+/** Night schedule: auto High between start and end (local "HH:MM", may cross midnight). */
 export interface NightSchedule {
   enabled: boolean;
   start: string;
@@ -120,7 +120,7 @@ export interface NightSchedule {
 export interface SecuritySettings {
   /** level chosen by the homeowner */
   level: SecurityLevel;
-  /** level the engine actually uses now (away while the night schedule applies) */
+  /** level the engine actually uses now (high while the night schedule applies) */
   effectiveLevel: SecurityLevel;
   night: NightSchedule;
   updatedAt: string | null;

@@ -62,13 +62,16 @@ def classify_person(name: str, person: Optional[dict], now: float) -> str:
 
 
 # ---------- security level (feature 5.1) ----------
-SECURITY_LEVELS = ("home", "normal", "away")
+SECURITY_LEVELS = ("normal", "high")
 DEFAULT_LEVEL = "normal"
+# levels saved before Wed 21 Oct; "home" (no guard alert) was dropped so a home invasion
+# with residents inside still reaches the guard house
+LEGACY_LEVELS = {"home": "normal", "away": "high"}
 DEFAULT_NIGHT_START, DEFAULT_NIGHT_END = "23:00", "06:00"
 
 _NORMAL = {"grace": 3.0,          # seconds an unknown must be seen before alerting
            "match_thresh": 0.40,   # min cosine similarity for a face match
-           "guard_alert": True}    # also alert the guard house (Phase 2)
+           "guard_alert": True}    # also alert the guard house (on at every level)
 
 _HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
@@ -78,17 +81,20 @@ def security_params(level: str) -> dict:
     if level not in SECURITY_LEVELS:
         raise ValueError(f"unknown security level {level!r}")
     params = dict(_NORMAL)
-    if level == "home":
-        params.update(grace=5.0, guard_alert=False)
-    elif level == "away":
+    if level == "high":
         params.update(grace=1.0, match_thresh=_NORMAL["match_thresh"] + 0.05)
     return params
 
 
+def normalize_level(value):
+    """A stored level mapped onto the current levels (old "home"/"away" -> "normal"/"high")."""
+    return LEGACY_LEVELS.get(value, value)
+
+
 def guard_alert_due(event_type: str, guard_alert: bool) -> bool:
     """True if the guard house is alerted (Guard House view, `guard_notified`): intrusions only,
-    and only when the security level allows it (`security_params(level)["guard_alert"]`, off at
-    `home`). Visitors outside their window go to the homeowner only."""
+    when `security_params(level)["guard_alert"]` is on (it is at every level).
+    Visitors outside their window go to the homeowner only."""
     return event_type == "intrusion" and bool(guard_alert)
 
 
@@ -127,7 +133,7 @@ def in_night_window(start: str, end: str, minute_of_day: int) -> bool:
 
 def effective_level(level: str, night_enabled: bool, night_start: str,
                     night_end: str, now) -> str:
-    """The level the engine should use: 'away' inside an enabled night window, else `level`.
+    """The level the engine should use: 'high' inside an enabled night window, else `level`.
 
     `now` is a datetime (local time) or epoch seconds (converted with the machine's local time).
     """
@@ -136,5 +142,5 @@ def effective_level(level: str, night_enabled: bool, night_start: str,
     if not hasattr(now, "hour"):
         now = datetime.fromtimestamp(now)
     if in_night_window(night_start, night_end, now.hour * 60 + now.minute):
-        return "away"
+        return "high"
     return level

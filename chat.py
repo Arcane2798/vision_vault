@@ -284,9 +284,9 @@ TOOLS = [
          "valid_to": {"type": "string", "description": "Window end, omit for open-ended. " + _LOCAL_DT}},
          "required": ["name"]}},
     {"name": "set_security_level",
-     "description": "Prepare switching the security level for the user to confirm. home = people are "
-                    "home (slower alerts, no guard-house copy); normal = default; away = nobody home "
-                    "(fast alerts, even a standing stranger alerts).",
+     "description": "Prepare switching the security level for the user to confirm. normal = default "
+                    "(alert 3 s after an unknown person appears); high = alert after 1 s with a stricter "
+                    "face match. The guard house is alerted at both levels.",
      "parameters": {"type": "object", "properties": {
          "level": {"type": "string", "enum": list(SECURITY_LEVELS)}},
          "required": ["level"]}},

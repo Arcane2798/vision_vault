@@ -128,16 +128,17 @@ def test_security_roundtrip(client):
     assert g == {"level": "normal", "effectiveLevel": "normal",
                  "night": {"enabled": False, "start": "23:00", "end": "06:00"},
                  "updatedAt": None}
-    p = client.put("/api/security", json={"level": "away",
+    p = client.put("/api/security", json={"level": "high",
                                           "night": {"start": "22:30"}}).json()
-    assert p["level"] == "away" and p["effectiveLevel"] == "away"
+    assert p["level"] == "high" and p["effectiveLevel"] == "high"
     assert p["night"] == {"enabled": False, "start": "22:30", "end": "06:00"}
     assert p["updatedAt"].endswith("Z")
     assert client.get("/api/security").json() == p
-    assert client.get("/api/status").json()["securityLevel"] == "away"
+    assert client.get("/api/status").json()["securityLevel"] == "high"
 
 
-@pytest.mark.parametrize("body", [{"level": "party"}, {"night": {"start": "25:00"}},
+@pytest.mark.parametrize("body", [{"level": "party"}, {"level": "home"}, {"level": "away"},
+                                  {"night": {"start": "25:00"}},
                                   {"night": {"end": "6:00"}}])
 def test_security_400(client, body):
     assert client.put("/api/security", json=body).status_code == 400
@@ -154,7 +155,7 @@ def test_cameras(client):
 def test_guard_alerts_list(client):
     now = time.time()
     a = add_event(ts=now - 10, guard_notified=True, snapshot_path="snapshots/s.jpg")
-    add_event(ts=now - 5)                                       # home level: not a guard alert
+    add_event(ts=now - 5)                                       # guard_notified = 0: not a guard alert
     add_event("Ali", "guest_outside_window", ts=now - 1)
     b = add_event(ts=now, guard_notified=True)
     alerts = client.get("/api/guard/alerts").json()

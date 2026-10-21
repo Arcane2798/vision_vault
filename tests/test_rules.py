@@ -50,14 +50,14 @@ def test_invalid_names(name):
 
 
 def test_security_params():
-    n, h, a = security_params("normal"), security_params("home"), security_params("away")
+    n, h = security_params("normal"), security_params("high")
     assert n == {"grace": 3.0, "match_thresh": 0.40, "guard_alert": True}
-    assert h["grace"] == 5.0 and h["guard_alert"] is False
-    assert a["grace"] == 1.0 and a["guard_alert"] is True
-    assert a["match_thresh"] == pytest.approx(0.45)
-    with pytest.raises(ValueError):
-        security_params("party")
-    security_params("home")["grace"] = 99      # must return a copy
+    assert h["grace"] == 1.0 and h["guard_alert"] is True       # guard alerted at every level
+    assert h["match_thresh"] == pytest.approx(0.45)
+    for old in ("home", "away", "party"):                      # removed levels are rejected
+        with pytest.raises(ValueError):
+            security_params(old)
+    security_params("high")["grace"] = 99      # must return a copy
     assert security_params("normal")["grace"] == 3.0
 
 
@@ -90,10 +90,11 @@ def test_night_window_empty_when_equal():
 def test_effective_level():
     night = datetime(2026, 10, 20, 2, 0)
     day = datetime(2026, 10, 20, 14, 0)
-    assert effective_level("home", True, "23:00", "06:00", night) == "away"
-    assert effective_level("home", True, "23:00", "06:00", day) == "home"
-    assert effective_level("home", False, "23:00", "06:00", night) == "home"
-    assert effective_level("normal", True, "23:00", "06:00", night.timestamp()) == "away"
+    assert effective_level("normal", True, "23:00", "06:00", night) == "high"
+    assert effective_level("normal", True, "23:00", "06:00", day) == "normal"
+    assert effective_level("normal", False, "23:00", "06:00", night) == "normal"
+    assert effective_level("high", True, "23:00", "06:00", day) == "high"
+    assert effective_level("normal", True, "23:00", "06:00", night.timestamp()) == "high"
     assert effective_level("normal", True, "23:00", "06:00", day.timestamp()) == "normal"
 
 
@@ -113,3 +114,11 @@ def test_guard_ack_message():
     assert guard_ack_message("21:14", "Guard dispatched").endswith(
         "21:14 — Guard dispatched")
     assert rules.MAX_ACK_NOTE == 200
+
+
+def test_normalize_level_maps_old_saved_levels():
+    from rules import normalize_level
+    assert normalize_level("home") == "normal"
+    assert normalize_level("away") == "high"
+    assert normalize_level("normal") == "normal" and normalize_level("high") == "high"
+    assert normalize_level(None) is None

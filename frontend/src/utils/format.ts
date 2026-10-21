@@ -75,14 +75,14 @@ export const cameraStatusLabel: Record<CameraStatus, string> = {
   offline: 'Offline',
 };
 
-export const securityLevelLabel: Record<SecurityLevel, string> = { home: 'Home', normal: 'Normal', away: 'Away' };
+export const securityLevelLabel: Record<SecurityLevel, string> = { normal: 'Normal', high: 'High' };
 
-/** True when the engine is in Away only because the night schedule applies right now. */
-export const nightModeActive = (s: SecuritySettings) => s.night.enabled && s.effectiveLevel === 'away' && s.level !== 'away';
+/** True when the engine is in High only because the night schedule applies right now. */
+export const nightModeActive = (s: SecuritySettings) => s.night.enabled && s.effectiveLevel === 'high' && s.level !== 'high';
 
-/** "Away (night mode until 06:00)" while the schedule applies, else the plain level name. */
+/** "High (night mode until 06:00)" while the schedule applies, else the plain level name. */
 export const effectiveLevelText = (s: SecuritySettings) =>
-  nightModeActive(s) ? `Away (night mode until ${s.night.end})` : securityLevelLabel[s.effectiveLevel];
+  nightModeActive(s) ? `High (night mode until ${s.night.end})` : securityLevelLabel[s.effectiveLevel];
 
 /** /api/status peopleInView kinds -> display text (same meaning as the live-frame colours). */
 export const inViewKindLabel: Record<InViewKind, string> = {

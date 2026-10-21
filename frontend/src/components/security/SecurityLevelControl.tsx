@@ -10,12 +10,11 @@ import { ErrorState, LoadingState } from '@/components/ui/States';
 import { LEVEL_STYLE } from './SecurityBadge';
 
 const LEVELS: Array<{ value: SecurityLevel; description: string }> = [
-  { value: 'home', description: 'Someone is home: 5 s grace before alerting, no guard-house copy.' },
-  { value: 'normal', description: 'Default: alert 3 s after an unknown person starts moving.' },
-  { value: 'away', description: 'Nobody home: alert after 1 s, even if they stand still; stricter face match.' },
+  { value: 'normal', description: 'Default: alert 3 s after an unknown person appears.' },
+  { value: 'high', description: 'Alert after 1 s with a stricter face match. Use at night or when extra caution is needed.' },
 ];
 
-/** Home / Normal / Away segmented control plus the "Night mode - auto Away" schedule. */
+/** Normal / High segmented control plus the "Night mode - auto High" schedule. */
 export function SecurityLevelControl() {
   const { security, error, update, reload } = useSecurity();
   const [busy, setBusy] = useState(false);
@@ -59,7 +58,7 @@ export function SecurityLevelControl() {
     <Card>
       <CardHeader title="Security level" subtitle={<>Now: <b className="text-ink-1">{effectiveLevelText(security)}</b></>} />
       <div className="space-y-4 p-4">
-        <div role="radiogroup" aria-label="Security level" className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-surface-2 p-1">
+        <div role="radiogroup" aria-label="Security level" className="grid grid-cols-2 gap-1 rounded-lg border border-line bg-surface-2 p-1">
           {LEVELS.map(({ value }) => {
             const selected = security.level === value;
             const { Icon, cls } = LEVEL_STYLE[value];
@@ -94,15 +93,15 @@ export function SecurityLevelControl() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="flex items-center gap-1.5 text-sm font-medium">
-                <Moon className="h-4 w-4 text-ink-2" aria-hidden /> Night mode - auto Away
+                <Moon className="h-4 w-4 text-ink-2" aria-hidden /> Night mode - auto High
               </p>
-              <p className="text-xs text-ink-3">Switches to Away between these times every night, whatever level is set above.</p>
+              <p className="text-xs text-ink-3">Switches to High between these times every night, whatever level is set above.</p>
             </div>
             <button
               type="button"
               role="switch"
               aria-checked={night.enabled}
-              aria-label="Night mode - auto Away"
+              aria-label="Night mode - auto High"
               disabled={busy}
               onClick={() => save({ night: { enabled: !night.enabled } }, night.enabled ? 'Night mode turned off.' : 'Night mode turned on.')}
               className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-wait', night.enabled ? 'bg-brand' : 'bg-surface-3')}
@@ -127,7 +126,7 @@ export function SecurityLevelControl() {
           </div>
           {nightModeActive(security) && (
             <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-red-300">
-              Night mode is on now: the camera is in <b>Away</b> until {night.end}, then returns to {securityLevelLabel[security.level]}.
+              Night mode is on now: the camera is in <b>High</b> until {night.end}, then returns to {securityLevelLabel[security.level]}.
             </p>
           )}
         </div>

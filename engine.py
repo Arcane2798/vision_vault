@@ -14,7 +14,7 @@ from insightface.app import FaceAnalysis
 from rules import (DEFAULT_LEVEL, DEFAULT_NIGHT_END, DEFAULT_NIGHT_START,
                    FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, SECURITY_LEVELS,
                    UNKNOWN, classify_person, effective_level, guard_alert_due,
-                   security_params, should_alert_guard, valid_hhmm)
+                   normalize_level, security_params, should_alert_guard, valid_hhmm)
 from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
                          ClipRecorder, get_settings, guard_chat_id, guard_token, house_unit,
                          init_db, load_people, log_event, send_telegram,
@@ -35,7 +35,7 @@ MIN_TRACK_FRAMES = 10    # a track must exist this many frames before it counts
 MIN_FACE_PX = 40         # ignore faces smaller than this (garbage embeddings)
 MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
 
-LEVEL_COLOR = {"home": (0, 200, 0), "normal": (0, 255, 255), "away": (0, 0, 255)}  # BGR
+LEVEL_COLOR = {"normal": (0, 255, 255), "high": (0, 0, 255)}  # BGR
 LEVEL_CHECK_INTERVAL = 1.0   # seconds between night-schedule re-checks
 
 # box colour (BGR) and label per decision; see rules.classify_person
@@ -204,7 +204,7 @@ class VisionEngine:
     def _load_security(self):
         stored = get_settings()
         sec = dict(self.security)
-        level = stored.get("security_level", (None,))[0]
+        level = normalize_level(stored.get("security_level", (None,))[0])
         if level in SECURITY_LEVELS:
             sec["level"] = level
         sec["night_enabled"] = stored.get("night_enabled", ("0",))[0] == "1"
@@ -585,7 +585,7 @@ class VisionEngine:
 
     @staticmethod
     def _draw_level(frame, level, night):
-        """Security level in the top-right corner, e.g. "AWAY (night)"."""
+        """Security level in the top-right corner, e.g. "HIGH (night)"."""
         text = level.upper() + (" (night)" if night else "")
         font, scale, thick = cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2
         (tw, th), _ = cv2.getTextSize(text, font, scale, thick)
@@ -601,7 +601,7 @@ class VisionEngine:
         cv2.imwrite(snap, frame)
         clip = self.recorder.trigger(clip, fps)   # may be the clip already recording
         with self.lock:
-            guard_alert = self.params["guard_alert"]    # False at level "home"
+            guard_alert = self.params["guard_alert"]    # on at every level
         # every due intrusion reaches the Guard House view, even inside the Telegram cooldown
         log_event(self.camera_name, tid, name, event_type, clip, snap,
                   guard_notified=guard_alert_due(event_type, guard_alert))

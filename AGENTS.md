@@ -102,7 +102,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | GET | `/video` | MJPEG stream (use `<img>`, not `<video>`) |
 | GET | `/clips/*`, `/snapshots/*` | Static evidence files |
 | GET | `/api/cameras` | Single camera `cam-01`; POST/PUT/DELETE return 501 |
-| GET | `/api/incidents` | `?search&cameraId&status&from&to&sort`; search also matches `identity`. Incident JSON includes `identity` (`unknown` or the visitor's name) `guardNotified: bool` (alert reached the guard house: intrusion at a level other than `home`), `guardAcknowledgedAt: ISO|null`, `guardAckNote: string|null`, and `clipReady: bool` — `clipUrl` appears as soon as recording starts, but play it only when `clipReady` is true (≈ 5–10 s after the alert; false when there is no clip) |
+| GET | `/api/incidents` | `?search&cameraId&status&from&to&sort`; search also matches `identity`. Incident JSON includes `identity` (`unknown` or the visitor's name) `guardNotified: bool` (alert reached the guard house: every intrusion), `guardAcknowledgedAt: ISO|null`, `guardAckNote: string|null`, and `clipReady: bool` — `clipUrl` appears as soon as recording starts, but play it only when `clipReady` is true (≈ 5–10 s after the alert; false when there is no clip) |
 | GET / PATCH | `/api/incidents/{id}` | PATCH `{status, notes}`; status ∈ new, under_review, confirmed, dismissed |
 | GET | `/api/dashboard/summary`, `/api/dashboard/trend?days=14` | |
 | WS | `/api/ws/events` | `{type:"alert", data: Incident}` and `{type:"camera_status", ...}` |
@@ -124,7 +124,7 @@ pip install ultralytics insightface fastapi uvicorn python-dotenv opencv-python 
 | POST | `/api/source/videos` | multipart `video` → 201 `{name, sizeBytes, modifiedAt}`, saved in `test_videos/` (renamed `_1`, `_2` if taken). 400 bad type, > 500 MB, or unreadable |
 
 **`events` table:** `id, ts (epoch), camera, track_id, identity, event_type, clip_path, snapshot_path, status, notes, reviewed_at, clip_ready, guard_notified, guard_ack_at, guard_ack_note`.
-`guard_notified` = 1 for every `intrusion` raised while the effective level is not `home` (the Guard House view is a channel), even inside the Telegram cooldown and without `GUARD_TG_CHAT_ID`. The guard Telegram copy still needs `GUARD_TG_CHAT_ID` and respects the cooldown. Pure rules: `rules.guard_alert_due`, `rules.should_alert_guard`, `rules.guard_ack_message`. `guard_ack_at` = epoch of the first guard ack.
+`guard_notified` = 1 for every `intrusion` at any level (the Guard House view is a channel), even inside the Telegram cooldown and without `GUARD_TG_CHAT_ID`. The guard Telegram copy still needs `GUARD_TG_CHAT_ID` and respects the cooldown. Pure rules: `rules.guard_alert_due`, `rules.should_alert_guard`, `rules.guard_ack_message`. `guard_ack_at` = epoch of the first guard ack.
 `clip_ready` = 1 once H.264 conversion of `clip_path` ends (all events sharing that clip); on startup, rows older than 2 min are marked ready.
 Clips are written at the engine's measured FPS (`vault_utils.clip_fps`), with 5 s pre-roll (by time) + 5 s post-roll.
 `event_type` ∈ `intrusion` (identity `unknown`) | `guest_outside_window` (identity = visitor's name).
@@ -134,7 +134,7 @@ Dates out: ISO UTC with `Z`. Uploads take ~1 s per photo (face embedding), so us
 
 **`settings` table:** `key, value, updated_at` — keys `security_level`, `night_enabled` ("0"/"1"), `night_start`, `night_end`.
 Pure security rules: `rules.security_params`, `rules.effective_level`, `rules.in_night_window`, `rules.valid_hhmm`.
-The frame's top-right corner shows the effective level (`NORMAL`, `HOME`, `AWAY`, or `AWAY (night)`).
+The frame's top-right corner shows the effective level (`NORMAL`, `HIGH`, or `HIGH (night)`).
 
 **`people` table:** `id, name (= faces/ folder, unique, case-insensitive), role ('family'|'guest'), valid_from, valid_to, created_at`.
 Pure rules live in `rules.py` (`visitor_allowed`, `classify_person`, `valid_person_name`). A guest window bound that is
@@ -149,7 +149,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 | 3 | Intrusion snapshot + clip | ✅ done (clip race + speed fixed) | Phase 2: `clip_ready` |
 | 4 | Telegram alert | ✅ done | Phase 2: guard-house copy, weapon note |
 | 5 | Web dashboard (live, history, analytics) | ✅ done (rebranded to Vision Vault) | Phase 0: rebrand, `/api/status` |
-| 5.1 | Security level control | ✅ done (incl. night auto-Away) | Phase 1: `security_level` (Home / Normal / Away) |
+| 5.1 | Security level control | ✅ done (Normal / High, incl. night auto-High) | Phase 1: `security_level`; reduced to two levels Wed 21 Oct |
 | 6 | Visitor registration | ✅ done | Phase 1: `people` table + `/people` page — **core** |
 | 7 | Guard-house alert & dashboard | ✅ Telegram copy + mock Guard House view (/guard) with acknowledge | Phase 2: alert to guard-house Telegram. Dashboard for many homes = KIV (pitch only) |
 | 8 | AI assistant (live feed, locate family) | ✅ Gemini chat with tools + confirm (needs GEMINI_API_KEY) | Phase 1: `lastSeen` per person. Phase 2: chatbot + tools |
@@ -212,23 +212,24 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
       `POST /api/people/{id}/photos` (multipart photos[]), `GET /api/people/{id}/photo` (first photo as JPEG; `faces/` is never mounted publicly).
       **Person JSON:** `{id, name, role: "family"|"guest", validFrom: ISO|null, validTo: ISO|null, active: bool, photoCount: int,
       photoUrl: "/api/people/{id}/photo", lastSeen: ISO|null, createdAt: ISO}`. `active` = family, or guest whose window contains now.
-- [x] **Security level (feature 5.1):** levels `home` | `normal` | `away`, stored in a `settings` table (`key, value`), default `normal`.
+- [x] **Security level (feature 5.1):** levels `normal` | `high` (owner decision Wed 21 Oct: Home mode dropped because it skipped the
+      guard house, which is wrong in a home invasion with residents inside; Away renamed High). Saved `home`/`away` values are
+      mapped by `rules.normalize_level`. Stored in a `settings` table (`key, value`), default `normal`.
       Pure function `security_params(level) -> dict` gives the rule thresholds:
-      `home` — GRACE 5 s, no guard-house copy;
-      `normal` — current defaults (GRACE 3 s);
-      `away` — GRACE 1 s, MATCH_THRESH raised by 0.05 (stricter face match).
+      `normal` — GRACE 3 s, MATCH_THRESH 0.40;
+      `high` — GRACE 1 s, MATCH_THRESH raised by 0.05 (stricter face match). The guard house is alerted at both levels.
       Engine `set_security_level(level)` under `self.lock`; the current level is drawn in the frame corner.
       **Night schedule (owner request, Tue 20 Oct):** settings `night_enabled` (default off), `night_start` / `night_end` ("HH:MM", default
       "23:00" / "06:00", local machine time, window may cross midnight). Pure function
-      `effective_level(level, night_enabled, night_start, night_end, now) -> str` = `away` inside the night window, else `level`.
-      The engine uses the **effective** level (re-check about once a second, not per frame) and draws it as `AWAY (night)` when the schedule applies.
+      `effective_level(level, night_enabled, night_start, night_end, now) -> str` = `high` inside the night window, else `level`.
+      The engine uses the **effective** level (re-check about once a second, not per frame) and draws it as `HIGH (night)` when the schedule applies.
       API: `GET /api/security` → `{level, effectiveLevel, night: {enabled, start, end}, updatedAt}`;
       `PUT /api/security` `{level?, night?: {enabled?, start?, end?}}` (400 on unknown level or bad "HH:MM"); `/api/status` adds `securityLevel` (= effective).
 - [x] **Frontend `/people` page** ("Residents & Visitors"): list family + visitors (thumbnail, role, window, active badge, "last seen 14:32"),
       add person with photo upload, edit visitor window, delete with confirm. Types in `types/index.ts`, calls in `services/index.ts`.
-- [x] **Frontend security level:** segmented control Home / Normal / Away (one-line description each) on the Live Monitoring page,
-      plus a small badge with the **effective** level in the top bar. Below it, a "Night mode — auto Away" toggle with start/end
-      time inputs; when it's active now, show "Away (night mode until 06:00)". Calls `GET/PUT /api/security`.
+- [x] **Frontend security level:** segmented control Normal / High (one-line description each) on the Live Monitoring page,
+      plus a small badge with the **effective** level in the top bar. Below it, a "Night mode — auto High" toggle with start/end
+      time inputs; when it's active now, show "High (night mode until 06:00)". Calls `GET/PUT /api/security`.
 
 ### Phase 2 — Chatbot with tool calling + guard-house alert (Thu 22)
 - [x] `POST /api/chat` `{messages}` → `{reply, pendingAction?}` using the **Google Gemini API** (`google-genai` SDK; owner switched from
@@ -254,14 +255,14 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 - [x] Frontend chat panel (slide-over from the top bar), works from every page. Shows the PendingAction as a card with
       Confirm / Cancel; Confirm runs it through the normal services (or opens the prefilled Add-person modal), then shows
       "Done" or the error in the chat. Suggested prompts on an empty chat: "What happened at the door today?",
-      "Who is at the door right now?", "Where is Azhad?", "Switch to Away mode".
+      "Who is at the door right now?", "Where is Azhad?", "Switch to High security".
       Live status strip may also list `peopleInView` names.
 - [x] **Clip speed:** clips are written at a fixed `CLIP_FPS = 20` while the engine runs ~5 fps, so they play ~4× fast.
       Write each clip at the engine's measured FPS (rounded, min 1) and size the pre-roll buffer in seconds, not frames.
 - [x] **Guard-house alert** (small, ~1 h): `.env` gets `GUARD_TG_CHAT_ID` and `HOUSE_UNIT` (e.g. "No. 12, Jalan Elmina 3/1").
       On `intrusion` only, send a second Telegram message with the unit address + snapshot to the guard-house chat
       (same cooldown; skip silently if unset). Add `guard_notified` column; incident detail shows "Guard house notified".
-      `guest_outside_window` goes to the homeowner only. Security level `home` skips the guard copy (`security_params` `guard_alert`).
+      `guest_outside_window` goes to the homeowner only. The guard copy is sent at every security level.
       Incident JSON adds `guardNotified: bool`.
 - [x] Fix clip race: add `clip_ready` column, set to 1 when H.264 conversion finishes; API exposes `clipReady`;
       frontend shows "Clip processing…" until ready (incident detail re-fetches every few seconds while `clipReady` is false).
@@ -269,7 +270,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 ### Phase 2b — Guard House view (owner-approved Tue 20 Oct, ~2–3 h)
 A mock guard-house screen on the same backend that shows the township loop: intrusion → guard sees it → guard acknowledges → homeowner sees the acknowledgement.
 Real deployment = a separate township server for many homes (KIV); the demo is one page on the same laptop, reached with the bottom-left switch button.
-- [x] **Backend:** `guard_notified` = 1 for every `intrusion` raised while the effective level is not `home`. The guard view counts as a channel,
+- [x] **Backend:** `guard_notified` = 1 for every `intrusion` (any level). The guard view counts as a channel,
       so this no longer depends on `GUARD_TG_CHAT_ID`; the Telegram guard copy is still sent only when it is configured.
       New `events` columns `guard_ack_at` (epoch), `guard_ack_note`.
       `GET /api/guard/alerts?limit=50` → newest first, only rows with `guard_notified = 1`:

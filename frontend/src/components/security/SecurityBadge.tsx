@@ -1,13 +1,12 @@
 import { Link } from 'react-router-dom';
-import { Home, Moon, Shield, ShieldAlert } from 'lucide-react';
+import { Moon, Shield, ShieldAlert } from 'lucide-react';
 import { useSecurity } from '@/context/SecurityContext';
 import type { SecurityLevel } from '@/types';
 import { cn, effectiveLevelText, nightModeActive, securityLevelLabel } from '@/utils/format';
 
 export const LEVEL_STYLE: Record<SecurityLevel, { cls: string; Icon: typeof Shield }> = {
-  home: { cls: 'border-ok/40 bg-ok/10 text-green-300', Icon: Home },
   normal: { cls: 'border-brand/40 bg-brand/10 text-blue-300', Icon: Shield },
-  away: { cls: 'border-danger/40 bg-danger/10 text-red-300', Icon: ShieldAlert },
+  high: { cls: 'border-danger/40 bg-danger/10 text-red-300', Icon: ShieldAlert },
 };
 
 /** Small top-bar pill with the effective security level; links to the control on Live Monitoring. */

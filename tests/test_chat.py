@@ -61,8 +61,8 @@ def test_write_tools_change_nothing(client, engine):
     assert a == {"summary": a["summary"], "kind": "request", "method": "PATCH",
                  "path": f"/api/incidents/{eid}",
                  "body": {"status": "confirmed", "notes": "real intruder"}}
-    a = t.set_security_level("away")
-    assert a["method"] == "PUT" and a["path"] == "/api/security" and a["body"] == {"level": "away"}
+    a = t.set_security_level("high")
+    assert a["method"] == "PUT" and a["path"] == "/api/security" and a["body"] == {"level": "high"}
     a = t.add_or_update_guest("ali", "2026-10-24T14:00", "2026-10-24T18:00")
     assert a["method"] == "PATCH" and a["path"] == f"/api/people/{p['id']}"
     assert a["body"] == {"role": "guest", "validFrom": "2026-10-24T06:00:00Z",
@@ -73,9 +73,10 @@ def test_write_tools_change_nothing(client, engine):
                             "validFrom": "2026-10-23T16:00:00Z", "validTo": None}
     assert t.pending is a
 
-    res, err = t.run("set_security_level", {"level": "home"})
+    res, err = t.run("set_security_level", {"level": "normal"})
     assert not err and "Confirm" in res["note"]
     assert t.run("set_security_level", {"level": "party"})[1]
+    assert t.run("set_security_level", {"level": "away"})[1]     # removed level
     assert t.run("review_incident", {"id": eid, "status": "bogus"})[1]
     assert t.run("add_or_update_guest", {"name": "x/y"})[1]
     assert t.run("add_or_update_guest", {"name": "Q", "valid_from": "2026-10-25",
@@ -95,15 +96,15 @@ def test_review_keeps_existing_notes(client, engine):
 def test_run_chat_with_fake_model(client, engine):
     turns = iter([
         {"text": "", "calls": [{"id": "1", "name": "set_security_level",
-                                "args": {"level": "away"}}],
+                                "args": {"level": "high"}}],
          "raw": None, "blocked": False, "truncated": False},
         {"text": "Press Confirm.", "calls": [], "raw": None, "blocked": False,
          "truncated": False},
     ])
-    out = chat.run_chat([{"role": "user", "content": "Switch to Away"}], engine,
+    out = chat.run_chat([{"role": "user", "content": "Switch to High"}], engine,
                         generate=lambda h, s: next(turns), now=0)
     assert out["reply"] == "Press Confirm."
-    assert out["pendingAction"]["body"] == {"level": "away"}
+    assert out["pendingAction"]["body"] == {"level": "high"}
     assert engine.sec["level"] == "normal"
     with pytest.raises(ValueError):
         chat.run_chat([{"role": "assistant", "content": "hi"}], engine,
