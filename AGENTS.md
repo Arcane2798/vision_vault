@@ -99,6 +99,7 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 | `.env` | `TG_TOKEN`, `TG_CHAT_ID`, optional `VIDEO_SOURCE`; optional `GUARD_TG_TOKEN` (separate guard bot; with no `GUARD_TG_CHAT_ID` it messages `TG_CHAT_ID`, so one account gets two bot chats) and `GUARD_TG_CHAT_ID` (guard-house chat; with neither set there is no guard Telegram copy) and `HOUSE_UNIT` (e.g. `No. 12, Jalan Elmina 3/1`); `GEMINI_API_KEY` (AI assistant; unset = `/api/chat` returns 503) and optional `CHAT_MODEL` (default `gemini-3.5-flash-lite`, set in `chat.DEFAULT_MODEL`; `gemini-3.8-flash` allows only 20 free requests/day). There is no backend `.env.example`; copy these lines:<br>`# GUARD_TG_CHAT_ID=-1001234567890`<br>`# HOUSE_UNIT=No. 12, Jalan Elmina 3/1`<br>`# GEMINI_API_KEY=your-key-from-aistudio.google.com`<br>`# CHAT_MODEL=gemini-3.5-flash-lite` |
 
 ## Vision settings (`.env`, added Wed 21 Oct)
+Tracking (Wed 21 Oct): the tracker gets every person box down to 0.1 so ByteTrack keeps a known person through weak detections (bending over, blur, busy background); a track only counts once one detection reached the level's person_conf (`confirmed`). Normal min track length 10 → 5 frames. living_room_2: stranger first registered at ~4 s (was ~13 s).
 Focus (owner, Wed 21 Oct): accurate person detection + resident/intruder recognition. Person detector is `yolo11s.pt` (was yolov8n/yolo11n; steadier on far, edge and back-turned people, engine ~3–4 FPS). Weapon detection and the departure filter are paused.
 
 | Key | Default | Meaning |

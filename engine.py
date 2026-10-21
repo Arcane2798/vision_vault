@@ -66,7 +66,11 @@ ITEM_CONF = 0.25
 ITEM_DETECTION = env("ITEM_DETECTION", "0") == "1"
 DETECT_CLASSES = [0, *ITEM_CLASSES] if ITEM_DETECTION else [0]
 ITEM_COLOR = (255, 0, 255)   # magenta (BGR)
-MIN_TRACK_FRAMES = 10    # Normal-level default; per level: rules.security_params
+# ByteTrack keeps following a known person through weak detections (bending over, blur, busy
+# background), so the tracker gets boxes down to TRACK_LOW_CONF. A track only counts as a person
+# once one of its detections reached the level's person_conf ("confirmed").
+TRACK_LOW_CONF = 0.1
+MIN_TRACK_FRAMES = 5     # Normal-level default; per level: rules.security_params
 MIN_FACE_PX = 40         # ignore faces narrower than this, in capture pixels (garbage embeddings)
 MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
 
@@ -225,6 +229,7 @@ class VisionEngine:
         self.thread = None
 
         self.track_age = {}      # track_id -> frames seen
+        self.confirmed = set()   # track_ids with at least one detection >= the level's person_conf
         self.trails = {}         # track_id -> deque of foot points (x, y) in frame coords
         self.track_items = {}    # track_id -> set of item labels seen near this unknown person
         self.track_event = {}    # track_id -> events.id of its intrusion (to add late items)
@@ -532,7 +537,7 @@ class VisionEngine:
         return (self.identity, self.last_faces, self.last_checked, self.verify_fail,
                 self.unknown_since, self.track_age, self.trails, self.track_seen,
                 self.track_items, self.track_event, self.size_hist, self.track_names, self.last_box,
-                self.departing, self.closed, self.alerted, self.guest_alerted)
+                self.departing, self.closed, self.alerted, self.guest_alerted, self.confirmed)
 
     def _forget_tracks(self, tids):
         for store in self._track_stores():
@@ -655,8 +660,7 @@ class VisionEngine:
             # YOLO sees the full capture (more pixels for far people at DETECTOR_IMGSZ > 640);
             # its boxes are scaled back to `frame` coordinates below
             res = self.detector.track(full, classes=DETECT_CLASSES,
-                                      conf=(min(params["person_conf"], ITEM_CONF) if ITEM_DETECTION
-                                            else params["person_conf"]),
+                                      conf=TRACK_LOW_CONF,
                                       persist=True, tracker="bytetrack.yaml",
                                       verbose=False, **self.detect_kwargs)[0]
             new_items = []            # (tid, labels) seen on an already-alerted intruder
@@ -666,10 +670,14 @@ class VisionEngine:
                 ids = res.boxes.id.int().cpu().tolist()
                 classes = res.boxes.cls.int().cpu().tolist()
                 confs = res.boxes.conf.cpu().tolist()
-                persons = [(b, t) for b, t, c, p in zip(boxes, ids, classes, confs)
-                           if c == 0 and p >= params["person_conf"]]
+                for t, c, p in zip(ids, classes, confs):
+                    if c == 0 and p >= params["person_conf"]:
+                        self.confirmed.add(t)
+                persons = [(b, t) for b, t, c in zip(boxes, ids, classes)
+                           if c == 0 and t in self.confirmed]
                 items = [(ITEM_CLASSES[c], tuple(int(v) for v in b), p)
-                         for b, c, p in zip(boxes, classes, confs) if c in ITEM_CLASSES]
+                         for b, c, p in zip(boxes, classes, confs)
+                         if c in ITEM_CLASSES and p >= ITEM_CONF]
                 for label, (ix1, iy1, ix2, iy2), p in items:
                     cv2.rectangle(frame, (ix1, iy1), (ix2, iy2), ITEM_COLOR, 2)
                     cv2.putText(frame, f"{label} {p:.2f}", (ix1, max(15, iy1 - 6)),

@@ -142,7 +142,7 @@ _NORMAL = {"alerts": True,          # raise intrusion / visitor alerts at all (o
            "grace": 5.0,            # seconds an unknown must be seen before alerting
            "match_thresh": 0.40,    # min cosine similarity for a face match
            "person_conf": 0.55,     # weakest YOLO "person" detection that counts
-           "min_track_frames": 10,  # frames a person must be tracked before the rules apply
+           "min_track_frames": 5,    # frames a person must be tracked before the rules apply
            "departure_filter": True,  # someone walking out from inside is not an intruder
            "guard_alert": True}     # also alert the guard house
 
