@@ -17,9 +17,8 @@ from insightface.utils.storage import ensure_available
 from rules import (DEFAULT_LEVEL,
                    FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, SECURITY_LEVELS,
                    UNKNOWN, classify_person, effective_level, guard_alert_due,
-                   high_reason, is_departing, items_near, match_lost_unknown, items_text, movement_direction,
-                   normalize_level, off_active, security_params, should_alert_guard, stale_tracks,
-                   valid_away_window)
+                   is_departing, items_near, match_lost_unknown, items_text, movement_direction,
+                   normalize_level, security_params, should_alert_guard, stale_tracks)
 from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
                          ClipRecorder, env, get_settings, guard_chat_id, guard_token, house_unit,
                          init_db, load_people, log_event, log_movement, send_telegram,
@@ -69,7 +68,7 @@ ITEM_COLOR = (255, 0, 255)   # magenta (BGR)
 # background), so the tracker gets boxes down to TRACK_LOW_CONF. A track only counts as a person
 # once one of its detections reached the level's person_conf ("confirmed").
 TRACK_LOW_CONF = 0.1
-MIN_TRACK_FRAMES = 5     # Normal-level default; per level: rules.security_params
+MIN_TRACK_FRAMES = 3     # default when On; per level: rules.security_params
 MIN_FACE_PX = 40         # ignore faces narrower than this, in capture pixels (garbage embeddings)
 MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
 
@@ -86,8 +85,8 @@ TRAIL_LEN = 60           # foot points kept per track for the path trail (~8 s a
 TRACK_FORGET_SEC = 30.0  # drop all state of a track not seen for this long (bounded memory)
 PRUNE_INTERVAL = 5.0     # seconds between stale-track sweeps
 
-LEVEL_COLOR = {"off": (170, 170, 170), "normal": (0, 255, 255), "high": (0, 0, 255)}  # BGR
-LEVEL_CHECK_INTERVAL = 1.0   # seconds between Off-timer / away-date re-checks
+LEVEL_COLOR = {"off": (170, 170, 170), "on": (0, 255, 0)}  # BGR
+LEVEL_CHECK_INTERVAL = 1.0   # seconds between Off-timer re-checks
 _UNSET = object()            # "argument not given" (None means "clear")
 
 # box colour (BGR) and label per decision; see rules.classify_person
@@ -197,15 +196,12 @@ class VisionEngine:
         self._reload_lock = threading.Lock()   # serialises reload_people() calls
         self.last_seen = {}       # name -> epoch of last frame a known person was in view (self.lock)
 
-        # security level and away-from-home dates ("away_*", epochs),
+        # security level ("on" / "off") and the Off timer (epoch),
         # all under self.lock; loaded from settings in start()
-        self.security = {"level": DEFAULT_LEVEL, "away_enabled": False,
-                         "away_from": None, "away_to": None,
+        self.security = {"level": DEFAULT_LEVEL,
                          "off_until": None,              # level "off" ends then (None = until turned on)
-                         "resume_level": DEFAULT_LEVEL,  # level to return to after "off"
                          "updated_at": None}
         self.level = DEFAULT_LEVEL           # effective level used by the rules
-        self.high_reason = None              # "away" while the away dates forces High
         self.params = security_params(DEFAULT_LEVEL)
         self._next_level_check = 0.0
 
@@ -346,99 +342,72 @@ class VisionEngine:
         level = normalize_level(stored.get("security_level", (None,))[0])
         if level in SECURITY_LEVELS:
             sec["level"] = level
-        sec["away_enabled"] = stored.get("away_enabled", ("0",))[0] == "1"
-        resume = normalize_level(stored.get("resume_level", (None,))[0])
-        sec["resume_level"] = resume if resume in ("normal", "high") else DEFAULT_LEVEL
-        for key in ("away_from", "away_to", "off_until"):
-            try:
-                sec[key] = float(stored[key][0]) if stored.get(key, ("",))[0] else None
-            except ValueError:
-                sec[key] = None
-        times = [t for _, t in stored.values() if t]
+        try:
+            raw = stored.get("off_until", ("",))[0]
+            sec["off_until"] = float(raw) if raw else None
+        except ValueError:
+            sec["off_until"] = None
+        times = [stored[k][1] for k in ("security_level", "off_until")
+                 if k in stored and stored[k][1]]
         sec["updated_at"] = max(times) if times else None
         with self.lock:
             self.security = sec
         self._refresh_level(time.time())
 
     def _refresh_level(self, now):
-        """Recompute the effective level (Off timer / away dates) and its thresholds."""
+        """Recompute the effective level (Off timer) and its thresholds."""
         with self.lock:
             s = self.security
-            expired = (s["resume_level"] if s["level"] == "off"
-                       and not off_active("off", s["off_until"], now) else None)
+            expired = s["level"] == "off" and effective_level("off", now, s["off_until"]) == "on"
         if expired:
-            # the Off timer ran out: go back to the level chosen before (persisted)
-            print(f"[security] Off timer ended -> {expired}")
-            self.set_security(level=expired)
+            # the Off timer ran out: back to On (persisted)
+            print("[security] Off timer ended -> on")
+            self.set_security(level="on")
             return
         with self.lock:
             s = self.security
-            reason = None if s["level"] == "off" else high_reason(
-                now, s["away_enabled"], s["away_from"], s["away_to"])
-            level = "high" if reason else s["level"]
+            level = effective_level(s["level"], now, s["off_until"])
             if level != self.level:
-                print(f"[security] effective level -> {level}" + (f" ({reason})" if reason else ""))
+                print(f"[security] effective level -> {level}")
             self.level = level
-            self.high_reason = reason
             self.params = security_params(level)
             self._next_level_check = now + LEVEL_CHECK_INTERVAL
 
-    def set_security(self, level=None, away_enabled=None, away_from=_UNSET, away_to=_UNSET,
-                     off_until=_UNSET):
-        """Change the level and/or away-from-home dates, persist, apply at once.
-        `away_from` / `away_to` / `off_until` are epochs; None clears a bound (open-ended),
-        omitted = unchanged. Choosing "off" remembers the current level to return to when
-        `off_until` passes. Raises ValueError on an unknown level, an away range
-        that ends first, or an Off timer that is not in the future."""
-        if level is not None and level not in SECURITY_LEVELS:
-            raise ValueError(f"level must be one of {', '.join(SECURITY_LEVELS)}")
+    def set_security(self, level=None, off_until=_UNSET):
+        """Change the level ("on" / "off") and/or the Off timer, persist, apply at once.
+        `off_until` is an epoch; None = Off until turned back on, omitted = unchanged.
+        Old levels ("normal", "high", ...) mean "on". Raises ValueError on an unknown level
+        or an Off timer that is not in the future or is given without level "off"."""
+        if level is not None:
+            level = normalize_level(level)
+            if level not in SECURITY_LEVELS:
+                raise ValueError(f"level must be one of {', '.join(SECURITY_LEVELS)}")
         with self.lock:
-            current, resume = self.security["level"], self.security["resume_level"]
+            current = self.security["level"]
         target = level if level is not None else current
         if off_until is not _UNSET:
             if target != "off":
                 raise ValueError("an Off timer only applies when the level is Off")
             if off_until is not None and off_until <= time.time():
                 raise ValueError("the Off timer must end in the future")
-        with self.lock:
-            new_from = self.security["away_from"] if away_from is _UNSET else away_from
-            new_to = self.security["away_to"] if away_to is _UNSET else away_to
-        if not valid_away_window(new_from, new_to):
-            raise ValueError("away-from-home start must be before its end")
         changes = {}
         if level is not None:
             changes["security_level"] = level
             if level == "off":
-                if current != "off":
-                    resume = current
-                changes["resume_level"] = resume
                 if off_until is _UNSET:
                     off_until = None            # no timer given: off until turned back on
             else:
                 off_until = None                # leaving Off clears its timer
         if off_until is not _UNSET:
             changes["off_until"] = "" if off_until is None else repr(float(off_until))
-        if away_enabled is not None:
-            changes["away_enabled"] = "1" if away_enabled else "0"
-        if away_from is not _UNSET:
-            changes["away_from"] = "" if away_from is None else repr(float(away_from))
-        if away_to is not _UNSET:
-            changes["away_to"] = "" if away_to is None else repr(float(away_to))
         if changes:
             updated = set_settings(changes)
             with self.lock:
                 s = self.security
                 if level is not None:
                     s["level"] = level
-                    s["resume_level"] = resume
                 if off_until is not _UNSET:
                     s["off_until"] = off_until
-                if away_enabled is not None:
-                    s["away_enabled"] = bool(away_enabled)
-                if away_from is not _UNSET:
-                    s["away_from"] = away_from
-                if away_to is not _UNSET:
-                    s["away_to"] = away_to
                 s["updated_at"] = updated
             self._refresh_level(time.time())
         return self.get_security()
@@ -447,9 +416,16 @@ class VisionEngine:
         return self.set_security(level=level)
 
     def get_security(self):
-        """{level, effective_level, high_reason, away_enabled, away_from, away_to, updated_at}."""
+        """{level, off_until, updated_at, effective_level}. An Off timer that has passed
+        reads (and is saved as) "on" straight away, not at the loop's next check."""
+        now = time.time()
         with self.lock:
-            return dict(self.security, effective_level=self.level, high_reason=self.high_reason)
+            s = self.security
+            stale = s["level"] == "off" and effective_level("off", now, s["off_until"]) == "on"
+        if stale:
+            self._refresh_level(now)
+        with self.lock:
+            return dict(self.security, effective_level=self.level)
 
     def _identify(self, emb, known, thresh):
         best, best_score = "unknown", 0.0
@@ -647,6 +623,7 @@ class VisionEngine:
             with self.lock:
                 known, people = self.known, self.people
                 params, level = self.params, self.level
+                off_until = self.security["off_until"] if level == "off" else None
             frame_count += 1
             frame_h, frame_w = frame.shape[:2]
             for tid in stale_tracks(self.track_seen, now, TRACK_END_SEC) - self.closed:
@@ -753,7 +730,7 @@ class VisionEngine:
                         name = self.identity[tid] = "unknown"   # person was deleted
                     if name != "unknown":
                         self.track_names[tid] = name
-                    elif (DEPARTURE_FILTER and params["departure_filter"]
+                    elif ((DEPARTURE_FILTER or params["departure_filter"])
                           and tid not in self.alerted and is_departing(first_h, last_h)):
                         self.departing.add(tid)
                     if name == "unknown" and tid in self.departing:
@@ -817,7 +794,7 @@ class VisionEngine:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
             cv2.putText(frame, f"Unknown: {len(current_unknown)}", (15, 60),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
-            self._draw_level(frame, level)
+            self._draw_level(frame, level, off_until)
             if self.is_file and self.source != self.default_source:
                 cv2.putText(frame, f"TEST VIDEO: {Path(self.source).name}", (15, frame_h - 15),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
@@ -878,9 +855,11 @@ class VisionEngine:
             cv2.circle(frame, trail[0], 5, color, -1, cv2.LINE_AA)
 
     @staticmethod
-    def _draw_level(frame, level):
-        """Security level in the top-right corner: "OFF", "NORMAL" or "HIGH"."""
+    def _draw_level(frame, level, off_until=None):
+        """Security level in the top-right corner: "ON", "OFF" or "OFF until 01:00"."""
         text = level.upper()
+        if level == "off" and off_until:
+            text += time.strftime(" until %H:%M", time.localtime(off_until))
         font, scale, thick = cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2
         (tw, th), _ = cv2.getTextSize(text, font, scale, thick)
         x, y = frame.shape[1] - tw - 15, 30

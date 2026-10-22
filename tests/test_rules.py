@@ -50,32 +50,33 @@ def test_invalid_names(name):
 
 
 def test_security_params():
-    n, h, o = security_params("normal"), security_params("high"), security_params("off")
-    assert n == {"alerts": True, "grace": 5.0, "match_thresh": 0.40, "person_conf": 0.25,
-                 "min_track_frames": 5, "departure_filter": True, "guard_alert": True}
-    # High: same 5 s grace as Normal, more sensitive on every other knob
-    assert h["grace"] == n["grace"] == 5.0
-    assert h["person_conf"] == n["person_conf"] and h["min_track_frames"] < n["min_track_frames"]
-    assert h["match_thresh"] == pytest.approx(0.45) and h["match_thresh"] > n["match_thresh"]
-    assert h["departure_filter"] is False and h["alerts"] and h["guard_alert"]
-    # Off: still tracks, never alerts
-    assert o["alerts"] is False and o["guard_alert"] is False
-    for old in ("home", "away", "party"):                      # removed levels are rejected
+    on, off = security_params("on"), security_params("off")
+    assert on == {"alerts": True, "grace": 5.0, "match_thresh": 0.40, "person_conf": 0.25,
+                  "min_track_frames": 3, "departure_filter": False, "guard_alert": True}
+    # Off: same thresholds, still tracks, never alerts
+    assert off == dict(on, alerts=False, guard_alert=False)
+    assert rules.SECURITY_LEVELS == ("on", "off") and rules.DEFAULT_LEVEL == "on"
+    for old in ("normal", "high", "home", "away", "party"):     # removed levels are rejected
         with pytest.raises(ValueError):
             security_params(old)
-    security_params("high")["grace"] = 99      # must return a copy
-    assert security_params("normal")["grace"] == 5.0
+    security_params("on")["grace"] = 99        # must return a copy
+    assert security_params("on")["grace"] == 5.0
 
 
 def test_effective_level():
     day = datetime(2026, 10, 20, 14, 0)
-    trip = (True, day.timestamp() - 60, day.timestamp() + 60)
-    assert effective_level("normal", day) == "normal"
-    assert effective_level("high", day) == "high"
-    assert effective_level("normal", day, *trip) == "high"
-    assert effective_level("normal", day.timestamp(), *trip) == "high"
-    assert effective_level("normal", day.timestamp() + 120, *trip) == "normal"
-    assert effective_level("normal", day, False, *trip[1:]) == "normal"
+    t = day.timestamp()
+    assert effective_level("on", day) == "on"
+    assert effective_level("on", t, off_until=t + 60) == "on"   # a stray timer does not turn it off
+    assert effective_level("off", day) == "off"                 # until turned back on
+    assert effective_level("off", t, t + 60) == "off"
+    assert effective_level("off", day, t - 1) == "on"           # timer passed
+    assert effective_level("normal", t) == "on" and effective_level("high", t) == "on"
+
+
+def test_away_schedule_removed():
+    for name in ("in_away_window", "valid_away_window", "high_reason", "in_night_window"):
+        assert not hasattr(rules, name)
 
 
 def test_guard_rules():
@@ -98,28 +99,10 @@ def test_guard_ack_message():
 
 def test_normalize_level_maps_old_saved_levels():
     from rules import normalize_level
-    assert normalize_level("home") == "normal"
-    assert normalize_level("away") == "high"
-    assert normalize_level("normal") == "normal" and normalize_level("high") == "high"
+    for old in ("normal", "high", "home", "away"):
+        assert normalize_level(old) == "on"
+    assert normalize_level("on") == "on" and normalize_level("off") == "off"
     assert normalize_level(None) is None
-
-
-def test_high_reason_away():
-    import rules as r
-    from rules import high_reason, in_away_window, valid_away_window
-    assert not hasattr(r, "in_night_window") and not hasattr(r, "valid_hhmm")   # sleep time removed
-    day = datetime(2026, 10, 25, 14, 0)
-    trip_from, trip_to = datetime(2026, 10, 24, 18, 0).timestamp(), datetime(2026, 10, 28, 12, 0).timestamp()
-    assert high_reason(day) is None
-    assert high_reason(day, True, trip_from, trip_to) == "away"
-    assert high_reason(day.timestamp(), True, trip_from, trip_to) == "away"
-    assert high_reason(day, False, trip_from, trip_to) is None    # switched off
-    assert high_reason(datetime(2026, 10, 29, 9, 0), True, trip_from, trip_to) is None
-    assert in_away_window(trip_from, trip_to, trip_from) and not in_away_window(trip_from, trip_to, trip_to)
-    assert in_away_window(None, None, 0) and in_away_window(trip_from, None, trip_to + 1e6)
-    assert valid_away_window(1, 2) and valid_away_window(None, 2) and valid_away_window(1, None)
-    assert not valid_away_window(2, 2) and not valid_away_window(3, 2)
-    assert effective_level("normal", day, True, trip_from, trip_to) == "high"
 
 
 def test_stale_tracks():
@@ -164,14 +147,8 @@ def test_family_tracker_rules():
 
 def test_off_level_and_timer():
     from rules import off_active
-    night = datetime(2026, 10, 25, 2, 0)          # inside the away dates below
-    t = night.timestamp()
-    away = (True, t - 3600, t + 86400)
+    t = datetime(2026, 10, 25, 1, 0).timestamp()
     assert off_active("off", None, t) and off_active("off", t + 60, t)
-    assert not off_active("off", t - 1, t) and not off_active("normal", None, t)
-    # Off beats the away dates while it lasts ...
-    assert effective_level("off", night, *away, off_until=t + 3600) == "off"
-    assert effective_level("off", night, *away) == "off"           # until turned on
-    # ... and afterwards the level it resumes to applies again, away dates included
-    assert effective_level("off", night, off_until=t - 1, resume_level="normal") == "normal"
-    assert effective_level("off", night, *away, off_until=t - 1) == "high"
+    assert not off_active("off", t - 1, t) and not off_active("on", None, t)
+    assert effective_level("off", t, off_until=t + 3600) == "off"
+    assert effective_level("off", t, off_until=t - 1) == "on"

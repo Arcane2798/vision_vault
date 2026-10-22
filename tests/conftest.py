@@ -14,6 +14,9 @@ import rules
 import vault_utils
 
 
+_UNSET = object()
+
+
 class FakeEngine:
     """Covers every engine.* attribute used by api.py and chat.py."""
 
@@ -25,9 +28,7 @@ class FakeEngine:
         self.calls = []
         self.last_seen = {}
         self.in_view = []
-        self.sec = {"level": "normal", "away_enabled": False, "away_from": None,
-                    "away_to": None, "off_until": None, "resume_level": "normal",
-                    "updated_at": None}
+        self.sec = {"level": "on", "off_until": None, "updated_at": None}
 
     def get_status(self):
         return {"running": self.running, "fps": 5.2, "unknown_count": 1,
@@ -46,37 +47,31 @@ class FakeEngine:
         self.calls.append("reload_people")
 
     def get_security(self):
+        # like the engine: an Off timer that has passed reads (and is saved as) "on"
+        if rules.effective_level(self.sec["level"], time.time(), self.sec["off_until"]) == "on":
+            self.sec.update(level="on", off_until=None)
         s = dict(self.sec)
-        now = time.time()
-        args = (now, s["away_enabled"], s["away_from"], s["away_to"])
-        s["high_reason"] = None if s["level"] == "off" else rules.high_reason(*args)
-        s["effective_level"] = rules.effective_level(s["level"], *args, off_until=s["off_until"],
-                                                     resume_level=s["resume_level"])
+        s["effective_level"] = s["level"]
         return s
 
-    def set_security(self, level=None, away_enabled=None, **away):
+    def set_security(self, level=None, off_until=_UNSET):
         if level is not None:
+            level = rules.normalize_level(level)
             rules.security_params(level)          # ValueError on unknown level
-        if "off_until" in away:
+        if off_until is not _UNSET:
             target = level or self.sec["level"]
             if target != "off":
                 raise ValueError("an Off timer only applies when the level is Off")
-            if away["off_until"] is not None and away["off_until"] <= time.time():
+            if off_until is not None and off_until <= time.time():
                 raise ValueError("the Off timer must end in the future")
-        if level == "off" and self.sec["level"] != "off":
-            self.sec["resume_level"] = self.sec["level"]
-        if level is not None and level != "off":
-            away["off_until"] = None
-        elif level == "off":
-            away.setdefault("off_until", None)
-        new_from = away.get("away_from", self.sec["away_from"])
-        new_to = away.get("away_to", self.sec["away_to"])
-        if not rules.valid_away_window(new_from, new_to):
-            raise ValueError("away-from-home start must be before its end")
-        for k, v in (("level", level), ("away_enabled", away_enabled)):
-            if v is not None:
-                self.sec[k] = v
-        self.sec.update(away)                     # None clears a bound
+        if level is not None:
+            if level != "off":
+                off_until = None
+            elif off_until is _UNSET:
+                off_until = None
+            self.sec["level"] = level
+        if off_until is not _UNSET:
+            self.sec["off_until"] = off_until
         self.sec["updated_at"] = time.time()
 
     def get_source(self):

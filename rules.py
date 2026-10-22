@@ -132,37 +132,31 @@ def stale_tracks(last_seen: dict, now: float, max_age: float) -> set:
 
 
 # ---------- security level (feature 5.1) ----------
-SECURITY_LEVELS = ("off", "normal", "high")
-DEFAULT_LEVEL = "normal"
-# levels saved before Wed 21 Oct; "home" (no guard alert) was dropped so a home invasion
-# with residents inside still reaches the guard house
-LEGACY_LEVELS = {"home": "normal", "away": "high"}
+# Owner decision Thu 22 Oct: just On / Off (Normal / High and the away-from-home dates removed).
+SECURITY_LEVELS = ("on", "off")
+DEFAULT_LEVEL = "on"
+# levels saved or sent before Thu 22 Oct all mean "on"
+LEGACY_LEVELS = {"normal": "on", "high": "on", "home": "on", "away": "on"}
 
-_NORMAL = {"alerts": True,          # raise intrusion / visitor alerts at all (off at level "off")
-           "grace": 5.0,            # seconds an unknown must be seen before alerting
-           "match_thresh": 0.40,    # min cosine similarity for a face match
-           # weakest detection that confirms a track as a person. 0.25 = ByteTrack's own
-           # new_track_thresh, the real floor (a lower value behaves the same). Tested Thu 22 Oct
-           # on the four room videos: 0.55 / 0.20 / 0.10 all gave the same alerts and no false ones,
-           # and lower caught living_room_2's stranger earlier.
-           "person_conf": 0.25,
-           "min_track_frames": 5,    # frames a person must be tracked before the rules apply
-           "departure_filter": True,  # someone walking out from inside is not an intruder
-           "guard_alert": True}     # also alert the guard house
+_ON = {"alerts": True,          # raise intrusion / visitor alerts at all (off at level "off")
+       "grace": 5.0,            # seconds an unknown must be seen before alerting
+       "match_thresh": 0.40,    # min cosine similarity for a face match
+       # weakest detection that confirms a track as a person. 0.25 = ByteTrack's own
+       # new_track_thresh, the real floor (a lower value behaves the same). Tested Thu 22 Oct
+       # on the four room videos: 0.55 / 0.20 / 0.10 all gave the same alerts and no false ones,
+       # and lower caught living_room_2's stranger earlier.
+       "person_conf": 0.25,
+       "min_track_frames": 3,    # frames a person must be tracked before the rules apply
+       "departure_filter": False,  # "someone leaving" exception (paused, see DEPARTURE_FILTER)
+       "guard_alert": True}     # also alert the guard house
 
 
 def security_params(level: str) -> dict:
     """Rule thresholds for a security level. Raises ValueError on an unknown level."""
     if level not in SECURITY_LEVELS:
         raise ValueError(f"unknown security level {level!r}")
-    params = dict(_NORMAL)
-    if level == "high":
-        # chosen by hand or forced by the away-from-home dates: same 5 s grace as Normal, but
-        # rules apply after 3 frames, a stricter face match (a stranger is less likely to pass
-        # as family), and no "someone leaving" exception. person_conf is already at the floor.
-        params.update(match_thresh=_NORMAL["match_thresh"] + 0.05,
-                      min_track_frames=3, departure_filter=False)
-    elif level == "off":
+    params = dict(_ON)
+    if level == "off":
         # e.g. a party: people are still tracked and shown, but nothing is recorded or alerted
         params.update(alerts=False, guard_alert=False)
     return params
@@ -174,7 +168,7 @@ def off_active(level: str, off_until, now: float) -> bool:
 
 
 def normalize_level(value):
-    """A stored level mapped onto the current levels (old "home"/"away" -> "normal"/"high")."""
+    """A stored or sent level mapped onto the current levels (old normal/high/home/away -> "on")."""
     return LEGACY_LEVELS.get(value, value)
 
 
@@ -199,39 +193,13 @@ def guard_ack_message(hhmm: str, note=None) -> str:
     return f"{text} \u2014 {note}" if note else text
 
 
-def in_away_window(away_from, away_to, now: float) -> bool:
-    """True if epoch `now` is in [away_from, away_to). A None bound is open-ended."""
-    return (away_from is None or now >= away_from) and (away_to is None or now < away_to)
-
-
-def valid_away_window(away_from, away_to) -> bool:
-    """An away-from-home range must start before it ends (open-ended bounds are fine)."""
-    return away_from is None or away_to is None or away_from < away_to
-
-
-def high_reason(now, away_enabled: bool = False, away_from=None, away_to=None):
-    """Why a schedule forces High right now: "away" (away-from-home dates, e.g. a vacation)
-    or None. `now` is a datetime (local time) or epoch seconds."""
+def effective_level(level: str, now, off_until=None) -> str:
+    """The level the engine should use: "off" while Off is active (`off_until` epoch, None =
+    until turned back on), else "on". `now` is a datetime or epoch seconds."""
     epoch = now.timestamp() if hasattr(now, "hour") else now
-    if away_enabled and in_away_window(away_from, away_to, epoch):
-        return "away"
-    return None
-
-
-def effective_level(level: str, now, away_enabled: bool = False,
-                    away_from=None, away_to=None, off_until=None,
-                    resume_level: str = DEFAULT_LEVEL) -> str:
-    """The level the engine should use. "off" (chosen by the homeowner, e.g. for a party) wins
-    over the away dates until `off_until`, then `resume_level` applies. Otherwise 'high' while
-    the away-from-home dates apply, else `level`."""
-    if level == "off":
-        epoch = now.timestamp() if hasattr(now, "hour") else now
-        if off_active(level, off_until, epoch):
-            return "off"
-        level = resume_level
-    if high_reason(now, away_enabled, away_from, away_to):
-        return "high"
-    return level
+    if off_active(normalize_level(level), off_until, epoch):
+        return "off"
+    return "on"
 
 
 def box_center_distance(a, b) -> float:

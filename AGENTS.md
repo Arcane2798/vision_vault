@@ -17,7 +17,7 @@ Rollback point before this build: tag `v0.95-pre-afk` (`git checkout v0.95-pre-a
 | Intruder's items (knife / scissors / bat) | `de0abfa` | runs, no errors | Test with a real knife/scissors on camera; YOLOv8n is weak at knives |
 | Family tracker (home / out) | `e04de5c` | API + dashboard card + "Mark home" checked in the browser | Walk in and out past the inside camera; a resident leaving with their back turned is logged as "someone left" (no alarm). Undo: `DEPARTURE_FILTER=0` |
 | House map + safe path | `7289cf1` | processing ran on real models (~1.3× video length); replay + safe route checked in the browser | Edit `house_map.json` to your demo house; record one video per room into `test_videos/` (names in the file); press **Process videos** on the House map page |
-| Viva Bot `who_is_home` + vacation dates | `e04de5c`, `882327b` | unit tests | One real question (Gemini quota) |
+| Viva Bot `who_is_home` + vacation dates (vacation dates removed Thu 22 Oct: security is On / Off) | `e04de5c`, `882327b` | unit tests | One real question (Gemini quota) |
 Not built (owner decision): account login (S1).
 
 ## Positioning — "Township of Tomorrow" (decided Tue 20 Oct)
@@ -63,7 +63,7 @@ Each agent commits only its own paths. Cross-area changes are requested in the a
  VisionEngine thread (engine.py)
    YOLO11s (OpenVINO) + ByteTrack → person tracks
    InsightFace on head crop → matched identity or "unknown"
-   Rules: track ≥ 10 frames, unknown for the grace period (5 s at Normal and High) → intrusion
+   Rules: track ≥ 3 frames, unknown for the grace period (5 s, any level that is On) → intrusion
         │ annotated JPEG                       │ intrusion
         ▼                                      ▼
    /video (MJPEG stream)           vault_utils.py: snapshot, clip (5 s pre + 5 s post,
@@ -99,7 +99,7 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 | `.env` | `TG_TOKEN`, `TG_CHAT_ID`, optional `VIDEO_SOURCE`; optional `GUARD_TG_TOKEN` (separate guard bot; with no `GUARD_TG_CHAT_ID` it messages `TG_CHAT_ID`, so one account gets two bot chats) and `GUARD_TG_CHAT_ID` (guard-house chat; with neither set there is no guard Telegram copy) and `HOUSE_UNIT` (e.g. `No. 12, Jalan Elmina 3/1`); `GEMINI_API_KEY` (AI assistant; unset = `/api/chat` returns 503) and optional `CHAT_MODEL` (default `gemini-3.5-flash-lite`, set in `chat.DEFAULT_MODEL`; `gemini-3.8-flash` allows only 20 free requests/day). There is no backend `.env.example`; copy these lines:<br>`# GUARD_TG_CHAT_ID=-1001234567890`<br>`# HOUSE_UNIT=No. 12, Jalan Elmina 3/1`<br>`# GEMINI_API_KEY=your-key-from-aistudio.google.com`<br>`# CHAT_MODEL=gemini-3.5-flash-lite` |
 
 ## Vision settings (`.env`, added Wed 21 Oct)
-Tracking (Wed 21 Oct): the tracker gets every person box down to 0.1 so ByteTrack keeps a known person through weak detections (bending over, blur, busy background); a track only counts once one detection reached the level's person_conf (`confirmed`). Normal min track length 10 → 5 frames. `person_conf` = 0.25 at Normal and High (Thu 22 Oct): ByteTrack only starts a track from a detection ≥ its `new_track_thresh` 0.25, so lower is identical; replay test of 0.55/0.20/0.10 on the four room videos gave the same 5 alerts, all real, no false persons, and the lower setting caught living_room_2 earlier. living_room_2: stranger first registered at ~4 s (was ~13 s).
+Tracking (Wed 21 Oct): the tracker gets every person box down to 0.1 so ByteTrack keeps a known person through weak detections (bending over, blur, busy background); a track only counts once one detection reached the level's person_conf (`confirmed`). Min track length 10 → 5 frames (3 since On / Off, Thu 22 Oct). `person_conf` = 0.25 (Thu 22 Oct): ByteTrack only starts a track from a detection ≥ its `new_track_thresh` 0.25, so lower is identical; replay test of 0.55/0.20/0.10 on the four room videos gave the same 5 alerts, all real, no false persons, and the lower setting caught living_room_2 earlier. living_room_2: stranger first registered at ~4 s (was ~13 s).
 Focus (owner, Wed 21 Oct): accurate person detection + resident/intruder recognition. Person detector is `yolo11s.pt` (was yolov8n/yolo11n; steadier on far, edge and back-turned people, engine ~3–4 FPS). Weapon detection and the departure filter are paused.
 
 | Key | Default | Meaning |
@@ -149,9 +149,9 @@ pip install ultralytics openvino insightface fastapi uvicorn python-dotenv openc
 | GET / PATCH | `/api/incidents/{id}` | PATCH `{status, notes}`; status ∈ new, under_review, confirmed, dismissed |
 | GET | `/api/dashboard/summary`, `/api/dashboard/trend?days=14` | summary adds `awaitingGuard` = intrusions sent to the guard house in the last 24 h without an acknowledgement (the dashboard card). There is **no review step** any more (owner decision Wed 21 Oct: the system is autonomous); `status` / `unresolvedAlerts` and `PATCH /api/incidents/{id}` remain in the API but the UI no longer uses them |
 | WS | `/api/ws/events` | `{type:"alert", data: Incident}`, `{type:"guard_ack", data: Incident}` (the guard house acknowledged an alert or changed its note, last 24 h; the dashboard shows a toast + bell entry) and `{type:"camera_status", ...}` |
-| GET | `/api/status` | `{running, fps, unknownCount, cameraName, securityLevel, peopleInView}` — live engine state; `securityLevel` = effective level; `peopleInView: [{name, kind}]` one entry per tracked person in the latest frame (static figures excluded), `kind` ∈ `family`, `guest_allowed`, `guest_outside`, `unknown` (name `unknown`) |
-| GET | `/api/security` | `{level, effectiveLevel, highReason: "away"\|null, away: {enabled, from: ISO\|null, to: ISO\|null}, offUntil: ISO\|null, resumeLevel, updatedAt: ISO\|null}`. `away` = **away-from-home** dates (vacation); they force `effectiveLevel` = `high` (`highReason` "away"). High is otherwise only chosen by hand. The sleep-time (`night`) schedule was removed Wed 21 Oct. `updatedAt` null until first change |
-| PUT | `/api/security` | `{level?, away?: {enabled?, from?, to?}, offUntil?: ISO\|null}` → same shape as GET. A `night` key from an older frontend is ignored (no 400). In `away`, omitted = unchanged, `null` = open-ended; turning `enabled` off keeps the dates. 400 on unknown level, bad date, `from` ≥ `to`, an `offUntil` in the past, or `offUntil` without level `off`. Level `off` remembers the previous level (`resumeLevel`) and returns to it when `offUntil` passes; `offUntil: null` = until turned back on |
+| GET | `/api/status` | `{running, fps, unknownCount, cameraName, securityLevel, peopleInView}` — live engine state; `securityLevel` = effective level, `"on"` or `"off"`; `peopleInView: [{name, kind}]` one entry per tracked person in the latest frame (static figures excluded), `kind` ∈ `family`, `guest_allowed`, `guest_outside`, `unknown` (name `unknown`) |
+| GET | `/api/security` | `{level: "on"\|"off", effectiveLevel: "on"\|"off", offUntil: ISO\|null, updatedAt: ISO\|null}` (owner decision Thu 22 Oct: only On / Off; Normal / High and the away-from-home dates were removed). `offUntil` = when an Off ends (null = until turned back on, or not Off). Once an Off timer has passed, `level` and `effectiveLevel` read `on` (and `on` is saved). `updatedAt` null until first change |
+| PUT | `/api/security` | `{level?: "on"\|"off", offUntil?: ISO\|null}` → same shape as GET. 400 on an unknown level, a bad date, an `offUntil` in the past, or an `offUntil` without level `off`. `level: "off"` without `offUntil` = Off until turned back on; `level: "on"` always clears a stored Off timer. Back-compat: `normal` / `high` mean `on`; `away` and `night` keys from an older frontend are ignored (no 400) |
 | POST | `/api/chat` | `{messages: [{role: "user"\|"assistant", content}]}` (last 20 kept) → `{reply, pendingAction: PendingAction\|null}` (shape in Phase 2). 503 `{detail: "Chat is not configured: add GEMINI_API_KEY to .env"}` without a key; free-tier quota → 200 with reply "Viva Bot is busy right now (Gemini free tier). Try again in a minute."; other AI errors → 502 `{detail}`; 400 no user message; 422 bad role. PendingAction dates are ISO UTC `Z` (the model works in Asia/Kuala_Lumpur time). Takes a few seconds: use a long client timeout |
 | GET | `/api/people` | `Person[]`, family first then by name (Person JSON in Phase 1 spec; `id` is a number) |
 | POST | `/api/people` | multipart `name, role (default family), validFrom?, validTo?, photos` (repeat `photos` per file) → 201 `Person`. 400 bad name/role/date, from > to, no photo, unreadable image or **no face found**; 409 name taken (case-insensitive) |
@@ -184,11 +184,10 @@ Clips are written at the engine's measured FPS (`vault_utils.clip_fps`), with 5 
 Dates in: ISO 8601; with no offset (e.g. `datetime-local` "2026-10-24T14:00") they mean the server's local time.
 Dates out: ISO UTC with `Z`. Uploads take ~1 s per photo (face embedding), so use a long client timeout.
 
-**`settings` table:** `key, value, updated_at` — keys `security_level`, `off_until`, `resume_level`,
-`away_enabled` ("0"/"1"), `away_from`, `away_to` (epoch as text, "" = open-ended). Old `night_*` rows may remain; they are unused.
-Pure security rules: `rules.security_params`, `rules.effective_level`, `rules.high_reason`,
-`rules.in_away_window`, `rules.valid_away_window`, `rules.off_active`.
-The frame's top-right corner shows only the effective level (`NORMAL` or `HIGH`); the dashboard explains why High is on.
+**`settings` table:** `key, value, updated_at` — keys `security_level` (`on` / `off`; old `normal` / `high` / `home` / `away` values read as `on`)
+and `off_until` (epoch as text, "" = no timer). Old `away_*`, `resume_level` and `night_*` rows may remain; they are unused and left untouched.
+Pure security rules: `rules.security_params`, `rules.effective_level(level, now, off_until)`, `rules.off_active`, `rules.normalize_level`.
+The frame's top-right corner shows the effective level: `ON`, `OFF`, or `OFF until 01:00` while an Off timer runs.
 
 **`people` table:** `id, name (= faces/ folder, unique, case-insensitive), role ('family'|'guest'), valid_from, valid_to, created_at`.
 Pure rules live in `rules.py` (`visitor_allowed`, `classify_person`, `valid_person_name`). A guest window bound that is
@@ -203,7 +202,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 | 3 | Intrusion snapshot + clip | ✅ done (clip race + speed fixed) | Phase 2: `clip_ready` |
 | 4 | Telegram alert | ✅ done | Phase 2: guard-house copy, weapon note |
 | 5 | Web dashboard (live, history, analytics) | ✅ done (rebranded to Vision Vault) | Phase 0: rebrand, `/api/status` |
-| 5.1 | Security level control | ✅ done (Off with timer / Normal / High; auto-High during away-from-home dates; 5 s grace at Normal and High) | Phase 1: `security_level`; Off + stricter High added Wed 21 Oct |
+| 5.1 | Security level control | ✅ done (On / Off, Off optionally until a time; 5 s grace when On) | Phase 1: `security_level`; simplified to On / Off Thu 22 Oct (Normal / High and away-from-home dates removed) |
 | 6 | Visitor registration | ✅ done | Phase 1: `people` table + `/people` page — **core** |
 | 7 | Guard-house alert & dashboard | ✅ Telegram copy + mock Guard House view (/guard) with acknowledge | Phase 2: alert to guard-house Telegram. Dashboard for many homes = KIV (pitch only) |
 | 8 | AI assistant (live feed, locate family) | ✅ Gemini chat with tools + confirm (needs GEMINI_API_KEY) | Phase 1: `lastSeen` per person. Phase 2: chatbot + tools |
@@ -266,22 +265,21 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
       `POST /api/people/{id}/photos` (multipart photos[]), `GET /api/people/{id}/photo` (first photo as JPEG; `faces/` is never mounted publicly).
       **Person JSON:** `{id, name, role: "family"|"guest", validFrom: ISO|null, validTo: ISO|null, active: bool, photoCount: int,
       photoUrl: "/api/people/{id}/photo", lastSeen: ISO|null, createdAt: ISO}`. `active` = family, or guest whose window contains now.
-- [x] **Security level (feature 5.1):** levels `off` | `normal` | `high` (owner decision Wed 21 Oct: Home mode dropped because it skipped the
-      guard house, which is wrong in a home invasion with residents inside; Away renamed High). Saved `home`/`away` values are
-      mapped by `rules.normalize_level`. Stored in a `settings` table (`key, value`), default `normal`.
+- [x] **Security level (feature 5.1):** levels `on` | `off` (owner decision Thu 22 Oct: Normal / High and the away-from-home
+      dates were replaced by a plain On / Off). Old saved or sent values `normal`, `high`, `home`, `away` are mapped to `on`
+      by `rules.normalize_level`. Stored in a `settings` table (`key, value`), default `on`.
       Pure function `security_params(level) -> dict` gives the rule thresholds:
-      `off` — no alerts, recordings or guard copies (e.g. a party); people are still tracked. Wins over the schedules until `off_until` (settings key; "" = until turned on), then `resume_level` (`rules.off_active`, `rules.effective_level`);
-      `normal` — GRACE 5 s, MATCH_THRESH 0.40, person conf 0.25, 5 frames, departure filter (paused);
-      `high` (most sensitive, Wed 21 Oct) — GRACE 5 s (same as Normal, owner decision Wed 21 Oct), MATCH_THRESH 0.45, person conf 0.25, 3 frames, departure filter off. The guard house is alerted at Normal and High.
-      Engine `set_security_level(level)` under `self.lock`; the current level is drawn in the frame corner.
-      **Away-from-home dates** (`away_*` settings) force High (`effective_level(level, now, away_enabled, away_from, away_to, ...)`).
-      The sleep-time / night auto-High schedule was **removed** Wed 21 Oct (owner decision): High is chosen by hand or by the away dates.
+      `on` — alerts on, guard alert on, GRACE 5 s, MATCH_THRESH 0.40, person conf 0.25, 3 frames, departure filter off (paused);
+      `off` — same thresholds but no alerts, recordings or guard copies (e.g. a party); people are still tracked and shown.
+      Off lasts until `off_until` (settings key; "" = until turned back on), then the level returns to `on`
+      (`rules.off_active`, `rules.effective_level(level, now, off_until)`).
+      Engine `set_security(level, off_until)` under `self.lock`; the effective level is drawn in the frame corner.
       The engine uses the **effective** level (re-check about once a second, not per frame).
       API: `GET/PUT /api/security` (see Current API); `/api/status` adds `securityLevel` (= effective).
 - [x] **Frontend `/people` page** ("Residents & Visitors"): list family + visitors (thumbnail, role, window, active badge, "last seen 14:32"),
       add person with photo upload, edit visitor window, delete with confirm. Types in `types/index.ts`, calls in `services/index.ts`.
-- [x] **Frontend security level:** segmented control Normal / High (one-line description each) on the Live Monitoring page,
-      plus a small badge with the **effective** level in the top bar. (Night-mode toggle removed Wed 21 Oct.) Calls `GET/PUT /api/security`.
+- [x] **Frontend security level:** On / Off switch with an optional "off until" time on the Live Monitoring page,
+      plus a small badge with the **effective** level in the top bar (Thu 22 Oct; was Normal / High). Calls `GET/PUT /api/security`.
 
 ### Phase 2 — Chatbot with tool calling + guard-house alert (Thu 22)
 - [x] `POST /api/chat` `{messages}` → `{reply, pendingAction?}` using the **Google Gemini API** (`google-genai` SDK; owner switched from
@@ -294,9 +292,9 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 - [x] Tools are plain Python functions reusing existing queries:
       read — `get_summary`, `list_incidents(from, to, status, limit)`, `get_incident(id)`, `get_live_status`, `list_people`,
       `where_is(name)` (answers from `lastSeen`: "last seen at the front door at 14:32");
-      write — (`review_incident` removed Wed 21 Oct: no review step) `add_or_update_guest(name, valid_from, valid_to)`, `set_security_level(level, until?)` (`until` only with `off`),
-      `set_away_from_home(leaving?, back?, enabled?)` (vacation dates → `PUT /api/security {away}`; a bare "back" date = end of that day).
-      `get_live_status` also reports `chosenLevel`, `highBecause` and `awayFromHome`.
+      write — (`review_incident` removed Wed 21 Oct: no review step) `add_or_update_guest(name, valid_from, valid_to)`, `set_security_level(level: on|off, until?)` (`until` only with `off`, e.g. "turn it off until 1 am for my party";
+      PendingAction body is exactly `{level: "on"}` or `{level: "off", offUntil}`). `set_away_from_home` was removed Thu 22 Oct.
+      `get_live_status` reports `securityLevel` (on / off) and `offUntil` (local time, "until turned back on", or null when On).
       `get_live_status` includes **who is in view right now**: engine `get_status()` adds `in_view: [{name, kind}]`
       (kind = family / guest_allowed / guest_outside / unknown) and `/api/status` adds `peopleInView: [{name, kind}]`.
       Text only — **no camera frames are sent to the AI** (keeps the "footage stays in the home" promise).
@@ -309,7 +307,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 - [x] Frontend chat panel (slide-over from the top bar), works from every page. Shows the PendingAction as a card with
       Confirm / Cancel; Confirm runs it through the normal services (or opens the prefilled Add-person modal), then shows
       "Done" or the error in the chat. Suggested prompts on an empty chat: "What happened at the door today?",
-      "Who is at the door right now?", "Where is Azhad?", "Switch to High security".
+      "Who is at the door right now?", "Where is Azhad?", "Turn security off until midnight for a party".
       Live status strip may also list `peopleInView` names.
 - [x] **Clip speed:** clips are written at a fixed `CLIP_FPS = 20` while the engine runs ~5 fps, so they play ~4× fast.
       Write each clip at the engine's measured FPS (rounded, min 1) and size the pre-roll buffer in seconds, not frames.

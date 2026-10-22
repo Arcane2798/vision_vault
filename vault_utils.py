@@ -46,7 +46,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         ts REAL NOT NULL, name TEXT, direction TEXT NOT NULL,
         source TEXT NOT NULL DEFAULT 'camera')""")
-    # key/value settings (security level, night schedule); updated_at = epoch of last change
+    # key/value settings (security level, Off timer); updated_at = epoch of last change
     con.execute("""CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY, value TEXT, updated_at REAL)""")
     con.commit()

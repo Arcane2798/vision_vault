@@ -141,11 +141,8 @@ class ChatTools:
         sec = self.engine.get_security()
         return {"cameraRunning": s["running"], "fps": s["fps"],
                 "unknownInView": s["unknown_count"], "securityLevel": s["security_level"],
-                "chosenLevel": sec["level"],
-                "highBecause": {"away": "away from home"}.get(sec.get("high_reason")),
-                "awayFromHome": ({"leaving": fmt_local(sec["away_from"]) or "open",
-                                  "back": fmt_local(sec["away_to"]) or "not set"}
-                                 if sec["away_enabled"] else "off"),
+                "offUntil": (fmt_local(sec.get("off_until")) or "until turned back on"
+                             if s["security_level"] == "off" else None),
                 "peopleInView": s.get("in_view", [])}
 
     def list_people(self):
@@ -204,40 +201,22 @@ class ChatTools:
                 for p in family_status(self.engine)]
 
     def set_security_level(self, level, until=None):
+        """Security On or Off ("off" optionally until a time, e.g. for a party)."""
         if level not in SECURITY_LEVELS:
             raise ToolError(f"level must be one of {', '.join(SECURITY_LEVELS)}")
         if level != "off":
             if until:
-                raise ToolError("'until' only applies when turning alerts off.")
-            self.pending = request_action(f"Switch security level to {level.capitalize()}",
-                                          "PUT", "/api/security", {"level": level})
+                raise ToolError("'until' only applies when turning security off.")
+            self.pending = request_action("Turn security on", "PUT", "/api/security",
+                                          {"level": "on"})
             return self.pending
         end = parse_local(until, "until", end_of_day=True)
         if end is not None and end <= datetime.now().timestamp():
             raise ToolError("'until' must be in the future.")
-        resume = self.engine.get_security().get("resume_level", "normal")
-        current = self.engine.get_security()["level"]
-        back = current if current != "off" else resume
-        summary = (f"Turn alerts off until {fmt_local(end)}, then back to {back.capitalize()}" if end
-                   else "Turn alerts off until you turn them back on")
+        summary = (f"Turn security off until {fmt_local(end)}, then back on" if end
+                   else "Turn security off until you turn it back on")
         self.pending = request_action(summary, "PUT", "/api/security",
                                       {"level": "off", "offUntil": iso_or_none(end)})
-        return self.pending
-
-    def set_away_from_home(self, leaving=None, back=None, enabled=True):
-        """Away-from-home dates (e.g. a vacation): High for the whole range."""
-        if enabled is False:
-            self.pending = request_action("Turn off away from home (back to the chosen level)",
-                                          "PUT", "/api/security", {"away": {"enabled": False}})
-            return self.pending
-        start = parse_local(leaving, "leaving")
-        end = parse_local(back, "back", end_of_day=True)   # "back on the 28th" = all of the 28th
-        if start is not None and end is not None and start >= end:
-            raise ToolError("leaving must be before back.")
-        summary = (f"Away from home from {fmt_local(start) or 'now'} until "
-                   f"{fmt_local(end) or 'you turn it off'}: security level High")
-        self.pending = request_action(summary, "PUT", "/api/security", {"away": {
-            "enabled": True, "from": iso_or_none(start), "to": iso_or_none(end)}})
         return self.pending
 
     # ----- dispatch -----
@@ -285,7 +264,8 @@ TOOLS = [
                       "required": ["id"]}},
     {"name": "get_live_status",
      "description": "Live camera state right now: who is in view (name + kind: family, "
-                    "guest_allowed, guest_outside, unknown), unknown count, security level, FPS.",
+                    "guest_allowed, guest_outside, unknown), unknown count, security on/off "
+                    "(and until when it is off), FPS.",
      "parameters": None},
     {"name": "list_people",
      "description": "Registered residents and visitors with visitor time windows, whether each is "
@@ -310,28 +290,18 @@ TOOLS = [
                     "camera inside the front door sees people arrive and leave; 'unknown' = not seen yet).",
      "parameters": {"type": "object", "properties": {}}},
     {"name": "set_security_level",
-     "description": "Prepare switching the security level for the user to confirm. normal = default "
-                    "(alert 5 s after an unknown person appears); high = most sensitive: same 5 s wait, "
-                    "stricter face match, catches partly visible people (e.g. when everyone is away); off = no alerts or recordings, e.g. during "
-                    "a party, optionally until a time. The guard house is alerted at Normal and High.",
+     "description": "Prepare turning security on or off for the user to confirm. on = normal "
+                    "operation: an unknown person seen for 5 s alerts the homeowner and the guard "
+                    "house. off = no alerts or recordings (people are still shown), e.g. during a "
+                    "party, optionally until a time.",
      "parameters": {"type": "object", "properties": {
          "level": {"type": "string", "enum": list(SECURITY_LEVELS)},
-         "until": {"type": "string", "description": "Only with level off: when alerts come back on. "
-                   "Omit to keep them off until turned on. " + _LOCAL_DT}},
+         "until": {"type": "string", "description": "Only with level off: when security comes back "
+                   "on. Omit to keep it off until turned on. " + _LOCAL_DT}},
          "required": ["level"]}},
-    {"name": "set_away_from_home",
-     "description": "Prepare the away-from-home dates (a trip or vacation) for the user to confirm. "
-                    "Between leaving and back the camera is in High security. Use enabled=false to "
-                    "turn it off early (when they are back).",
-     "parameters": {"type": "object", "properties": {
-         "leaving": {"type": "string", "description": "When they leave, omit for now. " + _LOCAL_DT},
-         "back": {"type": "string", "description": "When they are back home, omit if unknown "
-                  "(High stays on until turned off). A bare date includes the whole day. " + _LOCAL_DT},
-         "enabled": {"type": "boolean", "description": "false = turn away from home off."}}}},
 ]
 TOOL_NAMES = {t["name"] for t in TOOLS}
-WRITE_TOOLS = {"add_or_update_guest", "set_security_level",
-               "set_away_from_home"}
+WRITE_TOOLS = {"add_or_update_guest", "set_security_level"}
 
 SYSTEM = """You are Viva Bot, the AI assistant inside Vision Vault, a smart home security dashboard for one home \
 in a township. One camera watches the front door. Residents (family) pass silently; registered \
@@ -343,11 +313,10 @@ How to answer:
 - You only get text from the tools; you cannot see the camera. If asked to look at the video, say so.
 - There is only one camera, so locating someone means "last seen at the front door at 14:32".
 - Say "residents" and "visitors" (never "guests"), and "guard house".
-- High security is chosen by hand, or used automatically while the family is away from \
-home (set_away_from_home, e.g. for a vacation).
+- Security is either on (alerts) or off (no alerts or recordings, e.g. for a party, \
+optionally until a time such as 1 am).
 - Incidents are handled automatically (homeowner and guard house are alerted); there is no review step.
-- Write tools (add_or_update_guest, set_security_level, set_away_from_home) only \
-prepare an action. \
+- Write tools (add_or_update_guest, set_security_level) only prepare an action. \
 After calling one, tell the user to press Confirm; never say it is already done.
 - Pass dates to tools as local time like 2026-10-24T14:00. Resolve words like "today" or \
 "Saturday 2-6pm" against the current time below; if a date is ambiguous, ask.

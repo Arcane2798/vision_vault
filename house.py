@@ -280,7 +280,7 @@ def process_videos(engine, cfg, progress=lambda cam, p: None) -> dict:
         raise MapError("no room videos uploaded yet")
     with engine.lock:
         known, people = engine.known, engine.people
-    thresh = security_params("normal")["match_thresh"]
+    thresh = security_params("on")["match_thresh"]
     kind_of = {FAMILY: "family", GUEST_ALLOWED: "guest", GUEST_OUTSIDE: "guest"}
     out = {}
     for n, cam in enumerate(recorded):

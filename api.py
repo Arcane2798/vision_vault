@@ -17,7 +17,7 @@ import cv2
 import numpy as np
 from fastapi import (APIRouter, File, Form, HTTPException, Query, Request,
                      Response, UploadFile, WebSocket, WebSocketDisconnect)
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel
 
 from rules import (ARRIVED, FAMILY, LEFT, MAX_ACK_NOTE, ROLES, UNKNOWN_PRESENCE,
                    guard_ack_message, presence_status, valid_person_name, visitor_allowed)
@@ -42,18 +42,9 @@ class StatusUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-class AwayUpdate(BaseModel):
-    """Away-from-home dates (e.g. a vacation). Omitted = unchanged, null/"" = open-ended."""
-    model_config = ConfigDict(populate_by_name=True)
-    enabled: Optional[bool] = None
-    from_: Optional[str] = Field(None, alias="from")
-    to: Optional[str] = None
-
-
 class SecurityUpdate(BaseModel):
-    level: Optional[str] = None
-    # "night" (the removed sleep-time schedule) from an older frontend is ignored (extra keys)
-    away: Optional[AwayUpdate] = None
+    level: Optional[str] = None         # "on" | "off" (old "normal" / "high" mean "on")
+    # "away" / "night" (removed schedules) from an older frontend are ignored (extra keys)
     offUntil: Optional[str] = None      # with level "off": ISO end time, null = until turned on
 
 
@@ -365,16 +356,11 @@ def create_router(engine):
                 "securityLevel": s["security_level"],
                 "peopleInView": s.get("in_view", [])}
 
-    # ---------- security level + away-from-home dates ----------
+    # ---------- security level (On / Off with an optional Off timer) ----------
     def security_json():
         s = engine.get_security()
         return {"level": s["level"], "effectiveLevel": s["effective_level"],
-                "highReason": s.get("high_reason"),
-                "away": {"enabled": s["away_enabled"],
-                         "from": _iso(s["away_from"]) if s["away_from"] is not None else None,
-                         "to": _iso(s["away_to"]) if s["away_to"] is not None else None},
                 "offUntil": _iso(s["off_until"]) if s.get("off_until") is not None else None,
-                "resumeLevel": s.get("resume_level", "normal"),
                 "updatedAt": _iso(s["updated_at"]) if s["updated_at"] else None}
 
     @router.get("/security")
@@ -383,19 +369,11 @@ def create_router(engine):
 
     @router.put("/security")
     def put_security(body: SecurityUpdate):
-        away = {}
-        if body.away is not None:
-            given = body.away.model_fields_set
-            if body.away.enabled is not None:
-                away["away_enabled"] = body.away.enabled
-            if "from_" in given:
-                away["away_from"] = _parse_iso(body.away.from_, "away.from")
-            if "to" in given:
-                away["away_to"] = _parse_iso(body.away.to, "away.to")
+        extra = {}
         if "offUntil" in body.model_fields_set:
-            away["off_until"] = _parse_iso(body.offUntil, "offUntil")
+            extra["off_until"] = _parse_iso(body.offUntil, "offUntil")
         try:
-            engine.set_security(level=body.level, **away)
+            engine.set_security(level=body.level, **extra)
         except ValueError as e:
             raise HTTPException(400, str(e))
         return security_json()

@@ -119,28 +119,41 @@ def test_status_shape(client, engine):
     engine.in_view = [{"name": "Azhad", "kind": "family"}, {"name": "unknown", "kind": "unknown"}]
     s = client.get("/api/status").json()
     assert s == {"running": True, "fps": 5.2, "unknownCount": 1,
-                 "cameraName": "Camera #1: Front Door", "securityLevel": "normal",
+                 "cameraName": "Camera #1: Front Door", "securityLevel": "on",
                  "peopleInView": engine.in_view}
 
 
 def test_security_roundtrip(client):
     g = client.get("/api/security").json()
-    assert g == {"level": "normal", "effectiveLevel": "normal", "highReason": None,
-                 "away": {"enabled": False, "from": None, "to": None},
-                 "offUntil": None, "resumeLevel": "normal",
-                 "updatedAt": None}
-    # an older frontend may still send the removed sleep-time "night": ignored, not a 400
-    r = client.put("/api/security", json={"level": "high", "night": {"start": "25:00"}})
+    assert g == {"level": "on", "effectiveLevel": "on", "offUntil": None, "updatedAt": None}
+    r = client.put("/api/security", json={"level": "off"})
     assert r.status_code == 200
     p = r.json()
-    assert p["level"] == "high" and p["effectiveLevel"] == "high"
-    assert "night" not in p and p["highReason"] is None
+    assert p == {"level": "off", "effectiveLevel": "off", "offUntil": None,
+                 "updatedAt": p["updatedAt"]}
     assert p["updatedAt"].endswith("Z")
     assert client.get("/api/security").json() == p
-    assert client.get("/api/status").json()["securityLevel"] == "high"
+    assert client.get("/api/status").json()["securityLevel"] == "off"
 
 
-@pytest.mark.parametrize("body", [{"level": "party"}, {"level": "home"}, {"level": "away"}])
+@pytest.mark.parametrize("old", ["normal", "high"])
+def test_security_old_levels_mean_on(client, old):
+    client.put("/api/security", json={"level": "off"})
+    p = client.put("/api/security", json={"level": old}).json()
+    assert p["level"] == "on" and p["effectiveLevel"] == "on"
+
+
+def test_security_ignores_removed_schedules(client):
+    # an older frontend may still send "away" (vacation dates) or "night": ignored, not a 400
+    r = client.put("/api/security", json={"level": "on", "night": {"start": "25:00"},
+                                          "away": {"enabled": True, "from": "bad"}})
+    assert r.status_code == 200
+    assert set(r.json()) == {"level", "effectiveLevel", "offUntil", "updatedAt"}
+    assert client.put("/api/security", json={"away": {"enabled": True}}).status_code == 200
+    assert client.get("/api/security").json()["effectiveLevel"] == "on"
+
+
+@pytest.mark.parametrize("body", [{"level": "party"}, {"level": "medium"}, {"level": ""}])
 def test_security_400(client, body):
     assert client.put("/api/security", json=body).status_code == 400
 
@@ -202,37 +215,6 @@ def test_guard_ack_errors(client, sent):
     assert sql("SELECT guard_ack_at FROM events WHERE id=?", (plain,))[0][0] is None
 
 
-def test_security_away_from_home(client):
-    now = time.time()
-    p = client.put("/api/security", json={"away": {
-        "enabled": True, "from": _iso_utc(now - 3600), "to": _iso_utc(now + 86400)}}).json()
-    assert p["level"] == "normal"                      # chosen level is unchanged
-    assert p["effectiveLevel"] == "high" and p["highReason"] == "away"
-    assert p["away"]["enabled"] is True and p["away"]["from"].endswith("Z")
-    assert client.get("/api/status").json()["securityLevel"] == "high"
-    # turning it off keeps the dates for next time
-    off = client.put("/api/security", json={"away": {"enabled": False}}).json()
-    assert off["effectiveLevel"] == "normal" and off["highReason"] is None
-    assert off["away"]["from"] == p["away"]["from"]
-    # null clears a bound (open-ended)
-    cleared = client.put("/api/security", json={"away": {"to": None}}).json()
-    assert cleared["away"]["to"] is None and cleared["away"]["from"] == p["away"]["from"]
-
-
-@pytest.mark.parametrize("away", [
-    {"from": "2026-10-28T12:00", "to": "2026-10-24T18:00"},     # ends before it starts
-    {"from": "2026-10-24T18:00", "to": "2026-10-24T18:00"},     # empty range
-    {"from": "next friday"},                                     # not a date
-])
-def test_security_away_400(client, away):
-    assert client.put("/api/security", json={"away": away}).status_code == 400
-
-
-def _iso_utc(epoch):
-    from datetime import datetime, timezone
-    return datetime.fromtimestamp(epoch, timezone.utc).isoformat().replace("+00:00", "Z")
-
-
 def test_incident_items(client):
     import vault_utils
     eid = add_event(items=["knife"], guard_notified=True)
@@ -286,23 +268,29 @@ def test_chat_who_is_home(client, engine):
     assert not err and res[0]["name"] == "Azhad" and res[0]["status"] == "home"
 
 
-def test_security_off_with_timer(client):
+def test_security_off_with_timer(client, engine):
     from datetime import datetime, timezone
-    client.put("/api/security", json={"level": "high"})
     until = datetime.fromtimestamp(time.time() + 3 * 3600, timezone.utc).isoformat().replace("+00:00", "Z")
     s = client.put("/api/security", json={"level": "off", "offUntil": until}).json()
-    assert s["level"] == "off" and s["effectiveLevel"] == "off" and s["resumeLevel"] == "high"
-    assert s["offUntil"][:16] == until[:16]
+    assert s["level"] == "off" and s["effectiveLevel"] == "off"
+    assert s["offUntil"][:16] == until[:16] and s["offUntil"].endswith("Z")
     assert client.get("/api/status").json()["securityLevel"] == "off"
     # until turned back on
     s = client.put("/api/security", json={"level": "off", "offUntil": None}).json()
-    assert s["offUntil"] is None and s["resumeLevel"] == "high"
+    assert s["offUntil"] is None and s["level"] == "off"
     # turning it back on clears the timer
-    s = client.put("/api/security", json={"level": "normal"}).json()
-    assert s["level"] == "normal" and s["offUntil"] is None
+    client.put("/api/security", json={"level": "off", "offUntil": until})
+    s = client.put("/api/security", json={"level": "on"}).json()
+    assert s["level"] == "on" and s["offUntil"] is None
     past = datetime.fromtimestamp(time.time() - 60, timezone.utc).isoformat().replace("+00:00", "Z")
     assert client.put("/api/security", json={"level": "off", "offUntil": past}).status_code == 400
     assert client.put("/api/security", json={"offUntil": until}).status_code == 400   # not Off
+    assert client.put("/api/security", json={"level": "on", "offUntil": until}).status_code == 400
+    # a timer that has passed reads "on"
+    client.put("/api/security", json={"level": "off", "offUntil": until})
+    engine.sec["off_until"] = time.time() - 1
+    s = client.get("/api/security").json()
+    assert s["level"] == "on" and s["effectiveLevel"] == "on" and s["offUntil"] is None
 
 
 def test_awaiting_guard_count(client):
