@@ -1,38 +1,40 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Plane } from 'lucide-react';
+import { useState } from 'react';
 import { useSecurity } from '@/context/SecurityContext';
-import type { SecurityLevel, SecurityUpdate } from '@/types';
-import { cn, effectiveLevelText, formatDateTime, formatUntil, fromDateTimeLocal, scheduleHighActive, securityLevelLabel, toDateTimeLocal } from '@/utils/format';
+import type { SecurityUpdate } from '@/types';
+import { cn, effectiveLevelText, formatUntil, fromDateTimeLocal } from '@/utils/format';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Field';
 import { ErrorState, LoadingState } from '@/components/ui/States';
 import { LEVEL_STYLE } from './SecurityBadge';
 
-const LEVELS: Array<{ value: SecurityLevel; description: string }> = [
-  { value: 'off', description: 'No alerts or recordings, e.g. while you have a party. Choose how long; it switches back on by itself.' },
-  { value: 'normal', description: 'Default: alerts 5 s after an unknown person has been in view (seen for 10 frames).' },
-  { value: 'high', description: 'Most sensitive: also waits 5 s, but is stricter about face matches and starts counting sooner (3 frames). Used automatically while you are away from home.' },
+const ON_DESCRIPTION = 'Alerts after an unknown person has been in view for 5 s; residents and visitors pass silently.';
+
+/** Next 01:00 in the browser's local time (tonight, or tomorrow night if it is already past 1 am). */
+function next1am(): Date {
+  const d = new Date();
+  d.setHours(1, 0, 0, 0);
+  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+  return d;
+}
+
+const hoursFromNow = (h: number) => new Date(Date.now() + h * 3600_000);
+
+/** Off choices: a fixed end time (computed when clicked) or null = until turned back on. */
+const OFF_CHOICES: Array<{ label: string; until: () => Date | null }> = [
+  { label: '1 hour', until: () => hoursFromNow(1) },
+  { label: '3 hours', until: () => hoursFromNow(3) },
+  { label: 'Until 1:00 am', until: next1am },
+  { label: 'Until I turn it back on', until: () => null },
 ];
 
-/** quick timers for Off */
-const OFF_HOURS = [1, 2, 4, 8];
-
-/** Normal / High segmented control plus the the away-from-home dates that switch to High. */
+/** Security On / Off switch. Turning off asks how long (e.g. a party); while off, alerts and recordings are paused. */
 export function SecurityLevelControl() {
   const { security, error, update, reload } = useSecurity();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [awayFrom, setAwayFrom] = useState('');
-  const [awayTo, setAwayTo] = useState('');
   const [offOpen, setOffOpen] = useState(false);
-  const [offUntilInput, setOffUntilInput] = useState('');
-
-  // keep the inputs in sync with the backend unless the user is editing them
-  const savedAwayFrom = toDateTimeLocal(security?.away.from ?? null);
-  const savedAwayTo = toDateTimeLocal(security?.away.to ?? null);
-  useEffect(() => setAwayFrom(savedAwayFrom), [savedAwayFrom]);
-  useEffect(() => setAwayTo(savedAwayTo), [savedAwayTo]);
+  const [customUntil, setCustomUntil] = useState('');
 
   const save = async (patch: SecurityUpdate, ok: string) => {
     setBusy(true);
@@ -40,163 +42,112 @@ export function SecurityLevelControl() {
     try {
       await update(patch);
       setMessage({ ok: true, text: ok });
+      return true;
     } catch (e) {
       setMessage({ ok: false, text: (e as Error).message });
+      return false;
     } finally {
       setBusy(false);
     }
   };
 
-  const turnOff = async (offUntil: string | null, label: string) => {
-    await save({ level: 'off', offUntil }, `Alerts off ${label.startsWith('until') ? label : `for ${label}`}.`);
+  const turnOff = async (until: Date | null) => {
+    const iso = until ? until.toISOString() : null;
+    const done = await save(
+      { level: 'off', offUntil: iso },
+      iso ? `Security off until ${formatUntil(iso)}.` : 'Security off until you turn it back on.',
+    );
+    if (done) {
+      setOffOpen(false);
+      setCustomUntil('');
+    }
+  };
+
+  const turnOn = () => {
     setOffOpen(false);
-    setOffUntilInput('');
+    save({ level: 'on' }, 'Security is on.');
   };
 
   if (!security) {
     return (
       <Card>
-        <CardHeader title="Security level" />
-        {error ? <ErrorState error={error} onRetry={reload} /> : <LoadingState label="Loading security level…" />}
+        <CardHeader title="Security" />
+        {error ? <ErrorState error={error} onRetry={reload} /> : <LoadingState label="Loading security…" />}
       </Card>
     );
   }
 
-  const away = security.away;
-  const awayDirty = awayFrom !== savedAwayFrom || awayTo !== savedAwayTo;
-  const awayValid = !awayFrom || !awayTo || awayFrom < awayTo;
-  const scheduled = scheduleHighActive(security);
+  const isOn = security.effectiveLevel !== 'off';
+  const { Icon, cls } = LEVEL_STYLE[isOn ? 'on' : 'off'];
+  const customIso = fromDateTimeLocal(customUntil);
+  const customValid = !!customIso && new Date(customIso).getTime() > Date.now();
 
   return (
     <Card>
-      <CardHeader title="Security level" subtitle={<>Now: <b className="text-ink-1">{effectiveLevelText(security)}</b></>} />
+      <CardHeader title="Security" subtitle={<>Now: <b className="text-ink-1">{effectiveLevelText(security)}</b></>} />
       <div className="space-y-4 p-4">
-        <div role="radiogroup" aria-label="Security level" className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-surface-2 p-1">
-          {LEVELS.map(({ value }) => {
-            const selected = security.level === value;
-            const { Icon, cls } = LEVEL_STYLE[value];
-            return (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                disabled={busy}
-                onClick={() =>
-                  value === 'off' ? setOffOpen(!selected || !offOpen) : !selected && save({ level: value }, `Security level set to ${securityLevelLabel[value]}.`)
-                }
-                className={cn(
-                  'flex items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-sm font-medium transition-colors disabled:cursor-wait',
-                  selected ? cls : 'border-transparent text-ink-2 hover:bg-surface-3 hover:text-ink-1',
-                )}
-              >
-                <Icon className="h-4 w-4" aria-hidden />
-                {securityLevelLabel[value]}
-              </button>
-            );
-          })}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-full border', cls)}>
+              <Icon className="h-5 w-5" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Security is {isOn ? 'on' : 'off'}</p>
+              <p className="text-xs text-ink-3">{isOn ? ON_DESCRIPTION : 'People are still tracked on the live view, but nothing is recorded and no one is alerted.'}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isOn}
+            aria-label="Security"
+            disabled={busy}
+            onClick={() => (isOn ? setOffOpen(!offOpen) : turnOn())}
+            className={cn('relative h-7 w-14 shrink-0 rounded-full transition-colors disabled:cursor-wait', isOn ? 'bg-green-500' : 'bg-surface-3')}
+          >
+            <span className={cn('absolute top-0.5 h-6 w-6 rounded-full bg-white transition-all', isOn ? 'left-[1.875rem]' : 'left-0.5')} aria-hidden />
+          </button>
         </div>
-        {security.level === 'off' && !offOpen && (
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm">
+
+        {!isOn && !offOpen && (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">
             <span className="min-w-0 flex-1">
-              Alerts are <b>off</b>
-              {security.offUntil ? <> until {formatUntil(security.offUntil)}, then back to {securityLevelLabel[security.resumeLevel]}</> : ' until you turn them back on'}.
+              Security is off {security.offUntil ? `until ${formatUntil(security.offUntil)}` : 'until you turn it back on'} — alerts and recordings are paused.
             </span>
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOffOpen(true)}>
               Change time
             </Button>
-            <Button size="sm" variant="primary" loading={busy} onClick={() => save({ level: security.resumeLevel }, `Alerts back on: ${securityLevelLabel[security.resumeLevel]}.`)}>
-              Turn back on
+            <Button size="sm" variant="primary" loading={busy} onClick={turnOn}>
+              Turn on now
             </Button>
           </div>
         )}
+
         {offOpen && (
           <div className="space-y-3 rounded-lg border border-line bg-surface-2 p-3">
-            <p className="text-sm font-medium">Turn alerts off for…</p>
+            <p className="text-sm font-medium">Turn security off…</p>
             <div className="flex flex-wrap gap-2">
-              {OFF_HOURS.map((h) => (
-                <Button key={h} size="sm" disabled={busy} onClick={() => turnOff(new Date(Date.now() + h * 3600_000).toISOString(), `${h} hour${h > 1 ? 's' : ''}`)}>
-                  {h} hour{h > 1 ? 's' : ''}
+              {OFF_CHOICES.map(({ label, until }) => (
+                <Button key={label} size="sm" disabled={busy} onClick={() => turnOff(until())}>
+                  {label}
                 </Button>
               ))}
             </div>
             <div className="flex flex-wrap items-end gap-2">
               <label className="space-y-1 text-xs font-medium text-ink-2">
                 <span className="block">…or until</span>
-                <Input type="datetime-local" value={offUntilInput} onChange={(e) => setOffUntilInput(e.target.value)} className="w-52 [color-scheme:dark]" />
+                <Input type="datetime-local" value={customUntil} onChange={(e) => setCustomUntil(e.target.value)} className="w-52 [color-scheme:dark]" />
               </label>
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={busy || !offUntilInput || new Date(offUntilInput).getTime() <= Date.now()}
-                onClick={() => turnOff(fromDateTimeLocal(offUntilInput) ?? null, `until ${formatUntil(fromDateTimeLocal(offUntilInput)!)}`)}
-              >
+              <Button size="sm" variant="primary" disabled={busy || !customValid} onClick={() => customIso && turnOff(new Date(customIso))}>
                 Turn off until then
-              </Button>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
-              <Button size="sm" variant="ghost" disabled={busy} onClick={() => turnOff(null, 'until you turn them back on')}>
-                Until I turn it back on
               </Button>
               <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOffOpen(false)} className="ml-auto">
                 Cancel
               </Button>
             </div>
+            {customUntil && !customValid && <p className="text-xs text-red-300">Pick a time in the future.</p>}
             <p className="text-xs text-ink-3">While off, people are still tracked on the live view, but nothing is recorded and no one is alerted.</p>
           </div>
-        )}
-        <ul className="space-y-1.5 text-xs">
-          {LEVELS.map(({ value, description }) => (
-            <li key={value} className={security.level === value ? 'text-ink-1' : 'text-ink-3'}>
-              <b>{securityLevelLabel[value]}</b> - {description}
-            </li>
-          ))}
-        </ul>
-
-        {/* away from home, e.g. a vacation */}
-        <div className="space-y-3 border-t border-line pt-4">
-          <ScheduleHeader
-            icon={<Plane className="h-4 w-4 text-ink-2" aria-hidden />}
-            title="Away from home - auto High"
-            hint="For trips and vacations: High for the whole time nobody is home."
-            on={away.enabled}
-            busy={busy}
-            onToggle={() => save({ away: { enabled: !away.enabled } }, away.enabled ? 'Away from home turned off.' : 'Away from home turned on.')}
-          />
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="space-y-1 text-xs font-medium text-ink-2">
-              <span className="block">Leaving</span>
-              <Input type="datetime-local" value={awayFrom} onChange={(e) => setAwayFrom(e.target.value)} className="w-52 [color-scheme:dark]" aria-invalid={!awayValid} />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-ink-2">
-              <span className="block">Back home</span>
-              <Input type="datetime-local" value={awayTo} onChange={(e) => setAwayTo(e.target.value)} className="w-52 [color-scheme:dark]" aria-invalid={!awayValid} />
-            </label>
-            {awayDirty && (
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={!awayValid}
-                loading={busy}
-                onClick={() => save({ away: { from: fromDateTimeLocal(awayFrom) ?? null, to: fromDateTimeLocal(awayTo) ?? null } }, 'Away-from-home dates saved.')}
-              >
-                Save dates
-              </Button>
-            )}
-          </div>
-          {!awayValid && <p className="text-xs text-red-300">"Back home" must be after "Leaving".</p>}
-          {away.enabled && !away.from && !away.to && <p className="text-xs text-ink-3">No dates set: High stays on until you turn this off.</p>}
-        </div>
-
-        {scheduled && (
-          <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-red-300">
-            
-              <>
-                Away from home: the camera is in <b>High</b>
-                {away.to ? <> until {formatDateTime(away.to)}</> : ' until you turn this off'}, then returns to {securityLevelLabel[security.level]}.
-              </>
-            
-          </p>
         )}
 
         {message && (
@@ -206,29 +157,5 @@ export function SecurityLevelControl() {
         )}
       </div>
     </Card>
-  );
-}
-
-function ScheduleHeader({ icon, title, hint, on, busy, onToggle }: { icon: ReactNode; title: string; hint: string; on: boolean; busy: boolean; onToggle: () => void }) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <p className="flex items-center gap-1.5 text-sm font-medium">
-          {icon} {title}
-        </p>
-        <p className="text-xs text-ink-3">{hint}</p>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        aria-label={title}
-        disabled={busy}
-        onClick={onToggle}
-        className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-wait', on ? 'bg-brand' : 'bg-surface-3')}
-      >
-        <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all', on ? 'left-[1.375rem]' : 'left-0.5')} aria-hidden />
-      </button>
-    </div>
   );
 }

@@ -110,41 +110,24 @@ export interface TrendPoint {
   confirmed: number;
 }
 
-/** Security level (feature 5.1): how strict the intrusion rules are. */
-/** off = no alerts or recordings (e.g. a party), optionally until offUntil */
-export type SecurityLevel = 'off' | 'normal' | 'high';
-
-/** Away from home (e.g. a vacation): auto High between from and to (ISO; null = open-ended). */
-export interface AwaySchedule {
-  enabled: boolean;
-  from: string | null;
-  to: string | null;
-}
-
-/** Why a schedule forces High right now. */
-export type HighReason = 'away';
+/** Security (feature 5.1): on = alerts and recordings, off = paused (e.g. a party), optionally until offUntil. */
+export type SecurityLevel = 'on' | 'off';
 
 /** GET /api/security */
 export interface SecuritySettings {
   /** level chosen by the homeowner */
   level: SecurityLevel;
-  /** level the engine actually uses now (high while the away dates apply) */
+  /** level the engine actually uses now ("on" again once offUntil has passed) */
   effectiveLevel: SecurityLevel;
-  /** set while a schedule forces High (also when High is chosen by hand) */
-  highReason: HighReason | null;
-  away: AwaySchedule;
-  /** with level "off": when alerts come back on (ISO), null = until turned back on */
+  /** with level "off": when security comes back on (ISO), null = until turned back on */
   offUntil: string | null;
-  /** the level "off" returns to */
-  resumeLevel: SecurityLevel;
   updatedAt: string | null;
 }
 
-/** PUT /api/security */
+/** PUT /api/security. offUntil only with level "off" (400 otherwise, or when it is in the past). */
 export interface SecurityUpdate {
   level?: SecurityLevel;
-  away?: Partial<AwaySchedule>;
-  /** with level "off": ISO end time, null = until turned back on */
+  /** ISO end time, null = until turned back on */
   offUntil?: string | null;
 }
 
@@ -177,7 +160,7 @@ export interface LiveStatus {
   /** unknown people currently in view */
   unknownCount: number;
   cameraName: string;
-  /** effective level (away dates applied) */
+  /** effective level: on / off */
   securityLevel?: SecurityLevel;
   /** who is in view right now (missing on older backends) */
   peopleInView?: PersonInView[];

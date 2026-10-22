@@ -32,7 +32,7 @@ export const statusService = {
   get: (): Promise<LiveStatus> => api('/status', { timeoutMs: 5000 }),
 };
 
-/** Security level + away-from-home dates (live mode only). */
+/** Security on / off with an optional off-until time (live mode only). */
 export const securityService = {
   get: (): Promise<SecuritySettings> => api('/security'),
   update: (patch: SecurityUpdate): Promise<SecuritySettings> => api('/security', { method: 'PUT', body: patch }),

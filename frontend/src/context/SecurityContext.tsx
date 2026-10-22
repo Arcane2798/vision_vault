@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { securityService } from '@/services';
 import type { SecuritySettings, SecurityUpdate } from '@/types';
 
-/** Re-check often enough that the away-from-home dates switching on/off shows up without a reload. */
+/** Re-check often enough that an off-until timer running out shows up without a reload. */
 const REFRESH_MS = 30000;
 
 interface SecurityContextValue {
@@ -15,7 +15,7 @@ interface SecurityContextValue {
 
 const SecurityContext = createContext<SecurityContextValue | null>(null);
 
-/** Shares the security level between the top-bar badge and the Live Monitoring control. */
+/** Shares the security on/off state between the top-bar badge and the Live Monitoring control. */
 export function SecurityProvider({ children }: { children: ReactNode }) {
   const [security, setSecurity] = useState<SecuritySettings>();
   const [error, setError] = useState<Error | null>(null);

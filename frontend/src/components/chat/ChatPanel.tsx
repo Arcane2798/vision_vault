@@ -8,7 +8,7 @@ import { ActionCard } from './ActionCard';
 
 const ASSISTANT_NAME = 'Viva Bot';
 
-const SUGGESTIONS = ['What happened at the door today?', 'Who is at the door right now?', 'Where is Azhad?', 'Switch to High security'];
+const SUGGESTIONS = ['What happened at the door today?', 'Who is at the door right now?', 'Where is Azhad?', 'Turn security off until midnight for a party'];
 
 /** Slide-over assistant panel, opened from the top bar on every page. */
 export function ChatPanel() {

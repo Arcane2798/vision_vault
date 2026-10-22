@@ -152,7 +152,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         await incidentService.setStatus(m[1], status, notes);
         notifyDataChanged('incidents');
       } else if (action.method === 'PUT' && path === '/security') {
-        await security.update(body as SecurityUpdate);
+        if (body.level !== undefined && body.level !== 'on' && body.level !== 'off') throw new Error(`Unknown security setting "${String(body.level)}" (use on or off).`);
+        const patch: SecurityUpdate = {};
+        if (body.level !== undefined) patch.level = body.level as SecurityUpdate['level'];
+        if ('offUntil' in body) patch.offUntil = (body.offUntil as string | null) ?? null;
+        await security.update(patch);
       } else if (action.method === 'PATCH' && (m = path.match(/^\/people\/(\d+)$/))) {
         await peopleService.update(Number(m[1]), body as PersonUpdate);
         notifyDataChanged('people');

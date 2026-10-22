@@ -75,16 +75,12 @@ export const cameraStatusLabel: Record<CameraStatus, string> = {
   offline: 'Offline',
 };
 
-export const securityLevelLabel: Record<SecurityLevel, string> = { off: 'Off', normal: 'Normal', high: 'High' };
+export const securityLevelLabel: Record<SecurityLevel, string> = { on: 'On', off: 'Off' };
 
-/** True when the away-from-home dates are what puts the engine in High right now. */
-export const scheduleHighActive = (s: SecuritySettings) => s.highReason !== null && s.level !== 'high';
-
-/** "High (away from home until 28 Oct, 12:00)" while the away dates apply, else the level name. */
+/** "Off until 01:00", "Off" or "On". */
 export function effectiveLevelText(s: SecuritySettings): string {
-  if (s.effectiveLevel === 'off') return s.offUntil ? `Off until ${formatUntil(s.offUntil)}` : 'Off';
-  if (!scheduleHighActive(s)) return securityLevelLabel[s.effectiveLevel];
-  return `High (away from home${s.away.to ? ` until ${shortDateTime.format(new Date(s.away.to))}` : ''})`;
+  if (s.effectiveLevel !== 'off') return 'On';
+  return s.offUntil ? `Off until ${formatUntil(s.offUntil)}` : 'Off';
 }
 
 /** /api/status peopleInView kinds -> display text (same meaning as the live-frame colours). */
