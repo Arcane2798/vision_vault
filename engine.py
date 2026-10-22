@@ -672,7 +672,7 @@ class VisionEngine:
                 for t, c, p in zip(ids, classes, confs):
                     if c == 0 and p >= params["person_conf"]:
                         self.confirmed.add(t)
-                persons = [(b, t) for b, t, c in zip(boxes, ids, classes)
+                persons = [(b, t, p) for b, t, c, p in zip(boxes, ids, classes, confs)
                            if c == 0 and t in self.confirmed]
                 items = [(ITEM_CLASSES[c], tuple(int(v) for v in b), p)
                          for b, c, p in zip(boxes, classes, confs)
@@ -683,7 +683,7 @@ class VisionEngine:
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, ITEM_COLOR, 2)
                 item_boxes = [(label, box) for label, box, _ in items]
 
-                for (x1, y1, x2, y2), tid in persons:
+                for (x1, y1, x2, y2), tid, det_conf in persons:
                     x1, y1 = max(0, x1), max(0, y1)
                     x2, y2 = min(frame_w, x2), min(frame_h, y2)
                     person_w, person_h = x2 - x1, y2 - y1
@@ -793,7 +793,8 @@ class VisionEngine:
                     color, label = STYLE[kind]
                     self._draw_trail(frame, self.trails.get(tid), color, kind == UNKNOWN)
                     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                    cv2.putText(frame, f"{label.format(name=name)} #{tid}",
+                    # person detection score this frame (weak = kept by tracking, see TRACK_LOW_CONF)
+                    cv2.putText(frame, f"{label.format(name=name)} #{tid} {det_conf:.2f}",
                                 (x1, max(20, y1 - 8)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
