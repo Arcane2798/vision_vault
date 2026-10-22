@@ -216,3 +216,19 @@ def test_live_camera_with_a_recording(client, tmp_path, monkeypatch):
     assert r.status_code == 200, r.text
     door = next(c for c in r.json()["cameras"] if c["id"] == "cam-01")
     assert door["live"] is True and door["videoFound"] is True and door["videoDuration"] == 2.0
+
+
+def test_map_video_upload_locked_file_409(client, tmp_path, monkeypatch):
+    """Windows locks a video the engine is playing: a clear 409, not a 500 (seen by the browser as 'unreachable')."""
+    import api
+    monkeypatch.setattr(house, "MAP_FILE", tmp_path / "m.json")
+    monkeypatch.setattr(house, "VIDEO_DIR", tmp_path / "videos")
+    (tmp_path / "m.json").write_text(json.dumps(CFG))
+
+    def locked(src, dst):
+        raise PermissionError(32, "The process cannot access the file")
+    monkeypatch.setattr(api.os, "replace", locked)
+    r = client.post("/api/map/cameras/k/video",
+                    files={"video": ("k.mp4", _tiny_video(tmp_path / "src.mp4"), "video/mp4")})
+    assert r.status_code == 409 and "in use" in r.json()["detail"]
+    assert not list((tmp_path / "videos").glob(".upload_*"))

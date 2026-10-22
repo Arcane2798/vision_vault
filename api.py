@@ -213,7 +213,11 @@ async def _receive_video(video: UploadFile, dest: Path):
                 f.write(chunk)
         if not await asyncio.to_thread(_readable_video, tmp):
             raise HTTPException(400, "Could not read that video. Try an .mp4 (H.264) file.")
-        os.replace(tmp, dest)
+        try:
+            os.replace(tmp, dest)
+        except PermissionError:      # Windows: the file is open, e.g. playing on the Test video page
+            raise HTTPException(409, f"{dest.name} is in use (is it playing as the test video?). "
+                                     "Switch the camera back on the Test video page, then upload again.")
     finally:
         tmp.unlink(missing_ok=True)
 

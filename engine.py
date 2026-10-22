@@ -601,6 +601,7 @@ class VisionEngine:
                         self.progress = 1.0
                         self.unknown_count = 0
                         self.in_view = []
+                    cap.release()       # unlock the file (Windows) so it can be replaced by an upload
                     continue
                 failed_reads += 1
                 if failed_reads % 100 == 1:
