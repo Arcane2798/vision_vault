@@ -232,3 +232,13 @@ def test_map_video_upload_locked_file_409(client, tmp_path, monkeypatch):
                     files={"video": ("k.mp4", _tiny_video(tmp_path / "src.mp4"), "video/mp4")})
     assert r.status_code == 409 and "in use" in r.json()["detail"]
     assert not list((tmp_path / "videos").glob(".upload_*"))
+
+
+def test_verify_identity_releases_a_swapped_track():
+    v = house.verify_identity
+    assert v("unknown", "Raju", 0, 2) == ("Raju", 0)        # first match names the track
+    assert v("Raju", "Raju", 1, 2) == ("Raju", 0)           # agreement resets the count
+    assert v("Raju", "Chong", 0, 2) == ("Raju", 1)          # one odd check is not enough
+    assert v("Raju", "Chong", 1, 2) == ("Chong", 0)         # second in a row: the track is Chong now
+    assert v("Raju", "unknown", 1, 2) == ("Raju", 2)        # a turned face is not a stranger yet
+    assert v("Raju", "unknown", 5, 2) == ("unknown", 0)     # six unmatched faces in a row are

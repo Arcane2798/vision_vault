@@ -21,6 +21,12 @@ TIMELINE_FILE = Path("house_map_timeline.json")
 VIDEO_DIR = Path("test_videos")
 ANNOTATED_DIR = Path("map_videos")   # processed copies with person boxes, for the CCTV wall
 SAMPLE_FPS = 4.0          # frames per second of each recorded video that are analysed
+# a named track whose face keeps disagreeing: switch to another enrolled person after VERIFY_FAILS
+# (engine.py) checks in a row, to "unknown" only after this many. Side and turned faces often
+# score below the threshold; tested Thu 22 Oct on the owner's three room videos: releasing to
+# unknown after 2 checks turned 25 resident sightings in the living room into "unknown", after 6
+# only 5, and the front-door Raju -> Chong track swap is fixed either way.
+UNKNOWN_FAILS = 6
 SEEN_WINDOW = 1.5         # a camera sample counts for this many seconds of replay time
 MAX_OFFSET = 3600.0       # a camera's video may start up to an hour into the replay
 
@@ -325,7 +331,7 @@ def process_videos(engine, cfg, progress=lambda cam, p: None) -> dict:
         total = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 1
         step = max(1, round(src_fps / SAMPLE_FPS))
         yolo = YOLO("yolov8n.pt")
-        identity, samples, idx = {}, [], 0
+        identity, fails, samples, idx = {}, {}, [], 0   # fails: track -> face mismatches in a row
         boxes = []                # [(x1, y1, x2, y2, colour, label)] from the latest analysed frame
         raw = ANNOTATED_DIR / f"{cam['id']}_{stamp}.raw.mp4"
         writer = None
@@ -351,15 +357,18 @@ def process_videos(engine, cfg, progress=lambda cam, p: None) -> dict:
             if res.boxes.id is not None:
                 for (x1, y1, x2, y2), tid in zip(res.boxes.xyxy.cpu().numpy().astype(int),
                                                  res.boxes.id.int().cpu().tolist()):
-                    if identity.get(tid, "unknown") == "unknown":
-                        crop = full[int(y1 * scale):int((y1 + (y2 - y1) * 0.55) * scale),
-                                    int(x1 * scale):int(x2 * scale)]
-                        faces = [f for f in (engine.face_app.get(crop) if crop.size else [])
-                                 if f.det_score >= eng.MIN_DET_SCORE
-                                 and f.bbox[2] - f.bbox[0] >= eng.MIN_FACE_PX]
-                        if faces:
-                            best = max(faces, key=lambda f: f.bbox[2] - f.bbox[0])
-                            identity[tid] = engine._identify(best.normed_embedding, known, thresh)[0]
+                    # faces are checked on every analysed frame, also once a name is locked:
+                    # ByteTrack can hand a track to the next person through the same spot
+                    crop = full[int(y1 * scale):int((y1 + (y2 - y1) * 0.55) * scale),
+                                int(x1 * scale):int(x2 * scale)]
+                    faces = [f for f in (engine.face_app.get(crop) if crop.size else [])
+                             if f.det_score >= eng.MIN_DET_SCORE
+                             and f.bbox[2] - f.bbox[0] >= eng.MIN_FACE_PX]
+                    if faces:
+                        best = max(faces, key=lambda f: f.bbox[2] - f.bbox[0])
+                        match = engine._identify(best.normed_embedding, known, thresh)[0]
+                        identity[tid], fails[tid] = verify_identity(
+                            identity.get(tid, "unknown"), match, fails.get(tid, 0), eng.VERIFY_FAILS)
                     name = identity.get(tid, "unknown")
                     decision = classify_person(name, people.get(name), time.time())
                     seen.append({"name": name, "kind": kind_of.get(decision, "unknown")})
@@ -382,6 +391,18 @@ def process_videos(engine, cfg, progress=lambda cam, p: None) -> dict:
                 print(f"[map] could not encode the CCTV video for {cam['id']}: {e}")
             raw.unlink(missing_ok=True)
     return {"processedAt": time.time(), "cameras": out, "videos": videos}
+
+
+def verify_identity(current: str, match: str, fails: int, max_fails: int,
+                    max_unknown_fails: int = UNKNOWN_FAILS) -> tuple:
+    """(name, fails) after a face check on a track named `current` gave `match`. An unnamed
+    track takes the match at once; a named one keeps its name until checks in a row disagree:
+    `max_fails` of them to become another person, `max_unknown_fails` to become "unknown"."""
+    if current == "unknown" or match == current:
+        return match, 0
+    if fails + 1 >= (max_unknown_fails if match == "unknown" else max_fails):
+        return match, 0
+    return current, fails + 1
 
 
 def _draw_boxes(cv2, frame, boxes):
