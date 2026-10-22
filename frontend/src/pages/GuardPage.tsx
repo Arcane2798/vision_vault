@@ -63,7 +63,7 @@ export default function GuardPage() {
   );
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div data-theme="dark" className="min-h-screen bg-black text-white">
       <header className="sticky top-0 z-20 border-b border-line bg-black/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
@@ -108,7 +108,7 @@ export default function GuardPage() {
 
       <main className="mx-auto max-w-6xl space-y-4 px-4 pb-20 pt-4 sm:pt-6">
         {alerts.error && alerts.data && (
-          <p role="status" className="flex items-center gap-2 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-amber-200">
+          <p role="status" className="flex items-center gap-2 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn-fg">
             <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
             Connection lost — retrying every {POLL_MS / 1000} s. {alerts.error.message}
           </p>
@@ -163,7 +163,7 @@ function SoundHint({ on }: { on: boolean }) {
     </span>
   ) : (
     // any click on the page enables sound; this button just gives the click a target
-    <button type="button" className="inline-flex items-center gap-1 rounded-full border border-warn/50 px-2.5 py-1 text-xs font-medium text-amber-200 hover:bg-warn/10">
+    <button type="button" className="inline-flex items-center gap-1 rounded-full border border-warn/50 px-2.5 py-1 text-xs font-medium text-warn-fg hover:bg-warn/10">
       <VolumeX className="h-4 w-4" aria-hidden /> Click to enable sound
     </button>
   );

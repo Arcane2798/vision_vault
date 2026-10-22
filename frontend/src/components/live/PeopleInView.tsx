@@ -3,10 +3,10 @@ import { cn, inViewKindLabel, inViewName } from '@/utils/format';
 
 /** Same colours as the boxes drawn into the live frame (see the legend on Live Monitoring). */
 export const IN_VIEW_STYLE: Record<InViewKind, { dot: string; chip: string }> = {
-  family: { dot: 'bg-green-500', chip: 'border-green-500/40 bg-green-500/10 text-green-300' },
-  guest_allowed: { dot: 'bg-cyan-400', chip: 'border-cyan-400/40 bg-cyan-400/10 text-cyan-300' },
-  guest_outside: { dot: 'bg-orange-400', chip: 'border-orange-400/40 bg-orange-400/10 text-orange-300' },
-  unknown: { dot: 'bg-red-500', chip: 'border-red-500/40 bg-red-500/10 text-red-300' },
+  family: { dot: 'bg-ok', chip: 'border-ok/40 bg-ok/10 text-ok-fg' },
+  guest_allowed: { dot: 'bg-visitor', chip: 'border-visitor/40 bg-visitor/10 text-visitor-fg' },
+  guest_outside: { dot: 'bg-caution', chip: 'border-caution/40 bg-caution/10 text-caution-fg' },
+  unknown: { dot: 'bg-danger', chip: 'border-danger/40 bg-danger/10 text-danger-fg' },
 };
 
 /** Chips for everyone in view right now: colour dot + name, with the kind as text for screen readers. */

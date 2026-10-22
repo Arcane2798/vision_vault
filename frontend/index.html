@@ -1,13 +1,41 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Vision Vault</title>
+    <!-- apply the saved theme (or the OS preference) before first paint: no flash of the wrong theme -->
+    <script>
+      (function () {
+        var t;
+        try { t = localStorage.getItem('vv-theme'); } catch (e) {}
+        if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
+    <style>
+      /* boot screen shown until React mounts (self-contained: the app CSS is not loaded yet) */
+      .vv-boot { position: fixed; inset: 0; display: grid; place-items: center; background: #0a0c0f; }
+      [data-theme='light'] .vv-boot { background: #f3f5f7; }
+      .vv-boot-frame { position: relative; width: 56px; height: 40px; overflow: hidden; --c: #a6aeb8;
+        background: linear-gradient(var(--c),var(--c)) 0 0/12px 1.5px, linear-gradient(var(--c),var(--c)) 0 0/1.5px 12px,
+          linear-gradient(var(--c),var(--c)) 100% 0/12px 1.5px, linear-gradient(var(--c),var(--c)) 100% 0/1.5px 12px,
+          linear-gradient(var(--c),var(--c)) 0 100%/12px 1.5px, linear-gradient(var(--c),var(--c)) 0 100%/1.5px 12px,
+          linear-gradient(var(--c),var(--c)) 100% 100%/12px 1.5px, linear-gradient(var(--c),var(--c)) 100% 100%/1.5px 12px;
+        background-repeat: no-repeat; }
+      [data-theme='light'] .vv-boot-frame { --c: #475467; }
+      .vv-boot-frame::after { content: ''; position: absolute; inset: 0; height: 30%; background: linear-gradient(180deg, transparent, rgba(45, 184, 166, 0.45)); animation: vv-scan 1.6s ease-in-out infinite alternate; }
+      @keyframes vv-scan { from { transform: translateY(-100%); } to { transform: translateY(340%); } }
+      @media (prefers-reduced-motion: reduce) { .vv-boot-frame::after { animation: none; } }
+    </style>
   </head>
   <body class="bg-surface-0 text-ink-1 antialiased">
-    <div id="root"></div>
+    <div id="root">
+      <div class="vv-boot" role="status" aria-label="Loading Vision Vault">
+        <div class="vv-boot-frame"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

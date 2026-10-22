@@ -60,7 +60,7 @@ export default function TestVideoPage() {
               <ErrorState error={cameras.error} onRetry={cameras.reload} />
             </Card>
           ) : camera ? (
-            <CameraFeed camera={camera} />
+            <CameraFeed camera={camera} testVideo={source.data?.kind === 'file'} />
           ) : (
             <Card>
               <EmptyState title="No video feed" message="The backend did not report a camera. Check that it is running." />
@@ -127,7 +127,7 @@ function NowPlaying({ source, switching, onSwitch }: { source: VideoSource; swit
   if (source.kind === 'camera') {
     return (
       <Card className="flex items-center gap-3 px-4 py-3">
-        <Video className="h-5 w-5 text-green-400" aria-hidden />
+        <Video className="h-5 w-5 text-ok-fg" aria-hidden />
         <p className="text-sm">
           Watching the <span className="font-medium">live camera</span>. Pick a recorded video to test with it.
         </p>
@@ -138,7 +138,7 @@ function NowPlaying({ source, switching, onSwitch }: { source: VideoSource; swit
   return (
     <Card className="space-y-3 px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
-        {source.finished ? <CheckCircle2 className="h-5 w-5 text-green-400" aria-hidden /> : <Film className="h-5 w-5 text-brand" aria-hidden />}
+        {source.finished ? <CheckCircle2 className="h-5 w-5 text-ok-fg" aria-hidden /> : <Film className="h-5 w-5 text-brand" aria-hidden />}
         <p className="min-w-0 flex-1 truncate text-sm">
           {source.finished ? 'Finished: ' : 'Playing: '}
           <span className="font-medium">{source.name}</span>
@@ -154,7 +154,7 @@ function NowPlaying({ source, switching, onSwitch }: { source: VideoSource; swit
         </Button>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-        <div className={cn('h-full rounded-full transition-[width]', source.finished ? 'bg-green-500' : 'bg-brand')} style={{ width: `${source.finished ? 100 : pct}%` }} />
+        <div className={cn('h-full rounded-full transition-[width]', source.finished ? 'bg-ok' : 'bg-brand')} style={{ width: `${source.finished ? 100 : pct}%` }} />
       </div>
       {source.finished && <p className="text-xs text-ink-3">Any incidents it raised are on the Incidents page. The live camera stays off until you switch back.</p>}
     </Card>
@@ -192,7 +192,7 @@ function UploadCard({ onUploaded }: { onUploaded: (name: string) => void }) {
           type="file"
           accept="video/*,.mp4,.mov,.avi,.mkv,.webm"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-ink-2 file:mr-3 file:rounded-lg file:border file:border-line file:bg-surface-3 file:px-3 file:py-1.5 file:text-sm file:text-ink-1 hover:file:bg-[#2b3848]"
+          className="block w-full text-sm text-ink-2 file:mr-3 file:rounded-lg file:border file:border-line file:bg-surface-3 file:px-3 file:py-1.5 file:text-sm file:text-ink-1 hover:file:bg-surface-4"
         />
         {file && <p className="text-xs text-ink-3">{formatSize(file.size)}</p>}
         {error && (

@@ -10,7 +10,7 @@ import type { IncidentQuery, IncidentStatus } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { EmptyState, ErrorState, LoadingState } from '@/components/ui/States';
+import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui/States';
 import { IncidentFilters } from '@/components/incidents/IncidentFilters';
 import { IncidentList } from '@/components/incidents/IncidentList';
 
@@ -85,13 +85,13 @@ export default function IncidentsPage() {
         }
       />
 
-      <Card className="mb-4 p-4">
+      <Card className="mb-4 p-3 sm:p-4">
         <IncidentFilters value={query} cameras={cameras.data ?? []} onChange={setQuery} />
       </Card>
 
-      <Card>
+      <Card className="overflow-hidden">
         {incidents.initialLoading ? (
-          <LoadingState label="Loading incidents…" />
+          <ListSkeleton rows={6} />
         ) : incidents.error && !incidents.data ? (
           <ErrorState error={incidents.error} onRetry={incidents.reload} />
         ) : list.length === 0 ? (

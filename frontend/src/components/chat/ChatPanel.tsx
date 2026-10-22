@@ -73,7 +73,7 @@ export function ChatPanel() {
         )}
       >
         <header className="flex items-start gap-3 border-b border-line px-4 py-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand/15 text-blue-300" aria-hidden>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand/15 text-brand-fg" aria-hidden>
             <Bot className="h-5 w-5" />
           </span>
           <div className="min-w-0 flex-1">
@@ -175,7 +175,7 @@ function Entry({ entry }: { entry: ChatEntry }) {
     return (
       <div className="flex flex-col items-end">
         <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-brand/20 px-3 py-2 text-sm text-ink-1">{entry.content}</p>
-        {entry.failed && <span className="mt-1 text-[11px] text-red-300">Not sent</span>}
+        {entry.failed && <span className="mt-1 text-[11px] text-danger-fg">Not sent</span>}
       </div>
     );
   }
@@ -201,21 +201,21 @@ function Entry({ entry }: { entry: ChatEntry }) {
 function Notice({ entry }: { entry: Extract<ChatEntry, { role: 'notice' }> }) {
   if (entry.tone === 'not_configured') {
     return (
-      <div role="alert" className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-amber-200">
+      <div role="alert" className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-warn-fg">
         <p className="flex items-center gap-2 font-medium">
           <KeyRound className="h-4 w-4 shrink-0" aria-hidden />
           {ASSISTANT_NAME} is not set up yet
         </p>
         {/* backend detail, e.g. "Chat is not configured: add GEMINI_API_KEY to .env" */}
         <p className="mt-1.5 break-words rounded bg-black/30 px-2 py-1 font-mono text-xs">{entry.content || 'The owner has not added an AI key to the backend yet.'}</p>
-        <p className="mt-1.5 text-xs text-amber-200/80">The owner adds the key and restarts the backend. Everything else in the dashboard works without it.</p>
+        <p className="mt-1.5 text-xs text-warn-fg/80">The owner adds the key and restarts the backend. Everything else in the dashboard works without it.</p>
       </div>
     );
   }
   const ok = entry.tone === 'ok';
   const Icon = ok ? CheckCircle2 : AlertTriangle;
   return (
-    <p role={ok ? 'status' : 'alert'} className={cn('flex items-start gap-2 rounded-lg border px-3 py-2 text-xs', ok ? 'border-ok/40 bg-ok/10 text-green-300' : 'border-danger/40 bg-danger/10 text-red-300')}>
+    <p role={ok ? 'status' : 'alert'} className={cn('flex items-start gap-2 rounded-lg border px-3 py-2 text-xs', ok ? 'border-ok/40 bg-ok/10 text-ok-fg' : 'border-danger/40 bg-danger/10 text-danger-fg')}>
       <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
       {entry.content}
     </p>

@@ -26,7 +26,7 @@ export function Modal({ open, title, onClose, children, footer }: ModalProps) {
       ref={ref}
       onCancel={(e) => (e.preventDefault(), onClose())}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="w-[calc(100%-2rem)] max-w-lg rounded-xl border border-line bg-surface-1 p-0 text-ink-1 backdrop:bg-black/60"
+      className="w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-line bg-surface-1 p-0 text-ink-1 shadow-pop backdrop:bg-black/60 backdrop:backdrop-blur-sm"
     >
       {open && (
         <div>

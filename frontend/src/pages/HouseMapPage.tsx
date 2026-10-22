@@ -126,7 +126,7 @@ export default function HouseMapPage() {
                   setMode(m);
                   setPlaying(false);
                 }}
-                className={cn('rounded-md px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40', mode === m ? 'bg-brand text-white' : 'text-ink-2 hover:text-ink-1')}
+                className={cn('rounded-md px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40', mode === m ? 'bg-brand text-brand-on' : 'text-ink-2 hover:text-ink-1')}
                 title={m === 'replay' && !timeline?.ready ? 'Process the recorded videos first' : undefined}
               >
                 {m === 'live' ? 'Live' : 'Replay recordings'}
@@ -137,7 +137,7 @@ export default function HouseMapPage() {
       />
 
       <p className="mb-4 flex items-start gap-2 rounded-lg border border-line bg-surface-2/60 px-3 py-2 text-xs text-ink-2">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-300" aria-hidden />
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand-fg" aria-hidden />
         {hasLive
           ? 'Concept demo: a real home needs one camera per room. Here the live front-door camera is combined with recorded videos of the other rooms.'
           : 'Concept demo: every camera plays a recorded video, so the whole house can be replayed together. Upload one video per camera, press Process videos, then Play.'}
@@ -156,7 +156,7 @@ export default function HouseMapPage() {
               subtitle={
                 mode === 'live' ? (
                   <span className="inline-flex items-center gap-1.5">
-                    <Radio className="h-3.5 w-3.5 text-red-400" aria-hidden /> Live
+                    <Radio className="h-3.5 w-3.5 text-danger-fg" aria-hidden /> Live
                   </span>
                 ) : (
                   `Replay ${fmt(t)} / ${fmt(duration)}`
@@ -180,7 +180,7 @@ export default function HouseMapPage() {
                     step={0.25}
                     value={t}
                     onChange={(e) => setT(Number(e.target.value))}
-                    className="min-w-40 flex-1 accent-blue-500"
+                    className="min-w-40 flex-1 accent-brand"
                     aria-label="Replay time"
                   />
                   <span className="w-24 text-right text-xs tabular-nums text-ink-3">
@@ -195,7 +195,7 @@ export default function HouseMapPage() {
                   </div>
                 </div>
               )}
-              {stateError && <p className="mt-3 text-xs text-red-300">{stateError}</p>}
+              {stateError && <p className="mt-3 text-xs text-danger-fg">{stateError}</p>}
             </div>
           </Card>
 
@@ -221,7 +221,7 @@ function FloorPlan({ map, state }: { map: HouseMap; state: MapState | null }) {
   const paths = (state?.safePaths ?? []).filter((p) => p.path && p.path.length > 1);
 
   return (
-    <svg viewBox={`-0.2 -0.2 ${W + 0.4} ${H + 0.4}`} className="h-auto w-full rounded-lg bg-surface-2" role="img" aria-label="Floor plan with people and safe paths">
+    <svg data-theme="dark" viewBox={`-0.2 -0.2 ${W + 0.4} ${H + 0.4}`} className="h-auto w-full rounded-xl bg-surface-2" role="img" aria-label="Floor plan with people and safe paths">
       <defs>
         <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80" />
@@ -357,7 +357,7 @@ function People({ room, people }: { room: MapRoom; people: MapPerson[] }) {
 function SafePathCard({ state, map }: { state: MapState | null; map: HouseMap }) {
   const intruders = state?.intruderRooms ?? [];
   return (
-    <Card className={intruders.length ? 'border-red-500/50' : undefined}>
+    <Card className={intruders.length ? 'border-danger/50' : undefined}>
       <CardHeader title="Safe way out" subtitle={intruders.length ? `Intruder in: ${intruders.map((r) => roomName(map, r)).join(', ')}` : 'Shown when an intruder is on the map'} />
       <div className="p-4">
         {!intruders.length ? (
@@ -367,7 +367,7 @@ function SafePathCard({ state, map }: { state: MapState | null; map: HouseMap })
         ) : (
           <ul className="space-y-3">
             {state.safePaths.map((p) => (
-              <li key={p.name} className={cn('rounded-lg border px-3 py-2 text-sm', p.path ? 'border-green-500/40 bg-green-500/10' : 'border-red-500/40 bg-red-500/10')}>
+              <li key={p.name} className={cn('rounded-lg border px-3 py-2 text-sm', p.path ? 'border-ok/40 bg-ok/10' : 'border-danger/40 bg-danger/10')}>
                 <p className="flex items-center gap-1.5 font-semibold">
                   <Route className="h-4 w-4" aria-hidden /> {p.name} <span className="font-normal text-ink-3">· in the {roomName(map, p.from)}</span>
                 </p>

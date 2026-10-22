@@ -51,14 +51,14 @@ function WindowFields({ from, to, onFrom, onTo, error }: { from: string; to: str
           {(id) => <Input id={id} type="datetime-local" className="[color-scheme:dark]" value={to} onChange={(e) => onTo(e.target.value)} aria-invalid={!!error} />}
         </Field>
       </div>
-      <p className={error ? 'text-xs text-red-300' : 'text-xs text-ink-3'}>{error ?? 'Leave a field empty for no limit on that side.'}</p>
+      <p className={error ? 'text-xs text-danger-fg' : 'text-xs text-ink-3'}>{error ?? 'Leave a field empty for no limit on that side.'}</p>
     </fieldset>
   );
 }
 
 function FormError({ message }: { message: string | null }) {
   return message ? (
-    <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-red-300">
+    <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger-fg">
       {message}
     </p>
   ) : null;
@@ -125,7 +125,7 @@ export function AddPersonModal({ onClose, onSubmit, initial, intro }: AddPersonM
       }
     >
       <form id="add-person-form" className="space-y-4" onSubmit={submit} noValidate>
-        {intro && <div className="rounded-lg border border-brand/40 bg-brand/10 px-3 py-2 text-sm text-blue-200">{intro}</div>}
+        {intro && <div className="rounded-lg border border-brand/40 bg-brand/10 px-3 py-2 text-sm text-brand-fg">{intro}</div>}
         <Field label="Name" error={touched ? nameError : undefined} hint="Shown on the live video when recognised.">
           {(id, describedBy) => <Input id={id} aria-describedby={describedBy} aria-invalid={touched && !!nameError} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Ali" autoFocus={!initial?.name} />}
         </Field>

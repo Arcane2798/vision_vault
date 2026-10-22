@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Cctv, Eye, EyeOff, LogIn } from 'lucide-react';
+import { Eye, EyeOff, LogIn } from 'lucide-react';
 import { config, isMock } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
 import { MOCK_USERS } from '@/mocks/data';
 import { Button } from '@/components/ui/Button';
 import { Field, Input } from '@/components/ui/Field';
+import { BrandMark } from '@/components/layout/BrandMark';
 
 export default function LoginPage() {
   const { user, login } = useAuth();
@@ -41,14 +42,12 @@ export default function LoginPage() {
     <div className="grid min-h-screen place-items-center px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
-          <span className="grid h-12 w-12 place-items-center rounded-xl bg-brand">
-            <Cctv className="h-6 w-6 text-white" aria-hidden />
-          </span>
+          <BrandMark className="h-12 w-12 text-ink-1" />
           <h1 className="mt-3 text-xl font-semibold">{config.appName}</h1>
           <p className="text-sm text-ink-3">Sign in to monitor cameras and review incidents</p>
         </div>
 
-        <form onSubmit={submit} noValidate className="space-y-4 rounded-xl border border-line bg-surface-1 p-6">
+        <form onSubmit={submit} noValidate className="space-y-4 rounded-2xl border border-line bg-surface-1 p-6 shadow-panel">
           <Field label="Email" error={errors.email}>
             {(id, d) => (
               <Input id={id} type="email" autoComplete="username" aria-describedby={d} aria-invalid={!!errors.email} value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
@@ -74,7 +73,7 @@ export default function LoginPage() {
             )}
           </Field>
           {errors.form && (
-            <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-red-300">
+            <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger-fg">
               {errors.form}
             </p>
           )}
@@ -84,13 +83,13 @@ export default function LoginPage() {
         </form>
 
         {isMock && (
-          <div className="mt-4 rounded-xl border border-warn/30 bg-warn/10 p-4 text-xs text-amber-200">
+          <div className="mt-4 rounded-xl border border-warn/30 bg-warn/10 p-4 text-xs text-warn-fg">
             <p className="mb-2 font-semibold">Sample accounts (mock mode only)</p>
             <ul className="space-y-1.5">
               {MOCK_USERS.map((u) => (
                 <li key={u.id}>
                   <button type="button" className="text-left hover:underline" onClick={() => (setEmail(u.email), setPassword(u.password))}>
-                    <span className="font-mono">{u.email}</span> / <span className="font-mono">{u.password}</span> <span className="text-amber-200/70">({u.role})</span>
+                    <span className="font-mono">{u.email}</span> / <span className="font-mono">{u.password}</span> <span className="text-warn-fg/70">({u.role})</span>
                   </button>
                 </li>
               ))}

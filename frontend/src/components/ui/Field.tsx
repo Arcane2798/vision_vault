@@ -2,7 +2,7 @@ import { forwardRef, useId, type InputHTMLAttributes, type ReactNode, type Selec
 import { cn } from '@/utils/format';
 
 const control =
-  'h-10 w-full rounded-lg border border-line bg-surface-2 px-3 text-sm text-ink-1 placeholder:text-ink-3 ' +
+  'h-10 w-full rounded-xl border border-line bg-surface-2 px-3 text-sm text-ink-1 placeholder:text-ink-3 ' +
   'focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30 aria-[invalid=true]:border-danger';
 
 interface FieldProps {
@@ -22,7 +22,7 @@ export function Field({ label, error, hint, children }: FieldProps) {
       </label>
       {children(id, msgId)}
       {(error || hint) && (
-        <p id={msgId} className={cn('text-xs', error ? 'text-red-300' : 'text-ink-3')}>
+        <p id={msgId} className={cn('text-xs', error ? 'text-danger-fg' : 'text-ink-3')}>
           {error || hint}
         </p>
       )}

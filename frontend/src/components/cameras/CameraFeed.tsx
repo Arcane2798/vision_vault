@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
-import { VideoOff, WifiOff } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { Maximize2, Minimize2, VideoOff, WifiOff } from 'lucide-react';
 import { isMock } from '@/config/env';
 import { useRealtime } from '@/context/RealtimeContext';
 import type { Camera } from '@/types';
 import { cn, formatTime } from '@/utils/format';
 import { CameraStatusBadge } from '@/components/ui/StatusBadge';
+import { Viewfinder } from '@/components/ui/States';
 import { DetectionList, DetectionOverlay } from './DetectionOverlay';
 
 interface CameraFeedProps {
@@ -12,29 +13,38 @@ interface CameraFeedProps {
   compact?: boolean;
   onSelect?: () => void;
   selected?: boolean;
+  /** extra controls in the caption bar (e.g. "View incidents") */
+  actions?: ReactNode;
+  /** the engine is playing a recorded test video (GET /api/source kind "file"), not the camera */
+  testVideo?: boolean;
 }
 
 /**
- * One CCTV tile: HTML5 video (or a labelled sample scene in mock mode), live AI overlay,
- * connection status, and a clear message when the stream is unavailable.
+ * One CCTV tile: the MJPEG stream (or a labelled sample scene in mock mode), AI overlay,
+ * connection status, fullscreen, and a clear message when the stream is unavailable.
+ * Overlays sit on the video, so they keep fixed dark styling in both themes.
  */
-export function CameraFeed({ camera, compact, onSelect, selected }: CameraFeedProps) {
+export function CameraFeed({ camera, compact, onSelect, selected, actions, testVideo }: CameraFeedProps) {
   const { detectionsFor, cameraStatus } = useRealtime();
   const status = cameraStatus[camera.id] ?? camera.status;
   const [videoError, setVideoError] = useState(false);
   const detections = status === 'offline' ? [] : detectionsFor(camera.id);
   const now = useClock();
+  const media = useRef<HTMLDivElement>(null);
+  const fullscreen = useFullscreen(media);
 
   useEffect(() => setVideoError(false), [camera.streamUrl]);
 
   const unavailable = status === 'offline' || (!camera.streamUrl && !isMock) || videoError;
+  // only the backend's camera stream is called LIVE; a test video and mock mode say what they are
+  const badge = status === 'offline' ? 'NO SIGNAL' : isMock ? 'SAMPLE' : testVideo ? 'TEST VIDEO' : 'LIVE';
 
   return (
     <figure
       className={cn(
-        'group overflow-hidden rounded-xl border bg-surface-1 transition-colors',
+        'group overflow-hidden rounded-2xl border bg-surface-1 shadow-panel transition-colors',
         selected ? 'border-brand ring-2 ring-brand/40' : 'border-line',
-        onSelect && 'cursor-pointer hover:border-ink-3',
+        onSelect && 'cursor-pointer hover:border-line-strong',
       )}
       onClick={onSelect}
       onKeyDown={(e) => onSelect && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onSelect())}
@@ -42,10 +52,10 @@ export function CameraFeed({ camera, compact, onSelect, selected }: CameraFeedPr
       role={onSelect ? 'button' : undefined}
       aria-label={onSelect ? `Open ${camera.name}` : undefined}
     >
-      <div className="relative aspect-video bg-black">
+      <div ref={media} className="relative aspect-video bg-black">
         {unavailable ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-surface-2 p-4 text-center">
-            {status === 'offline' ? <WifiOff className="h-7 w-7 text-danger" aria-hidden /> : <VideoOff className="h-7 w-7 text-ink-3" aria-hidden />}
+            {status === 'offline' ? <WifiOff className="h-7 w-7 text-danger-fg" aria-hidden /> : <VideoOff className="h-7 w-7 text-ink-3" aria-hidden />}
             <p className="text-sm font-medium">{status === 'offline' ? 'Camera offline' : 'Stream unavailable'}</p>
             {!compact && (
               <p className="max-w-xs text-xs text-ink-3">
@@ -58,13 +68,26 @@ export function CameraFeed({ camera, compact, onSelect, selected }: CameraFeedPr
             )}
           </div>
         ) : camera.streamUrl && isMjpeg(camera.streamUrl) ? (
-          // Vision Vault streams MJPEG (multipart JPEG), which <video> cannot play but <img> can
-          <img key={camera.streamUrl} src={camera.streamUrl} alt={`Live feed from ${camera.name}`} className="h-full w-full object-cover" onError={() => setVideoError(true)} />
+          <>
+            {/* shows until the first frame paints over it */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-xs text-white/60" aria-hidden>
+              <Viewfinder size="lg" className="[--vf-c:rgb(255_255_255/0.6)]" />
+              Connecting to camera…
+            </div>
+            {/* Vision Vault streams MJPEG (multipart JPEG), which <video> cannot play but <img> can */}
+            <img
+              key={camera.streamUrl}
+              src={camera.streamUrl}
+              alt={`Live feed from ${camera.name}`}
+              className="relative h-full w-full object-contain"
+              onError={() => setVideoError(true)}
+            />
+          </>
         ) : camera.streamUrl ? (
           <video
             key={camera.streamUrl}
             src={camera.streamUrl}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
             autoPlay
             muted
             playsInline
@@ -79,21 +102,53 @@ export function CameraFeed({ camera, compact, onSelect, selected }: CameraFeedPr
         {!unavailable && <DetectionOverlay detections={detections} compact={compact} />}
         <DetectionList detections={detections} />
 
-        <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1.5 rounded bg-black/60 px-2 py-0.5 font-mono text-[11px] text-white">
-          {status !== 'offline' && <span className="h-2 w-2 animate-pulse rounded-full bg-danger" aria-hidden />}
-          {status === 'offline' ? 'NO SIGNAL' : 'LIVE'}
+        {/* viewfinder corners: the brand motif, kept faint so it never competes with the footage */}
+        {!unavailable && <div className="viewfinder pointer-events-none absolute inset-3 opacity-60 [--vf-c:rgb(255_255_255/0.45)] [--vf-l:18px]" aria-hidden />}
+
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 bg-gradient-to-b from-black/60 to-transparent p-3 font-mono text-[11px] text-white">
+          <span className="flex min-w-0 items-center gap-2">
+            <span
+              className={cn(
+                'flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 font-semibold tracking-wide',
+                badge === 'LIVE' ? 'bg-red-600' : badge === 'NO SIGNAL' ? 'bg-black/70' : 'bg-amber-400 text-black',
+              )}
+            >
+              {badge === 'LIVE' && <span className="h-1.5 w-1.5 rounded-full bg-white motion-safe:animate-pulse" aria-hidden />}
+              {badge}
+            </span>
+            {!compact && <span className="truncate opacity-90">{camera.id.toUpperCase()}</span>}
+          </span>
+          <span className="shrink-0 tabular-nums opacity-90" title="Your browser's clock">
+            {formatTime(now)}
+          </span>
         </div>
-        <div className="pointer-events-none absolute bottom-2 right-2 rounded bg-black/60 px-2 py-0.5 font-mono text-[11px] text-white">{formatTime(now)}</div>
-        {isMock && !unavailable && (
-          <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-warn/90 px-1.5 py-0.5 text-[10px] font-semibold text-black">SAMPLE FEED</div>
+
+        {!compact && !unavailable && fullscreen.supported && (
+          <button
+            type="button"
+            onClick={(e) => (e.stopPropagation(), fullscreen.toggle())}
+            className="absolute bottom-3 right-3 grid h-8 w-8 place-items-center rounded-full bg-black/55 text-white opacity-80 backdrop-blur transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+            aria-label={fullscreen.active ? 'Exit full screen' : 'Full screen'}
+            title={fullscreen.active ? 'Exit full screen' : 'Full screen'}
+          >
+            {fullscreen.active ? <Minimize2 className="h-4 w-4" aria-hidden /> : <Maximize2 className="h-4 w-4" aria-hidden />}
+          </button>
         )}
       </div>
-      <figcaption className="flex items-center justify-between gap-2 px-3 py-2">
+      <figcaption className="flex items-center justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{camera.name}</p>
-          {!compact && <p className="truncate text-xs text-ink-3">{camera.location}</p>}
+          {!compact && (
+            <p className="truncate text-xs text-ink-3">
+              <span className="font-mono">{camera.id}</span>
+              {camera.location && <> · {camera.location}</>}
+            </p>
+          )}
         </div>
-        <CameraStatusBadge status={status} />
+        <div className="flex shrink-0 items-center gap-2">
+          {actions}
+          <CameraStatusBadge status={status} />
+        </div>
       </figcaption>
     </figure>
   );
@@ -108,6 +163,20 @@ function useClock() {
     return () => clearInterval(t);
   }, []);
   return now;
+}
+
+function useFullscreen(ref: RefObject<HTMLElement>) {
+  const [active, setActive] = useState(false);
+  useEffect(() => {
+    const h = () => setActive(!!document.fullscreenElement && document.fullscreenElement === ref.current);
+    document.addEventListener('fullscreenchange', h);
+    return () => document.removeEventListener('fullscreenchange', h);
+  }, [ref]);
+  return {
+    supported: typeof document !== 'undefined' && !!document.fullscreenEnabled,
+    active,
+    toggle: () => (document.fullscreenElement ? document.exitFullscreen() : ref.current?.requestFullscreen()),
+  };
 }
 
 /** Placeholder "scene" for mock mode so the grid looks like CCTV without real footage. */

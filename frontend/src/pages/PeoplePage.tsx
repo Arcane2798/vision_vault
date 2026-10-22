@@ -119,7 +119,7 @@ export default function PeoplePage() {
       />
 
       {notice && (
-        <p role="status" className={`mb-4 rounded-lg border px-4 py-2.5 text-sm ${notice.ok ? 'border-ok/40 bg-ok/10 text-green-300' : 'border-danger/40 bg-danger/10 text-red-300'}`}>
+        <p role="status" className={`mb-4 rounded-lg border px-4 py-2.5 text-sm ${notice.ok ? 'border-ok/40 bg-ok/10 text-ok-fg' : 'border-danger/40 bg-danger/10 text-danger-fg'}`}>
           {notice.text}
         </p>
       )}

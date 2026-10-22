@@ -17,7 +17,7 @@ export function LiveStatusStrip({ status, loading, error }: Props) {
   if (error && !status) {
     return (
       <Card className="mb-4 px-4 py-3 text-sm text-ink-3" role="alert">
-        <span className="font-medium text-red-300">Live status unavailable.</span> {error.message}
+        <span className="font-medium text-danger-fg">Live status unavailable.</span> {error.message}
       </Card>
     );
   }
@@ -62,7 +62,7 @@ export function LiveStatusStrip({ status, loading, error }: Props) {
   );
 }
 
-const toneCls = { default: 'bg-brand/15 text-blue-300', danger: 'bg-danger/15 text-red-300', ok: 'bg-ok/15 text-green-300' };
+const toneCls = { default: 'bg-brand/15 text-brand-fg', danger: 'bg-danger/15 text-danger-fg', ok: 'bg-ok/15 text-ok-fg' };
 
 function Tile({ label, value, hint, icon, tone = 'default', loading }: { label: string; value: string; hint?: string; icon: ReactNode; tone?: keyof typeof toneCls; loading: boolean }) {
   return (

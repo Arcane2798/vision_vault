@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { LoadingState } from '@/components/ui/States';
+import { config } from '@/config/env';
 
 // each page is its own chunk -> faster first load
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
@@ -18,7 +19,7 @@ const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 export default function App() {
   return (
-    <Suspense fallback={<LoadingState />}>
+    <Suspense fallback={<LoadingState label={`Starting ${config.appName}…`} className="min-h-screen" />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         {/* the guard house's own screen: outside AppLayout (no sidebar, top bar or assistant) */}

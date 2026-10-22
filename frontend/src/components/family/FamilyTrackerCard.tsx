@@ -10,8 +10,8 @@ import { Card, CardHeader } from '@/components/ui/Card';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/States';
 
 const STATUS: Record<PresenceStatus, { label: string; cls: string }> = {
-  home: { label: 'Home', cls: 'border-green-500/40 bg-green-500/10 text-green-300' },
-  out: { label: 'Out', cls: 'border-amber-400/40 bg-amber-400/10 text-amber-300' },
+  home: { label: 'Home', cls: 'border-ok/40 bg-ok/10 text-ok-fg' },
+  out: { label: 'Out', cls: 'border-warn/40 bg-warn/10 text-warn-fg' },
   unknown: { label: 'Not seen yet', cls: 'border-line bg-surface-2 text-ink-3' },
 };
 
@@ -76,7 +76,7 @@ export function FamilyTrackerCard() {
                 </Button>
               </li>
             ))}
-            {error && <li className="text-xs text-red-300">{error}</li>}
+            {error && <li className="text-xs text-danger-fg">{error}</li>}
           </ul>
           <div className="lg:col-span-2">
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-3">Recent arrivals & departures</p>
@@ -108,7 +108,7 @@ function MovementRow({ mv }: { mv: Movement }) {
   const Icon = mv.name ? (arrived ? DoorOpen : DoorClosed) : UserRound;
   return (
     <li className="flex items-center gap-2 text-xs">
-      <Icon className={cn('h-3.5 w-3.5 shrink-0', arrived ? 'text-green-300' : 'text-amber-300')} aria-hidden />
+      <Icon className={cn('h-3.5 w-3.5 shrink-0', arrived ? 'text-ok-fg' : 'text-warn-fg')} aria-hidden />
       <span className="min-w-0 flex-1 truncate">
         <b className="font-medium text-ink-1">{mv.name ?? 'Someone (face not seen)'}</b> {arrived ? 'arrived' : 'left'}
         {mv.source === 'manual' && <span className="text-ink-3"> · marked by you</span>}

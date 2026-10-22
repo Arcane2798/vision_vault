@@ -103,14 +103,14 @@ export function SecurityLevelControl() {
             aria-label="Security"
             disabled={busy}
             onClick={() => (isOn ? setOffOpen(!offOpen) : turnOn())}
-            className={cn('relative h-7 w-14 shrink-0 rounded-full transition-colors disabled:cursor-wait', isOn ? 'bg-green-500' : 'bg-surface-3')}
+            className={cn('relative h-7 w-14 shrink-0 rounded-full transition-colors disabled:cursor-wait', isOn ? 'bg-ok' : 'bg-surface-3')}
           >
             <span className={cn('absolute top-0.5 h-6 w-6 rounded-full bg-white transition-all', isOn ? 'left-[1.875rem]' : 'left-0.5')} aria-hidden />
           </button>
         </div>
 
         {!isOn && !offOpen && (
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn-fg">
             <span className="min-w-0 flex-1">
               Security is off {security.offUntil ? `until ${formatUntil(security.offUntil)}` : 'until you turn it back on'} — alerts and recordings are paused.
             </span>
@@ -145,13 +145,13 @@ export function SecurityLevelControl() {
                 Cancel
               </Button>
             </div>
-            {customUntil && !customValid && <p className="text-xs text-red-300">Pick a time in the future.</p>}
+            {customUntil && !customValid && <p className="text-xs text-danger-fg">Pick a time in the future.</p>}
             <p className="text-xs text-ink-3">While off, people are still tracked on the live view, but nothing is recorded and no one is alerted.</p>
           </div>
         )}
 
         {message && (
-          <p role="status" className={message.ok ? 'text-sm text-green-300' : 'text-sm text-red-300'}>
+          <p role="status" className={message.ok ? 'text-sm text-ok-fg' : 'text-sm text-danger-fg'}>
             {message.text}
           </p>
         )}

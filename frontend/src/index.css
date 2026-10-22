@@ -2,10 +2,85 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Theme tokens (RGB channels). Dark is the primary look; light is designed separately, not inverted.
+ * index.html sets data-theme on <html> before first paint (saved choice, else the OS preference).
+ * A subtree can pin a theme with data-theme="dark" (the Guard House screen does).
+ */
 @layer base {
-  :root {
+  :root,
+  [data-theme='dark'] {
     color-scheme: dark;
+    --surface-0: 10 12 15;
+    --surface-nav: 14 16 20;
+    --surface-1: 19 22 26;
+    --surface-2: 25 29 34;
+    --surface-3: 34 39 45;
+    --surface-4: 44 50 57;
+    --line: 39 44 51;
+    --line-strong: 56 63 72;
+    --ink-1: 241 244 247;
+    --ink-2: 166 174 184;
+    --ink-3: 126 135 146;
+
+    --brand: 45 184 166;
+    --brand-soft: 20 52 49;
+    --brand-fg: 94 214 197;
+    --brand-on: 4 22 20;
+
+    --ok: 34 197 94;
+    --ok-fg: 110 231 160;
+    --warn: 245 158 11;
+    --warn-fg: 252 196 80;
+    --danger: 239 68 68;
+    --danger-fg: 252 150 150;
+    --visitor: 34 211 238;
+    --visitor-fg: 103 232 249;
+    --caution: 251 146 60;
+    --caution-fg: 253 186 116;
+    --guard: 167 139 250;
+    --guard-fg: 196 181 253;
+
+    --shadow-panel: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-pop: 0 18px 48px -12px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.04);
   }
+
+  [data-theme='light'] {
+    color-scheme: light;
+    --surface-0: 243 245 247;
+    --surface-nav: 255 255 255;
+    --surface-1: 255 255 255;
+    --surface-2: 247 248 250;
+    --surface-3: 236 239 243;
+    --surface-4: 224 229 235;
+    --line: 223 228 234;
+    --line-strong: 200 208 217;
+    --ink-1: 23 31 41;
+    --ink-2: 71 84 103;
+    --ink-3: 99 112 131;
+
+    --brand: 13 124 112;
+    --brand-soft: 222 242 238;
+    --brand-fg: 10 102 92;
+    --brand-on: 255 255 255;
+
+    --ok: 22 163 74;
+    --ok-fg: 21 101 52;
+    --warn: 217 119 6;
+    --warn-fg: 146 64 14;
+    --danger: 220 38 38;
+    --danger-fg: 176 28 28;
+    --visitor: 8 145 178;
+    --visitor-fg: 14 106 133;
+    --caution: 234 88 12;
+    --caution-fg: 170 58 10;
+    --guard: 124 58 237;
+    --guard-fg: 99 40 200;
+
+    --shadow-panel: 0 1px 2px rgb(16 24 40 / 0.05), 0 1px 3px rgb(16 24 40 / 0.04);
+    --shadow-pop: 0 18px 40px -12px rgb(16 24 40 / 0.22), 0 0 0 1px rgb(16 24 40 / 0.06);
+  }
+
   html,
   body,
   #root {
@@ -13,16 +88,56 @@
   }
   body {
     @apply bg-surface-0 font-sans text-ink-1;
+    font-feature-settings: 'cv11', 'ss01';
   }
-  input[type='date']::-webkit-calendar-picker-indicator {
+  ::selection {
+    background: rgb(var(--brand) / 0.3);
+  }
+  :focus-visible {
+    outline-color: rgb(var(--brand));
+  }
+  [data-theme='dark'] input[type='date']::-webkit-calendar-picker-indicator,
+  [data-theme='dark'] input[type='datetime-local']::-webkit-calendar-picker-indicator {
     filter: invert(0.8);
   }
+
+  /* smooth colour change while toggling the theme only (added for ~300 ms by ThemeContext) */
+  html.theme-switching *,
+  html.theme-switching *::before,
+  html.theme-switching *::after {
+    transition: background-color 0.25s ease, border-color 0.25s ease, color 0.2s ease, fill 0.25s ease, stroke 0.25s ease !important;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+@layer components {
+  /* small uppercase label used for section eyebrows and table heads */
+  .eyebrow {
+    @apply text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3;
+  }
+  /* viewfinder corner brackets drawn with 4 background gradients: the brand motif */
+  .viewfinder {
+    --vf-c: rgb(255 255 255 / 0.55);
+    --vf-l: 14px;
+    --vf-w: 1.5px;
+    background:
+      linear-gradient(var(--vf-c), var(--vf-c)) top left / var(--vf-l) var(--vf-w),
+      linear-gradient(var(--vf-c), var(--vf-c)) top left / var(--vf-w) var(--vf-l),
+      linear-gradient(var(--vf-c), var(--vf-c)) top right / var(--vf-l) var(--vf-w),
+      linear-gradient(var(--vf-c), var(--vf-c)) top right / var(--vf-w) var(--vf-l),
+      linear-gradient(var(--vf-c), var(--vf-c)) bottom left / var(--vf-l) var(--vf-w),
+      linear-gradient(var(--vf-c), var(--vf-c)) bottom left / var(--vf-w) var(--vf-l),
+      linear-gradient(var(--vf-c), var(--vf-c)) bottom right / var(--vf-l) var(--vf-w),
+      linear-gradient(var(--vf-c), var(--vf-c)) bottom right / var(--vf-w) var(--vf-l);
+    background-repeat: no-repeat;
   }
 }

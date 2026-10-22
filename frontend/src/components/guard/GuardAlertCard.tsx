@@ -22,16 +22,16 @@ function OpenAlert({ alert, now, onAcknowledged }: { alert: GuardAlert; now: num
   return (
     <article className="relative overflow-hidden rounded-2xl border-2 border-red-600 bg-surface-1" aria-label={`Open alert at ${alert.houseUnit}`}>
       {/* pulsing red border; only the border pulses so the text stays readable */}
-      <div className="pointer-events-none absolute inset-0 animate-pulse rounded-2xl border-4 border-red-500" aria-hidden />
+      <div className="pointer-events-none absolute inset-0 animate-pulse rounded-2xl border-4 border-danger" aria-hidden />
       <div className="grid gap-4 p-4 sm:p-5 md:grid-cols-5">
         <div className="flex flex-col gap-4 md:col-span-3">
-          <p className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-red-400">
+          <p className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-danger-fg">
             <ShieldAlert className="h-5 w-5" aria-hidden />
             Unknown person alert
           </p>
           <div>
             <p className="flex items-start gap-2 text-3xl font-extrabold leading-tight text-white sm:text-4xl">
-              <MapPin className="mt-1 h-7 w-7 shrink-0 text-red-400" aria-hidden />
+              <MapPin className="mt-1 h-7 w-7 shrink-0 text-danger-fg" aria-hidden />
               <span className="break-words">{alert.houseUnit}</span>
             </p>
             <p className="mt-1 text-sm text-ink-2">{alert.cameraName}</p>
@@ -132,7 +132,7 @@ function AckPanel({ alert, onDone, onCancel }: { alert: GuardAlert; onDone: (a: 
         </p>
       </div>
       {error && (
-        <p role="alert" className="text-sm text-red-300">
+        <p role="alert" className="text-sm text-danger-fg">
           {error}
         </p>
       )}
