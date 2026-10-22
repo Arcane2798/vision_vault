@@ -1,7 +1,8 @@
 """House map + safe path (side features 3 and 4).
 
 A floor plan (house_map.json: rooms, doors between them, rooms that lead outside) with cameras placed
-in rooms. A camera is either the live camera or a recorded video; recorded videos are processed once
+in rooms. A camera is the live camera, a recorded video, or both (the live camera may have a recording
+of its own, used in the replay while live mode shows the real feed); recorded videos are processed once
 into a timeline of who each camera saw, then replayed together on the map. When an unknown person is
 on the map, every resident gets the shortest route to a way out that avoids rooms with an intruder.
 
@@ -84,11 +85,11 @@ def save_map(cfg: dict, path=None) -> None:
 
 
 def recorded_camera(cfg: dict, cam_id: str) -> dict:
-    """The recorded (non-live) camera with this id; MapError if missing or live."""
+    """The camera with this id that has a recorded video; MapError if missing or live-only."""
     cam = next((c for c in cfg.get("cameras", []) if c.get("id") == cam_id), None)
     if cam is None:
         raise MapError(f"no camera {cam_id!r} in the map")
-    if cam.get("live"):
+    if not cam.get("video"):
         raise MapError(f"{cam['name']} is the live camera: it has no recorded video")
     return cam
 
@@ -116,7 +117,7 @@ def timeline_stale(cfg: dict, timeline: dict, video_mtimes: dict) -> bool:
         return False                       # never processed: a different state, not "stale"
     processed = timeline.get("processedAt") or 0
     for c in cfg.get("cameras", []):
-        if c.get("live"):
+        if not c.get("video"):
             continue
         m = video_mtimes.get(c["id"])
         if m is not None and (m > processed or c["id"] not in cams):
@@ -305,7 +306,7 @@ def process_videos(engine, cfg, progress=lambda cam, p: None) -> dict:
 
     # rooms without a video yet are skipped (they stay empty on the map)
     recorded = [c for c in cfg.get("cameras", [])
-                if not c.get("live") and (VIDEO_DIR / Path(c["video"]).name).is_file()]
+                if c.get("video") and (VIDEO_DIR / Path(c["video"]).name).is_file()]
     if not recorded:
         raise MapError("no room videos uploaded yet")
     with engine.lock:

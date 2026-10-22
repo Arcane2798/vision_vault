@@ -198,3 +198,21 @@ def test_safe_path_advice_uses_via():
     occ = {"hall": [{"name": "unknown", "kind": "unknown", "camera": "h"}],
            "living": [{"name": "Azhad", "kind": "family", "camera": "cam-01"}]}
     assert house.plan_safe_paths(cfg, occ)[0]["advice"] == "Leave via the front door."
+
+
+def test_live_camera_with_a_recording(client, tmp_path, monkeypatch):
+    """The live camera may also have a video: uploadable, processed and replayed like a room camera."""
+    cfg = json.loads(json.dumps(CFG))
+    cfg["cameras"][0]["video"] = "door.mp4"
+    house.validate_map(cfg)
+    assert house.recorded_camera(cfg, "cam-01")["video"] == "door.mp4"
+    assert house.timeline_stale(cfg, {"processedAt": 1.0, "cameras": {"k": []}}, {"cam-01": 5.0}) is True
+    monkeypatch.setattr(house, "MAP_FILE", tmp_path / "m.json")
+    monkeypatch.setattr(house, "TIMELINE_FILE", tmp_path / "t.json")
+    monkeypatch.setattr(house, "VIDEO_DIR", tmp_path / "videos")
+    (tmp_path / "m.json").write_text(json.dumps(cfg))
+    r = client.post("/api/map/cameras/cam-01/video",
+                    files={"video": ("door.mp4", _tiny_video(tmp_path / "src.mp4"), "video/mp4")})
+    assert r.status_code == 200, r.text
+    door = next(c for c in r.json()["cameras"] if c["id"] == "cam-01")
+    assert door["live"] is True and door["videoFound"] is True and door["videoDuration"] == 2.0

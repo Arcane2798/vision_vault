@@ -655,7 +655,7 @@ def create_router(engine):
         tl = house.load_timeline()
         cams, mtimes = [], {}
         for c in cfg.get("cameras", []):
-            if c.get("live"):
+            if not c.get("video"):               # live only
                 cams.append(dict(c, videoFound=True))
                 continue
             p = map_video(c)
@@ -705,7 +705,7 @@ def create_router(engine):
     def process_map_videos():
         cfg = house_map()
         # rooms without a video are simply empty on the map; at least one video is needed
-        if not any(map_video(c).is_file() for c in cfg.get("cameras", []) if not c.get("live")):
+        if not any(map_video(c).is_file() for c in cfg.get("cameras", []) if c.get("video")):
             raise HTTPException(400, "No room videos uploaded yet. Upload at least one video on the House map page.")
         if not map_processor.start(engine, cfg):
             raise HTTPException(409, "Videos are already being processed.")

@@ -20,8 +20,9 @@ interface Props {
  * line the videos up with a start offset, then process them once for the map replay.
  */
 export function MapVideosCard({ map, status, onChanged, onProcess, processError }: Props) {
-  const recorded = map.cameras.filter((c) => !c.live);
-  const live = map.cameras.find((c) => c.live);
+  // the live camera can also have a recording of its own: it is listed here and used in the replay
+  const recorded = map.cameras.filter((c) => c.video);
+  const live = map.cameras.find((c) => c.live && !c.video);
   const processing = status?.state === 'processing';
   const missing = recorded.filter((c) => !c.videoFound);
   const uploaded = recorded.length - missing.length;
@@ -149,6 +150,7 @@ function CameraRow({ map, cam, disabled, onChanged }: { map: HouseMap; cam: MapC
               ? `${cam.video} · ${cam.videoDuration != null ? fmt(cam.videoDuration) : 'length unknown'}${cam.videoSizeBytes ? ` · ${mb(cam.videoSizeBytes)}` : ''}`
               : `No video yet (will be saved as ${cam.video})`}
           </p>
+          {cam.live && <p className="text-xs text-ink-3">Live camera: shows the real feed in Live mode and this recording in Replay.</p>}
         </div>
         <input
           ref={fileRef}

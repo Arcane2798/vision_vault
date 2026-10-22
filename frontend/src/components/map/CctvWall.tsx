@@ -28,22 +28,24 @@ export function CctvWall({ map, state, mode, t, playing, speed }: Props) {
       />
       <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
         {map.cameras.map((c, i) => (
-          <Tile key={c.id} index={i} cam={c} map={map} state={state} t={t} playing={mode === 'replay' && playing} speed={speed} />
+          <Tile key={c.id} index={i} cam={c} map={map} state={state} replay={mode === 'replay'} t={t} playing={mode === 'replay' && playing} speed={speed} />
         ))}
       </div>
     </Card>
   );
 }
 
-function Tile({ index, cam, map, state, t, playing, speed }: { index: number; cam: MapCamera; map: HouseMap; state: MapState | null; t: number; playing: boolean; speed: number }) {
+function Tile({ index, cam, map, state, replay, t, playing, speed }: { index: number; cam: MapCamera; map: HouseMap; state: MapState | null; replay: boolean; t: number; playing: boolean; speed: number }) {
   const people = (state?.rooms[cam.room] ?? []).filter((p) => p.camera === cam.id);
   const intruder = people.some((p) => p.kind === 'unknown');
   const room = map.rooms.find((r) => r.id === cam.room)?.name ?? cam.room;
   const local = t - (cam.offset ?? 0);
+  // the live camera streams, except in the replay when it has a processed recording of its own
+  const showLive = cam.live && !(replay && cam.annotatedUrl);
 
   return (
     <figure className={cn('relative aspect-video overflow-hidden rounded-lg bg-black ring-1', intruder ? 'ring-2 ring-red-500' : 'ring-line')}>
-      {cam.live ? (
+      {showLive ? (
         <LiveFeed cam={cam} />
       ) : cam.annotatedUrl ? (
         <RecordedFeed cam={cam} local={local} playing={playing} speed={speed} />
@@ -55,7 +57,7 @@ function Tile({ index, cam, map, state, t, playing, speed }: { index: number; ca
         <span className="truncate rounded bg-black/60 px-1.5 py-0.5">
           CAM {String(index + 1).padStart(2, '0')} · {room}
         </span>
-        {cam.live ? (
+        {showLive ? (
           <span className="flex shrink-0 items-center gap-1 rounded bg-black/60 px-1.5 py-0.5">
             <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" aria-hidden /> LIVE
           </span>

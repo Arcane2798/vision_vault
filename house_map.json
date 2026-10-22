@@ -22,7 +22,7 @@
       "exit": true
     },
     {
-      "id": "bilik1",
+      "id": "bedroom1",
       "name": "Bedroom 1",
       "x": 0,
       "y": 8,
@@ -30,7 +30,7 @@
       "h": 7
     },
     {
-      "id": "dapur",
+      "id": "kitchen",
       "name": "Kitchen",
       "x": 6,
       "y": 8,
@@ -38,7 +38,7 @@
       "h": 7
     },
     {
-      "id": "tandas",
+      "id": "toilet",
       "name": "Toilet",
       "x": 14,
       "y": 8,
@@ -46,7 +46,7 @@
       "h": 4
     },
     {
-      "id": "bilik2",
+      "id": "bedroom2",
       "name": "Bedroom 2",
       "x": 0,
       "y": 15,
@@ -54,7 +54,7 @@
       "h": 5
     },
     {
-      "id": "bilik3",
+      "id": "bedroom3",
       "name": "Bedroom 3",
       "x": 8,
       "y": 15,
@@ -69,23 +69,23 @@
     ],
     [
       "living",
-      "dapur"
+      "kitchen"
     ],
     [
-      "dapur",
-      "bilik1"
+      "kitchen",
+      "bedroom1"
     ],
     [
-      "dapur",
-      "tandas"
+      "kitchen",
+      "toilet"
     ],
     [
-      "dapur",
-      "bilik2"
+      "kitchen",
+      "bedroom2"
     ],
     [
-      "dapur",
-      "bilik3"
+      "kitchen",
+      "bedroom3"
     ]
   ],
   "cameras": [
@@ -94,6 +94,8 @@
       "name": "Front door (live)",
       "room": "living",
       "live": true,
+      "video": "front_door_cam.mp4",
+      "offset": 0,
       "x": 12.7,
       "y": 0.6,
       "facing": 40,
@@ -103,7 +105,7 @@
       "id": "map-living",
       "name": "Living room",
       "room": "living",
-      "video": "ruang_tamu.mp4",
+      "video": "living_room_cam.mp4",
       "offset": 0,
       "x": 0.6,
       "y": 7.4,
@@ -111,10 +113,10 @@
       "fov": 90
     },
     {
-      "id": "map-dapur",
+      "id": "map-kitchen",
       "name": "Kitchen",
-      "room": "dapur",
-      "video": "dapur.mp4",
+      "room": "kitchen",
+      "video": "kitchen_cam.mp4",
       "offset": 0,
       "x": 13.6,
       "y": 8.4,
@@ -122,10 +124,10 @@
       "fov": 90
     },
     {
-      "id": "map-bilik1",
+      "id": "map-bedroom1",
       "name": "Bedroom 1",
-      "room": "bilik1",
-      "video": "bilik1.mp4",
+      "room": "bedroom1",
+      "video": "bedroom1_cam.mp4",
       "offset": 0,
       "x": 5.6,
       "y": 8.4,
@@ -133,10 +135,10 @@
       "fov": 90
     },
     {
-      "id": "map-bilik2",
+      "id": "map-bedroom2",
       "name": "Bedroom 2",
-      "room": "bilik2",
-      "video": "bilik2.mp4",
+      "room": "bedroom2",
+      "video": "bedroom2_cam.mp4",
       "offset": 0,
       "x": 7.6,
       "y": 15.4,
@@ -144,10 +146,10 @@
       "fov": 90
     },
     {
-      "id": "map-bilik3",
+      "id": "map-bedroom3",
       "name": "Bedroom 3",
-      "room": "bilik3",
-      "video": "bilik3.mp4",
+      "room": "bedroom3",
+      "video": "bedroom3_cam.mp4",
       "offset": 0,
       "x": 14.6,
       "y": 15.4,
