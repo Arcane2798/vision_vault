@@ -156,7 +156,7 @@ pip install ultralytics openvino insightface fastapi uvicorn python-dotenv openc
 | POST | `/api/chat` | `{messages: [{role: "user"\|"assistant", content}]}` (last 20 kept) → `{reply, pendingAction: PendingAction\|null}` (shape in Phase 2). 503 `{detail: "Chat is not configured: add GEMINI_API_KEY to .env"}` without a key; free-tier quota → 200 with reply "Viva Bot is busy right now (Gemini free tier). Try again in a minute."; other AI errors → 502 `{detail}`; 400 no user message; 422 bad role. PendingAction dates are ISO UTC `Z` (the model works in Asia/Kuala_Lumpur time). Takes a few seconds: use a long client timeout |
 | GET | `/api/people` | `Person[]`, family first then by name (Person JSON in Phase 1 spec; `id` is a number) |
 | POST | `/api/people` | multipart `name, role (default family), validFrom?, validTo?, photos` (repeat `photos` per file) → 201 `Person`. 400 bad name/role/date, from > to, no photo, unreadable image or **no face found**; 409 name taken (case-insensitive) |
-| PATCH | `/api/people/{id}` | JSON `{role?, validFrom?, validTo?}` → `Person`. Omitted = unchanged, `null` = clear (open-ended). Role `family` clears the window |
+| PATCH | `/api/people/{id}` | JSON `{role?, validFrom?, validTo?, recognition?}` → `Person`. Omitted = unchanged, `null` = clear (open-ended). Role `family` clears the window. `recognition: false` (testing switch, Thu 22 Oct) = the engine leaves that person's faces out, so the camera treats them as unknown; photos and row are kept. Person JSON adds `recognition: bool` |
 | DELETE | `/api/people/{id}` | → 204; removes the row and `faces/<name>/` |
 | POST | `/api/people/{id}/photos` | multipart `photos` → `Person` (same photo checks as create) |
 | POST | `/api/people/reload` | re-read `faces/` (photos copied in by hand) and re-embed only changed folders → `Person[]`. The People page "Refresh faces" button calls it |
@@ -190,7 +190,7 @@ and `off_until` (epoch as text, "" = no timer). Old `away_*`, `resume_level` and
 Pure security rules: `rules.security_params`, `rules.effective_level(level, now, off_until)`, `rules.off_active`, `rules.normalize_level`.
 The frame's top-right corner shows the effective level: `ON`, `OFF`, or `OFF until 01:00` while an Off timer runs.
 
-**`people` table:** `id, name (= faces/ folder, unique, case-insensitive), role ('family'|'guest'), valid_from, valid_to, created_at`.
+**`people` table:** `id, name (= faces/ folder, unique, case-insensitive), role ('family'|'guest'), valid_from, valid_to, created_at, recognition (1 = on, default)`.
 Pure rules live in `rules.py` (`visitor_allowed`, `classify_person`, `valid_person_name`). A guest window bound that is
 NULL is open-ended. Live-frame colours: family green, visitor in window cyan (`guest:<name>`), visitor outside window
 orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no posters in the demo.)

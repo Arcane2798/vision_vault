@@ -65,6 +65,7 @@ class PersonUpdate(BaseModel):
     role: Optional[str] = None
     validFrom: Optional[str] = None
     validTo: Optional[str] = None
+    recognition: Optional[bool] = None   # False = camera treats them as unknown (testing)
 
 
 class GuardAck(BaseModel):
@@ -308,6 +309,7 @@ def person_json(r, last_seen, now, faces_dir):
             "validFrom": _iso(r["valid_from"]) if r["valid_from"] is not None else None,
             "validTo": _iso(r["valid_to"]) if r["valid_to"] is not None else None,
             "active": visitor_allowed(r["role"], r["valid_from"], r["valid_to"], now),
+            "recognition": bool(r.get("recognition", 1)),
             "photoCount": len(_photo_files(Path(faces_dir) / r["name"])),
             "photoUrl": f"/api/people/{r['id']}/photo",
             "lastSeen": _iso(seen) if seen else None,
@@ -571,9 +573,11 @@ def create_router(engine):
             valid_to = (_parse_iso(body.validTo, "validTo") if "validTo" in given
                         else (r["valid_to"] if was_guest else None))
         _check_window(role, valid_from, valid_to)
+        recognition = (body.recognition if body.recognition is not None
+                       else bool(r.get("recognition", 1)))
         con = sqlite3.connect(DB_PATH)
-        con.execute("UPDATE people SET role=?, valid_from=?, valid_to=? WHERE id=?",
-                    (role, valid_from, valid_to, person_id))
+        con.execute("UPDATE people SET role=?, valid_from=?, valid_to=?, recognition=?"
+                    " WHERE id=?", (role, valid_from, valid_to, int(recognition), person_id))
         con.commit()
         con.close()
         engine.reload_people()

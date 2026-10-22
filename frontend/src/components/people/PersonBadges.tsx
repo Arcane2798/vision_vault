@@ -1,4 +1,4 @@
-import { CalendarClock, CheckCircle2, Clock, Home, ShieldCheck, UserRound } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Clock, EyeOff, Home, ShieldCheck, UserRound } from 'lucide-react';
 import type { Person } from '@/types';
 import { cn, personRoleLabel } from '@/utils/format';
 
@@ -17,6 +17,14 @@ export function PersonRoleBadge({ role }: { role: Person['role'] }) {
 
 /** Whether the camera lets this person in right now. */
 export function AccessBadge({ person }: { person: Person }) {
+  if (!person.recognition) {
+    return (
+      <span className={cn(base, 'border-danger/40 bg-danger/10 text-red-300')}>
+        <EyeOff className="h-3.5 w-3.5" aria-hidden />
+        Recognition off: treated as unknown
+      </span>
+    );
+  }
   if (person.role === 'family') {
     return (
       <span className={cn(base, 'border-ok/40 bg-ok/10 text-green-300')}>

@@ -41,6 +41,9 @@ def init_db():
         name TEXT NOT NULL UNIQUE COLLATE NOCASE,
         role TEXT NOT NULL DEFAULT 'family',
         valid_from REAL, valid_to REAL, created_at REAL)""")
+    # recognition 0 = camera treats this person as unknown (testing switch); photos are kept
+    if "recognition" not in {r[1] for r in con.execute("PRAGMA table_info(people)")}:
+        con.execute("ALTER TABLE people ADD COLUMN recognition INTEGER NOT NULL DEFAULT 1")
     # family tracker: one row per arrival/departure; name NULL = "someone left, face not seen"
     con.execute("""CREATE TABLE IF NOT EXISTS movements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

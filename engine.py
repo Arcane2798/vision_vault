@@ -334,6 +334,11 @@ class VisionEngine:
             sync_people(self.faces_path)
             known = self._load_known()
             people = load_people()
+            # recognition switched off on the People page: leave their faces out, so they are unknown
+            off = {n for n in known if not people.get(n, {}).get("recognition", 1)}
+            if off:
+                print("[faces] recognition off:", sorted(off))
+                known = {n: e for n, e in known.items() if n not in off}
             with self.lock:
                 self.known = known
                 self.people = people

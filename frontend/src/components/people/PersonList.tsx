@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { CalendarClock, ImagePlus, MapPin, Pencil, Trash2, UserRound } from 'lucide-react';
+import { CalendarClock, Eye, EyeOff, ImagePlus, MapPin, Pencil, Trash2, UserRound } from 'lucide-react';
 import { peopleService } from '@/services';
 import type { Person } from '@/types';
 import { formatLastSeen, formatWindow } from '@/utils/format';
@@ -9,22 +9,32 @@ import { AccessBadge, PersonRoleBadge } from './PersonBadges';
 interface PersonListProps {
   people: Person[];
   uploadingId?: number | null;
+  togglingId?: number | null;
   onEdit: (p: Person) => void;
   onAddPhotos: (p: Person, files: File[]) => void;
+  onToggleRecognition: (p: Person) => void;
   onDelete: (p: Person) => void;
 }
 
-export function PersonList({ people, uploadingId, onEdit, onAddPhotos, onDelete }: PersonListProps) {
+export function PersonList({ people, uploadingId, togglingId, ...actions }: PersonListProps) {
   return (
     <ul className="divide-y divide-line">
       {people.map((p) => (
-        <PersonRow key={p.id} person={p} uploading={uploadingId === p.id} onEdit={onEdit} onAddPhotos={onAddPhotos} onDelete={onDelete} />
+        <PersonRow key={p.id} person={p} uploading={uploadingId === p.id} toggling={togglingId === p.id} {...actions} />
       ))}
     </ul>
   );
 }
 
-function PersonRow({ person: p, uploading, onEdit, onAddPhotos, onDelete }: Omit<PersonListProps, 'people' | 'uploadingId'> & { person: Person; uploading: boolean }) {
+function PersonRow({
+  person: p,
+  uploading,
+  toggling,
+  onEdit,
+  onAddPhotos,
+  onToggleRecognition,
+  onDelete,
+}: Omit<PersonListProps, 'people' | 'uploadingId' | 'togglingId'> & { person: Person; uploading: boolean; toggling: boolean }) {
   const fileRef = useRef<HTMLInputElement>(null);
   return (
     <li className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
@@ -49,6 +59,18 @@ function PersonRow({ person: p, uploading, onEdit, onAddPhotos, onDelete }: Omit
         </div>
       </div>
       <div className="flex flex-wrap gap-1 sm:justify-end">
+        <Button
+          size="sm"
+          variant="ghost"
+          className={p.recognition ? undefined : 'text-red-300 hover:text-red-200'}
+          icon={p.recognition ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          loading={toggling}
+          aria-pressed={!p.recognition}
+          title={p.recognition ? 'Testing: make the camera treat this person as unknown' : 'Let the camera recognise this person again'}
+          onClick={() => onToggleRecognition(p)}
+        >
+          {p.recognition ? 'Recognition on' : 'Recognition off'}
+        </Button>
         <Button size="sm" variant="ghost" icon={<Pencil className="h-4 w-4" />} onClick={() => onEdit(p)}>
           {p.role === 'guest' ? 'Edit window' : 'Edit'}
         </Button>

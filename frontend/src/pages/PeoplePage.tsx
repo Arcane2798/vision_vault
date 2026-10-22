@@ -25,6 +25,7 @@ export default function PeoplePage() {
   const [deleting, setDeleting] = useState<Person | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -47,6 +48,19 @@ export default function PeoplePage() {
       setNotice({ ok: false, text: `Could not add photos for ${p.name}: ${(e as Error).message}` });
     } finally {
       setUploadingId(null);
+    }
+  };
+
+  const toggleRecognition = async (p: Person) => {
+    setTogglingId(p.id);
+    setNotice(null);
+    try {
+      const fresh = await peopleService.update(p.id, { recognition: !p.recognition });
+      done(fresh.recognition ? `${p.name} is recognised again.` : `Recognition off: the camera now treats ${p.name} as an unknown person.`);
+    } catch (e) {
+      setNotice({ ok: false, text: `Could not change recognition for ${p.name}: ${(e as Error).message}` });
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -77,7 +91,7 @@ export default function PeoplePage() {
     }
   };
 
-  const listProps = { uploadingId, onEdit: setEditing, onAddPhotos: addPhotos, onDelete: setDeleting };
+  const listProps = { uploadingId, togglingId, onEdit: setEditing, onAddPhotos: addPhotos, onToggleRecognition: toggleRecognition, onDelete: setDeleting };
 
   return (
     <>

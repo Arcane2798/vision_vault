@@ -70,6 +70,19 @@ def test_last_seen(client, engine):
     assert p["id"] == pid and p["lastSeen"] == "2027-01-15T08:00:00Z"
 
 
+def test_recognition_toggle(client, engine):
+    p = create(client, "Chong", "guest", validFrom="2026-10-24T14:00Z").json()
+    assert p["recognition"] is True
+    engine.calls.clear()
+    r = client.patch(f"/api/people/{p['id']}", json={"recognition": False})
+    assert r.status_code == 200 and r.json()["recognition"] is False
+    assert r.json()["validFrom"] == "2026-10-24T14:00:00Z"   # window untouched
+    assert "reload_people" in engine.calls
+    assert sql("SELECT recognition FROM people")[0][0] == 0
+    assert client.patch(f"/api/people/{p['id']}", json={"role": "family"}).json()["recognition"] is False
+    assert client.patch(f"/api/people/{p['id']}", json={"recognition": True}).json()["recognition"] is True
+
+
 def test_patch(client, engine):
     pid = create(client, "Ali").json()["id"]
     engine.calls.clear()

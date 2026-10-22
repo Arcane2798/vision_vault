@@ -213,6 +213,8 @@ export interface Person {
   validTo: string | null;
   /** family, or a visitor whose window contains now */
   active: boolean;
+  /** false = the camera ignores their photos and treats them as unknown (testing switch) */
+  recognition: boolean;
   photoCount: number;
   /** backend path, e.g. "/api/people/3/photo" - resolve with backendUrl() */
   photoUrl: string;
@@ -235,6 +237,7 @@ export interface PersonUpdate {
   role?: PersonRole;
   validFrom?: string | null;
   validTo?: string | null;
+  recognition?: boolean;
 }
 
 /** One turn of the assistant chat (plain text, newest last). */
