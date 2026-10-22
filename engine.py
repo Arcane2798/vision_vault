@@ -69,7 +69,10 @@ ITEM_COLOR = (255, 0, 255)   # magenta (BGR)
 # once one of its detections reached the level's person_conf ("confirmed").
 TRACK_LOW_CONF = 0.1
 MIN_TRACK_FRAMES = 3     # default when On; per level: rules.security_params
-MIN_FACE_PX = 40         # ignore faces narrower than this, in capture pixels (garbage embeddings)
+# ignore faces narrower than this, in capture pixels. Was 40, which skipped every face in the
+# corner-CCTV room videos (faces 13-30 px). Tested Thu 22 Oct: 16+ px faces still pick the right
+# person, and other people stay below 0.30, so the match threshold keeps strangers out.
+MIN_FACE_PX = 16
 MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
 
 # Family tracker (camera inside, facing the door): box growing = arriving, shrinking = leaving.

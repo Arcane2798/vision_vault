@@ -93,6 +93,7 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 | `main.py` | App setup, CORS, `/video` MJPEG stream, static `/clips` and `/snapshots` |
 | `chat.py` | AI assistant: tool functions, PendingAction builders, bounded tool loop; only `_generate` / `make_client` / `provider_error` know about Gemini |
 | `faces/<name>/` | Enrollment photos (one folder per person). `faces/embeddings.pkl` = cache |
+| `enroll_from_video.py` | `py enroll_from_video.py <name> <video>`: saves up to 30 head crops of a registered person from a video in which only they appear (`faces/<name>/cam_*.jpg`), then press "Refresh faces". Corner-CCTV faces are 13–30 px; adding camera crops raised correct matches ≥ 0.40 from 0–13 % to 57–77 % of face checks on the other room videos, other people stayed ≤ 0.29 (Thu 22 Oct). `MIN_FACE_PX` lowered 40 → 16 so those faces are checked at all |
 | `frontend/src/types/index.ts` | Frontend data types = API contract |
 | `frontend/src/services/` | The only place the frontend fetches data |
 | `frontend/.env.local` | Frontend settings (live mode, websocket, auth off) |
