@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Info, Pause, Play, Radio, Route } from 'lucide-react';
 import { useAsync } from '@/hooks/useAsync';
 import { mapService } from '@/services';
-import type { HouseMap, MapPerson, MapRoom, MapState, MapStatus } from '@/types';
+import type { HouseMap, MapCamera, MapPerson, MapRoom, MapState, MapStatus } from '@/types';
 import { cn } from '@/utils/format';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader } from '@/components/ui/Card';
@@ -259,18 +259,70 @@ function FloorPlan({ map, state }: { map: HouseMap; state: MapState | null }) {
           opacity={0.9}
         />
       ))}
+      {map.doors.map(([a, b]) => (
+        <Door key={`${a}-${b}`} a={map.rooms.find((r) => r.id === a)} b={map.rooms.find((r) => r.id === b)} />
+      ))}
       {map.cameras.map((c) => {
         const r = map.rooms.find((x) => x.id === c.room);
-        if (!r) return null;
-        const k = map.cameras.filter((x) => x.room === c.room).indexOf(c); // side by side when a room has two cameras
-        return (
-          <g key={c.id} transform={`translate(${r.x + r.w - 0.55 - k * 0.5}, ${r.y + 0.25})`}>
-            <rect width={0.4} height={0.3} rx={0.05} fill={c.live ? '#ef4444' : c.videoFound ? '#64748b' : '#7f1d1d'} />
-            <title>{`${c.name}${c.live ? ' (live)' : c.videoFound ? '' : ' (video missing)'}`}</title>
-          </g>
-        );
+        return r ? <CameraMark key={c.id} cam={c} room={r} /> : null;
       })}
     </svg>
+  );
+}
+
+/** A door: an amber mark in the middle of the wall two rooms share; the one to a way out is labelled. */
+function Door({ a, b }: { a?: MapRoom; b?: MapRoom }) {
+  if (!a || !b) return null;
+  const span = (lo1: number, hi1: number, lo2: number, hi2: number) => [Math.max(lo1, lo2), Math.min(hi1, hi2)];
+  let seg: [number, number, number, number] | null = null; // x1 y1 x2 y2
+  const vertical = a.x + a.w === b.x ? a.x + a.w : b.x + b.w === a.x ? a.x : null;
+  const horizontal = a.y + a.h === b.y ? a.y + a.h : b.y + b.h === a.y ? a.y : null;
+  if (vertical !== null) {
+    const [lo, hi] = span(a.y, a.y + a.h, b.y, b.y + b.h);
+    const len = Math.min(1.4, (hi - lo) * 0.5);
+    if (hi > lo) seg = [vertical, (lo + hi - len) / 2, vertical, (lo + hi + len) / 2];
+  } else if (horizontal !== null) {
+    const [lo, hi] = span(a.x, a.x + a.w, b.x, b.x + b.w);
+    const len = Math.min(1.4, (hi - lo) * 0.5);
+    if (hi > lo) seg = [(lo + hi - len) / 2, horizontal, (lo + hi + len) / 2, horizontal];
+  }
+  if (!seg) return null;
+  const front = a.exit || b.exit;
+  return (
+    <g>
+      <line x1={seg[0]} y1={seg[1]} x2={seg[2]} y2={seg[3]} stroke="#f59e0b" strokeWidth={0.16} strokeLinecap="round" />
+      {front && (
+        <text x={seg[0] - 0.25} y={(seg[1] + seg[3]) / 2 + 0.12} fontSize={0.34} textAnchor="end" fill="#fbbf24">
+          Front door
+        </text>
+      )}
+    </g>
+  );
+}
+
+/** Camera icon pointing where it looks, with its field of view (clipped to its room). */
+function CameraMark({ cam, room }: { cam: MapCamera; room: MapRoom }) {
+  const x = cam.x ?? room.x + room.w - 0.4;
+  const y = cam.y ?? room.y + 0.4;
+  const facing = cam.facing ?? 135;
+  const half = ((cam.fov ?? 90) / 2) * (Math.PI / 180);
+  const dir = facing * (Math.PI / 180);
+  const R = 4;
+  const p = (ang: number) => `${x + R * Math.cos(ang)},${y + R * Math.sin(ang)}`;
+  const colour = cam.live ? '#ef4444' : cam.videoFound ? '#94a3b8' : '#7f1d1d';
+  const clip = `cam-clip-${cam.id}`;
+  return (
+    <g>
+      <clipPath id={clip}>
+        <rect x={room.x} y={room.y} width={room.w} height={room.h} />
+      </clipPath>
+      <path d={`M ${x},${y} L ${p(dir - half)} A ${R} ${R} 0 0 1 ${p(dir + half)} Z`} fill={colour} opacity={0.13} clipPath={`url(#${clip})`} />
+      <g transform={`translate(${x}, ${y}) rotate(${facing})`}>
+        <rect x={-0.3} y={-0.17} width={0.42} height={0.34} rx={0.06} fill={colour} />
+        <path d="M 0.12,-0.1 L 0.3,-0.17 L 0.3,0.17 L 0.12,0.1 Z" fill={colour} />
+      </g>
+      <title>{`${cam.name}${cam.live ? ' (live)' : cam.videoFound ? '' : ' (video missing)'}`}</title>
+    </g>
   );
 }
 

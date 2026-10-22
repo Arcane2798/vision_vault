@@ -331,6 +331,13 @@ export interface MapCamera {
   video?: string;
   /** seconds into the replay at which this camera's video starts */
   offset?: number;
+  /** where it is drawn (map units; default: top-right corner of its room) */
+  x?: number;
+  y?: number;
+  /** viewing direction in degrees, 0 = right, 90 = down (default 135) */
+  facing?: number;
+  /** field of view in degrees (default 90) */
+  fov?: number;
   videoFound: boolean;
   /** processed copy with person boxes drawn (CCTV wall); null until "Process videos" has run */
   annotatedUrl?: string | null;

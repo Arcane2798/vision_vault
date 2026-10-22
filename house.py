@@ -68,6 +68,10 @@ def validate_map(cfg: dict) -> None:
             raise MapError(f"camera {c['id']!r} is in unknown room {c.get('room')!r}")
         if not c.get("live") and not c.get("video"):
             raise MapError(f"camera {c['id']!r} needs \"live\": true or a \"video\" file name")
+        # optional drawing hints: position (map units), facing (degrees, 0 = right, 90 = down), fov
+        for key in ("x", "y", "facing", "fov"):
+            if key in c and not isinstance(c[key], (int, float)):
+                raise MapError(f"camera {c['id']!r}: {key!r} must be a number")
 
 
 def save_map(cfg: dict, path=None) -> None:
