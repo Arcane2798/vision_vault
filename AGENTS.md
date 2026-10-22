@@ -270,7 +270,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
       dates were replaced by a plain On / Off). Old saved or sent values `normal`, `high`, `home`, `away` are mapped to `on`
       by `rules.normalize_level`. Stored in a `settings` table (`key, value`), default `on`.
       Pure function `security_params(level) -> dict` gives the rule thresholds:
-      `on` — alerts on, guard alert on, GRACE 5 s, MATCH_THRESH 0.40, person conf 0.25, 3 frames, departure filter off (paused);
+      `on` — alerts on, guard alert on, GRACE 5 s, MATCH_THRESH 0.30 (was 0.40; owner Thu 22 Oct), person conf 0.25, 3 frames, departure filter off (paused);
       `off` — same thresholds but no alerts, recordings or guard copies (e.g. a party); people are still tracked and shown.
       Off lasts until `off_until` (settings key; "" = until turned back on), then the level returns to `on`
       (`rules.off_active`, `rules.effective_level(level, now, off_until)`).

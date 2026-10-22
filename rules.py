@@ -140,7 +140,7 @@ LEGACY_LEVELS = {"normal": "on", "high": "on", "home": "on", "away": "on"}
 
 _ON = {"alerts": True,          # raise intrusion / visitor alerts at all (off at level "off")
        "grace": 5.0,            # seconds an unknown must be seen before alerting
-       "match_thresh": 0.40,    # min cosine similarity for a face match
+       "match_thresh": 0.30,    # min cosine similarity for a face match (0.40 until Thu 22 Oct; owner set 0.30)
        # weakest detection that confirms a track as a person. 0.25 = ByteTrack's own
        # new_track_thresh, the real floor (a lower value behaves the same). Tested Thu 22 Oct
        # on the four room videos: 0.55 / 0.20 / 0.10 all gave the same alerts and no false ones,
