@@ -193,6 +193,13 @@ def plan_safe_paths(cfg: dict, occupancy: dict) -> list:
     return plans
 
 
+def people_changed(timeline: dict, known_names) -> bool:
+    """True when the people the engine recognises now differ from those the timeline was
+    processed with (None for either side = cannot tell = False)."""
+    used = timeline.get("known")
+    return used is not None and known_names is not None and sorted(used) != sorted(known_names)
+
+
 # ---------- recorded-video timeline ----------
 def occupancy_at(cfg: dict, timeline: dict, t: float, window: float = SEEN_WINDOW) -> dict:
     """{room_id: [{name, kind, camera}]} at replay time t: each recorded camera contributes its
@@ -390,7 +397,9 @@ def process_videos(engine, cfg, progress=lambda cam, p: None) -> dict:
             except Exception as e:           # the map replay still works without the wall video
                 print(f"[map] could not encode the CCTV video for {cam['id']}: {e}")
             raw.unlink(missing_ok=True)
-    return {"processedAt": time.time(), "cameras": out, "videos": videos}
+    # `known` = who could be recognised: a different set later (person added, deleted or
+    # recognition switched off on the People page) makes the timeline stale (people_changed)
+    return {"processedAt": time.time(), "cameras": out, "videos": videos, "known": sorted(known)}
 
 
 def verify_identity(current: str, match: str, fails: int, max_fails: int,

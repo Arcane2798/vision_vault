@@ -242,3 +242,19 @@ def test_verify_identity_releases_a_swapped_track():
     assert v("Raju", "Chong", 1, 2) == ("Chong", 0)         # second in a row: the track is Chong now
     assert v("Raju", "unknown", 1, 2) == ("Raju", 2)        # a turned face is not a stranger yet
     assert v("Raju", "unknown", 5, 2) == ("unknown", 0)     # six unmatched faces in a row are
+
+
+def test_timeline_stale_when_recognised_people_change(client, engine, tmp_path, monkeypatch):
+    assert house.people_changed({"known": ["Chong", "Raju"]}, {"Raju": 1, "Chong": 2}) is False
+    assert house.people_changed({"known": ["Chong", "Raju"]}, {"Chong": 2}) is True   # Raju switched off
+    assert house.people_changed({}, {"Chong": 2}) is False                            # older timeline
+    monkeypatch.setattr(house, "MAP_FILE", tmp_path / "m.json")
+    monkeypatch.setattr(house, "TIMELINE_FILE", tmp_path / "t.json")
+    monkeypatch.setattr(house, "VIDEO_DIR", tmp_path / "videos")
+    (tmp_path / "m.json").write_text(json.dumps(CFG))
+    (tmp_path / "t.json").write_text(json.dumps({"processedAt": 1.0, "known": ["Chong", "Raju"],
+                                                 "cameras": {"h": [{"t": 0, "people": []}]}}))
+    engine.known = {"Chong": 1, "Raju": 2}
+    assert client.get("/api/map").json()["timeline"]["stale"] is False
+    engine.known = {"Chong": 1}
+    assert client.get("/api/map").json()["timeline"]["stale"] is True

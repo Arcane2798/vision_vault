@@ -675,7 +675,8 @@ def create_router(engine):
                 "rooms": cfg["rooms"], "doors": cfg.get("doors", []), "cameras": cams,
                 "timeline": {"ready": bool(tl.get("cameras")), "duration": house.timeline_duration(tl, cfg),
                              "processedAt": _iso(tl["processedAt"]) if tl.get("processedAt") else None,
-                             "stale": house.timeline_stale(cfg, tl, mtimes)}}
+                             "stale": (house.timeline_stale(cfg, tl, mtimes)
+                                       or house.people_changed(tl, getattr(engine, "known", None)))}}
 
     @router.get("/map")
     def get_map():

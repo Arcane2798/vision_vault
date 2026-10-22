@@ -56,7 +56,10 @@ export default function PeoplePage() {
     setNotice(null);
     try {
       const fresh = await peopleService.update(p.id, { recognition: !p.recognition });
-      done(fresh.recognition ? `${p.name} is recognised again.` : `Recognition off: the camera now treats ${p.name} as an unknown person.`);
+      done(
+        (fresh.recognition ? `${p.name} is recognised again.` : `Recognition off: the camera now treats ${p.name} as an unknown person.`) +
+          ' For House map recordings, press Re-process videos on the House map page.',
+      );
     } catch (e) {
       setNotice({ ok: false, text: `Could not change recognition for ${p.name}: ${(e as Error).message}` });
     } finally {

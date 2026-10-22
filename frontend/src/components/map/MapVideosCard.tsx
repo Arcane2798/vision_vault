@@ -77,7 +77,7 @@ export function MapVideosCard({ map, status, onChanged, onProcess, processError 
           {tl.stale && !processing && (
             <p className="flex items-start gap-1.5 text-xs text-amber-300">
               <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              Videos changed since the last processing. Press Re-process videos to update the replay.
+              Videos or recognised people changed since the last processing (e.g. a resident's recognition was switched off). Press Re-process videos to update the replay.
             </p>
           )}
           {(processError || status?.state === 'error') && (
