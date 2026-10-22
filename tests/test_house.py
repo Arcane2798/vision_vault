@@ -65,8 +65,7 @@ def test_occupancy_and_live():
     assert house.timeline_duration(tl) == 4.0
     assert house.timeline_duration(tl, CFG) == 4.0                     # h: 2 + 2.0
     live = house.merge_live(CFG, {}, [{"name": "unknown", "kind": "unknown"},
-                                      {"name": "Ali", "kind": "guest_allowed"},
-                                      {"name": "unknown", "kind": "leaving"}])
+                                      {"name": "Ali", "kind": "guest_allowed"}])
     assert live == {"living": [{"name": "unknown", "kind": "unknown", "camera": "cam-01"},
                                {"name": "Ali", "kind": "guest", "camera": "cam-01"}]}
 

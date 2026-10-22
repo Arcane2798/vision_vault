@@ -17,12 +17,11 @@ from insightface.utils.storage import ensure_available
 from rules import (DEFAULT_LEVEL,
                    FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, SECURITY_LEVELS,
                    UNKNOWN, classify_person, effective_level, guard_alert_due,
-                   is_departing, items_near, match_lost_unknown, items_text, movement_direction,
+                   match_lost_unknown, movement_direction,
                    normalize_level, security_params, should_alert_guard, stale_tracks)
 from vault_utils import (CAMERA_NAME, CLIP_DIR, FACES_DIR, SNAP_DIR,
                          ClipRecorder, env, get_settings, guard_chat_id, guard_token, house_unit,
                          init_db, load_people, log_event, log_movement, send_telegram,
-                         set_event_items,
                          set_settings, sync_people)
 
 VERIFY_INTERVAL = 30      # frames between re-checks of an already-recognized person
@@ -55,15 +54,6 @@ CLIP_PRE_SEC = 5          # seconds of video kept before an event
 CLIP_POST_SEC = 5         # seconds recorded after the (last) event; clips use the measured FPS
 IMG_EXT = {".jpg", ".jpeg", ".png"}
 
-# Intruder's items (feature 10): COCO classes YOLOv8n already knows, found in the same pass as
-# people. A prototype: the nano model misses many knives, so a hit is a strong hint, a miss
-# proves nothing. Items need a lower confidence than people to be found at all.
-ITEM_CLASSES = {34: "baseball bat", 43: "knife", 76: "scissors"}
-ITEM_CONF = 0.25
-# Paused Wed 21 Oct (owner: focus on detecting people and recognising faces). ITEM_DETECTION=1 turns it back on.
-ITEM_DETECTION = env("ITEM_DETECTION", "0") == "1"
-DETECT_CLASSES = [0, *ITEM_CLASSES] if ITEM_DETECTION else [0]
-ITEM_COLOR = (255, 0, 255)   # magenta (BGR)
 # ByteTrack keeps following a known person through weak detections (bending over, blur, busy
 # background), so the tracker gets boxes down to TRACK_LOW_CONF. A track only counts as a person
 # once one of its detections reached the level's person_conf ("confirmed").
@@ -75,14 +65,10 @@ MIN_TRACK_FRAMES = 3     # default when On; per level: rules.security_params
 MIN_FACE_PX = 16
 MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
 
-# Family tracker (camera inside, facing the door): box growing = arriving, shrinking = leaving.
-# DEPARTURE_FILTER: an unknown who starts close to the camera and walks away (a resident leaving,
-# face never seen) is logged as "someone left" instead of raising an intrusion.
-# Paused Wed 21 Oct: it hid a real intruder walking away from a living-room camera. DEPARTURE_FILTER=1 turns it back on.
-DEPARTURE_FILTER = env("DEPARTURE_FILTER", "0") == "1"
+# Family tracker (camera inside, facing the door): a recognised resident whose box grows has
+# arrived, one whose box shrinks has left; being seen at all means home (rules.presence_status).
 TRACK_END_SEC = 2.0      # a track unseen this long has left the view: decide arrived / left
 SIZE_SAMPLES = 5         # first / last box heights kept per track for the direction
-LEAVING_COLOR = (200, 200, 200)
 
 TRAIL_LEN = 60           # foot points kept per track for the path trail (~8 s at 7 fps)
 TRACK_FORGET_SEC = 30.0  # drop all state of a track not seen for this long (bounded memory)
@@ -229,11 +215,8 @@ class VisionEngine:
         self.track_age = {}      # track_id -> frames seen
         self.confirmed = set()   # track_ids with at least one detection >= the level's person_conf
         self.trails = {}         # track_id -> deque of foot points (x, y) in frame coords
-        self.track_items = {}    # track_id -> set of item labels seen near this unknown person
-        self.track_event = {}    # track_id -> events.id of its intrusion (to add late items)
         self.size_hist = {}      # track_id -> ([first heights], deque[last heights]) as frame fractions
         self.track_names = {}    # track_id -> last known person recognised on this track
-        self.departing = set()   # unknown tracks judged "someone leaving" (no alert)
         self.closed = set()      # tracks already judged arrived / left
         self.track_seen = {}     # track_id -> last time the track was in a frame
         self.last_box = {}       # track_id -> last (x1, y1, x2, y2) in frame coords (timer carry-over)
@@ -519,8 +502,8 @@ class VisionEngine:
         """Every per-track dict / set (keyed by ByteTrack id)."""
         return (self.identity, self.last_faces, self.last_checked, self.verify_fail,
                 self.unknown_since, self.track_age, self.trails, self.track_seen,
-                self.track_items, self.track_event, self.size_hist, self.track_names, self.last_box,
-                self.departing, self.closed, self.alerted, self.guest_alerted, self.confirmed)
+                self.size_hist, self.track_names, self.last_box,
+                self.closed, self.alerted, self.guest_alerted, self.confirmed)
 
     def _forget_tracks(self, tids):
         for store in self._track_stores():
@@ -644,30 +627,19 @@ class VisionEngine:
 
             # YOLO sees the full capture (more pixels for far people at DETECTOR_IMGSZ > 640);
             # its boxes are scaled back to `frame` coordinates below
-            res = self.detector.track(full, classes=DETECT_CLASSES,
+            res = self.detector.track(full, classes=[0],
                                       conf=TRACK_LOW_CONF,
                                       persist=True, tracker="bytetrack.yaml",
                                       verbose=False, **self.detect_kwargs)[0]
-            new_items = []            # (tid, labels) seen on an already-alerted intruder
 
             if res.boxes.id is not None:
                 boxes = (res.boxes.xyxy.cpu().numpy() / scale).astype(int)   # full -> frame
                 ids = res.boxes.id.int().cpu().tolist()
-                classes = res.boxes.cls.int().cpu().tolist()
                 confs = res.boxes.conf.cpu().tolist()
-                for t, c, p in zip(ids, classes, confs):
-                    if c == 0 and p >= params["person_conf"]:
+                for t, p in zip(ids, confs):
+                    if p >= params["person_conf"]:
                         self.confirmed.add(t)
-                persons = [(b, t, p) for b, t, c, p in zip(boxes, ids, classes, confs)
-                           if c == 0 and t in self.confirmed]
-                items = [(ITEM_CLASSES[c], tuple(int(v) for v in b), p)
-                         for b, c, p in zip(boxes, classes, confs)
-                         if c in ITEM_CLASSES and p >= ITEM_CONF]
-                for label, (ix1, iy1, ix2, iy2), p in items:
-                    cv2.rectangle(frame, (ix1, iy1), (ix2, iy2), ITEM_COLOR, 2)
-                    cv2.putText(frame, f"{label} {p:.2f}", (ix1, max(15, iy1 - 6)),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, ITEM_COLOR, 2)
-                item_boxes = [(label, box) for label, box, _ in items]
+                persons = [(b, t, p) for b, t, p in zip(boxes, ids, confs) if t in self.confirmed]
 
                 for (x1, y1, x2, y2), tid, det_conf in persons:
                     x1, y1 = max(0, x1), max(0, y1)
@@ -739,25 +711,6 @@ class VisionEngine:
                         name = self.identity[tid] = "unknown"   # person was deleted
                     if name != "unknown":
                         self.track_names[tid] = name
-                    elif ((DEPARTURE_FILTER or params["departure_filter"])
-                          and tid not in self.alerted and is_departing(first_h, last_h)):
-                        self.departing.add(tid)
-                    if name == "unknown" and tid in self.departing:
-                        # someone from inside walking out, face not seen: no alert
-                        self.unknown_since.pop(tid, None)
-                        in_view.append({"name": "unknown", "kind": "leaving"})
-                        self._draw_trail(frame, self.trails.get(tid), LEAVING_COLOR, False)
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), LEAVING_COLOR, 1)
-                        cv2.putText(frame, f"leaving #{tid}", (x1, max(20, y1 - 8)),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, LEAVING_COLOR, 1)
-                        continue
-                    if name == "unknown" and item_boxes:
-                        near = set(items_near((x1, y1, x2, y2), item_boxes))
-                        added = near - self.track_items.get(tid, set())
-                        if added:
-                            self.track_items.setdefault(tid, set()).update(added)
-                            if tid in self.track_event:
-                                new_items.append((tid, sorted(added)))
                     if name == "unknown":
                         current_unknown.add(tid)
                         self.unknown_since.setdefault(tid, now)
@@ -810,8 +763,6 @@ class VisionEngine:
             for tid, event_type, name in pending:
                 self._trigger_event(tid, frame, now, event_type, name,
                                     len(current_unknown), fps)
-            for tid, added in new_items:
-                self._report_late_items(tid, added)
             self.recorder.add(frame, now)
             last_frame = frame
 
@@ -884,14 +835,9 @@ class VisionEngine:
         clip = self.recorder.trigger(clip, fps)   # may be the clip already recording
         with self.lock:
             guard_alert = self.params["guard_alert"]    # on at every level
-        items = sorted(self.track_items.get(tid, ())) if event_type == "intrusion" else []
-        carrying = f"\n\u26a0 Carrying: {items_text(items)}" if items else ""
         # every due intrusion reaches the Guard House view, even inside the Telegram cooldown
-        event_id = log_event(self.camera_name, tid, name, event_type, clip, snap,
-                             guard_notified=guard_alert_due(event_type, guard_alert),
-                             items=items)
-        if event_type == "intrusion":
-            self.track_event[tid] = event_id
+        log_event(self.camera_name, tid, name, event_type, clip, snap,
+                  guard_notified=guard_alert_due(event_type, guard_alert))
         if now - self.last_tg.get(event_type, 0.0) <= TG_COOLDOWN:
             return
         self.last_tg[event_type] = now
@@ -902,7 +848,7 @@ class VisionEngine:
         else:
             text = (f"INTRUSION at {self.camera_name}\n"
                     f"Unknown people in view: {n_unknown}\n"
-                    f"Time: {time.strftime('%H:%M:%S')}{carrying}")
+                    f"Time: {time.strftime('%H:%M:%S')}")
         send_telegram(text, snap)
 
         # guard-house Telegram copy: as above, and only if a guard chat is configured
@@ -913,33 +859,21 @@ class VisionEngine:
                           f"Unit: {house_unit()}\n"
                           f"Camera: {self.camera_name}\n"
                           f"Unknown people in view: {n_unknown}\n"
-                          f"Time: {time.strftime('%H:%M:%S')}{carrying}")
+                          f"Time: {time.strftime('%H:%M:%S')}")
             # text only: no snapshot of the home goes to the guard house (privacy)
             send_telegram(guard_text, chat_id=guard_chat, token=guard_token())
 
     def _close_track(self, tid, now):
-        """A track left the view: record arrived / left for a known person, or "someone left"
-        for a departing unknown (family tracker)."""
+        """A track left the view: record arrived / left for a recognised resident (family tracker)."""
         hist = self.size_hist.get(tid)
         if not hist:
             return
         direction = movement_direction(*hist)
         name = self.track_names.get(tid)
-        if direction is None or (name is None and tid not in self.departing):
+        if direction is None or name is None:
             return
         try:
             log_movement(name, direction, "camera", now)
-            print(f"[tracker] {name or 'someone (face not seen)'} {direction}")
+            print(f"[tracker] {name} {direction}")
         except Exception as e:
             print("[tracker] could not save movement:", e)
-
-    def _report_late_items(self, tid, added):
-        """An item first seen after the intrusion was logged: update the event and warn once
-        per new item (homeowner, plus the guard house when it has a Telegram chat)."""
-        set_event_items(self.track_event[tid], sorted(self.track_items[tid]))
-        text = (f"\u26a0 Intruder at {self.camera_name} now seen carrying: {items_text(added)}\n"
-                f"Time: {time.strftime('%H:%M:%S')}")
-        send_telegram(text)
-        guard_chat = guard_chat_id()
-        if guard_chat:
-            send_telegram(f"{text}\nUnit: {house_unit()}", chat_id=guard_chat, token=guard_token())

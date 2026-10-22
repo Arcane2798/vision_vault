@@ -29,7 +29,7 @@ def init_db():
                      ("guard_notified", "INTEGER DEFAULT 0"),   # 1 = shown to the guard house
                      ("guard_ack_at", "REAL"),                   # epoch of the guard's first ack
                      ("guard_ack_note", "TEXT"),
-                     ("items", "TEXT")):                        # "knife,scissors" seen on the intruder
+                     ("items", "TEXT")):      # unused since Thu 22 Oct (intruder's items removed)
         if col not in have:
             con.execute(f"ALTER TABLE events ADD COLUMN {col} {ddl}")
     # clips older than this were finished (or abandoned by a crash/restart): don't show "processing" forever
@@ -110,16 +110,15 @@ def load_people():
         con.close()
 
 def log_event(camera, track_id, identity, event_type,
-              clip_path=None, snapshot_path=None, guard_notified=False, items=None):
+              clip_path=None, snapshot_path=None, guard_notified=False):
     """Insert an event row; returns its id."""
     con = sqlite3.connect(DB_PATH)
     try:
         cur = con.execute(
             "INSERT INTO events (ts, camera, track_id, identity, event_type,"
-            " clip_path, snapshot_path, guard_notified, items) VALUES (?,?,?,?,?,?,?,?,?)",
+            " clip_path, snapshot_path, guard_notified) VALUES (?,?,?,?,?,?,?,?)",
             (time.time(), camera, track_id, identity, event_type,
-             clip_path, snapshot_path, int(bool(guard_notified)),
-             ",".join(items) if items else None))
+             clip_path, snapshot_path, int(bool(guard_notified))))
         con.commit()
         return cur.lastrowid
     finally:
@@ -147,17 +146,6 @@ def last_movements():
     finally:
         con.close()
     return {n.lower(): (d, t, s) for n, d, t, s in rows}
-
-
-def set_event_items(event_id, items):
-    """Replace the items seen on an intruder (an item may only show up after the alert)."""
-    con = sqlite3.connect(DB_PATH, timeout=10)
-    try:
-        con.execute("UPDATE events SET items=? WHERE id=?",
-                    (",".join(items) if items else None, event_id))
-        con.commit()
-    finally:
-        con.close()
 
 
 def mark_clip_ready(clip_path):

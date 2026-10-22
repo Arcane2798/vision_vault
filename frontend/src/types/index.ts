@@ -77,8 +77,6 @@ export interface Incident {
   guardAcknowledgedAt?: string | null;
   /** the guard's note, e.g. "Guard dispatched" */
   guardAckNote?: string | null;
-  /** items seen near the unknown person, e.g. ["knife"] (AI prototype). Missing on older backends. */
-  items?: string[];
   detections: Detection[];
   reviewedBy?: string;
   reviewedAt?: string;
@@ -167,8 +165,7 @@ export interface LiveStatus {
 }
 
 /** family = resident (green), guest_allowed = visitor in window (cyan), guest_outside = visitor outside window (orange), unknown (red). */
-/** leaving = someone from inside walking out, face not seen (no alert; family tracker) */
-export type InViewKind = 'family' | 'guest_allowed' | 'guest_outside' | 'unknown' | 'leaving';
+export type InViewKind = 'family' | 'guest_allowed' | 'guest_outside' | 'unknown';
 
 /** Family tracker (side feature 2): camera inside the front door sees residents arrive and leave. */
 export type PresenceStatus = 'home' | 'out' | 'unknown';
@@ -287,8 +284,6 @@ export interface GuardAlert {
   /** first acknowledgement time (ISO), null while unacknowledged */
   acknowledgedAt: string | null;
   ackNote: string | null;
-  /** items seen near the unknown person, e.g. ["knife"] */
-  items?: string[];
 }
 
 /** POST /api/guard/alerts/{id}/ack */

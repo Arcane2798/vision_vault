@@ -238,8 +238,7 @@ def _incident(r, base):
            "clipReady": bool(clip and r.get("clip_ready")),
            "guardNotified": bool(r.get("guard_notified")),   # shown to the guard house
            "guardAcknowledgedAt": _iso(r["guard_ack_at"]) if r.get("guard_ack_at") else None,
-           "guardAckNote": r.get("guard_ack_note"),
-           "items": _items(r)}           # e.g. ["knife"]: seen near the unknown person
+           "guardAckNote": r.get("guard_ack_note")}
     if snap:
         out["snapshotUrl"] = snap
     if clip:
@@ -254,17 +253,12 @@ def _incident(r, base):
 
 def _guard_alert(r):
     """events row -> guard alert JSON, text only (owner, Thu 22 Oct: images of the home are a
-    privacy breach): address, camera, time and items. No identity, people data, snapshot or clip;
+    privacy breach): address, camera and time. No identity, people data, snapshot or clip;
     the footage stays with the homeowner."""
     return {"id": str(r["id"]), "timestamp": _iso(r["ts"]), "houseUnit": house_unit(),
             "cameraName": r["camera"] or "",
             "acknowledgedAt": _iso(r["guard_ack_at"]) if r.get("guard_ack_at") else None,
-            "ackNote": r.get("guard_ack_note"),
-            "items": _items(r)}
-
-
-def _items(r):
-    return [i for i in (r.get("items") or "").split(",") if i]
+            "ackNote": r.get("guard_ack_note")}
 
 
 def family_status(engine):

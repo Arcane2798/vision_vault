@@ -60,24 +60,6 @@ def classify_person(name: str, person: Optional[dict], now: float) -> str:
     return GUEST_OUTSIDE
 
 
-# ---------- intruder's items (feature 10) ----------
-def items_near(person_box, items, margin: float = 0.15) -> list:
-    """Labels of items whose box overlaps the person's box grown by `margin` of its size
-    (a knife held at arm's length sticks out of the person box). Sorted, no duplicates.
-    `items` is [(label, (x1, y1, x2, y2)), ...]."""
-    x1, y1, x2, y2 = person_box
-    mx, my = (x2 - x1) * margin, (y2 - y1) * margin
-    gx1, gy1, gx2, gy2 = x1 - mx, y1 - my, x2 + mx, y2 + my
-    found = {label for label, (a1, b1, a2, b2) in items
-             if a1 < gx2 and a2 > gx1 and b1 < gy2 and b2 > gy1}
-    return sorted(found)
-
-
-def items_text(items) -> str:
-    """"knife, scissors" for Telegram / logs."""
-    return ", ".join(items)
-
-
 # ---------- family tracker (side feature 2) ----------
 # The camera is inside the house, facing the front door (owner decision Wed 21 Oct):
 # walking towards it (box grows) = arriving home, walking away (box shrinks) = leaving.
@@ -103,14 +85,6 @@ def movement_direction(first_heights, last_heights, ratio: float = 1.3):
     if a / b >= ratio:
         return LEFT
     return None
-
-
-def is_departing(first_heights, last_heights, near: float = 0.45, shrink: float = 0.85) -> bool:
-    """A track that started close to the camera (box at least `near` of the frame height) and is
-    getting smaller: someone from inside walking out with their back to the camera. Their face
-    is never seen, so without this they would raise an intrusion alert."""
-    a, b = _median(first_heights), _median(last_heights)
-    return a >= near and b <= a * shrink
 
 
 def presence_status(last_move, last_move_ts, last_seen_ts) -> str:
@@ -147,7 +121,6 @@ _ON = {"alerts": True,          # raise intrusion / visitor alerts at all (off a
        # and lower caught living_room_2's stranger earlier.
        "person_conf": 0.25,
        "min_track_frames": 3,    # frames a person must be tracked before the rules apply
-       "departure_filter": False,  # "someone leaving" exception (paused, see DEPARTURE_FILTER)
        "guard_alert": True}     # also alert the guard house
 
 

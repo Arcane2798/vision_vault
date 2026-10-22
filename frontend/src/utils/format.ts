@@ -89,7 +89,6 @@ export const inViewKindLabel: Record<InViewKind, string> = {
   guest_allowed: 'Visitor (allowed now)',
   guest_outside: 'Visitor outside allowed time',
   unknown: 'Unknown person',
-  leaving: 'Someone leaving (face not seen)',
 };
 
 /** Name to show for someone in view; unknown people have no name. */

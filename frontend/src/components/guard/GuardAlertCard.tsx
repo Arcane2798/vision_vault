@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { ItemsBadge } from '@/components/incidents/ItemsBadge';
 import { CheckCircle2, Lock, MapPin, ShieldAlert } from 'lucide-react';
 import { guardService } from '@/services';
 import type { GuardAlert } from '@/types';
@@ -10,7 +9,7 @@ const QUICK_NOTES = ['Guard dispatched', 'Calling homeowner', 'False alarm']; //
 const NOTE_MAX = 200;
 
 /**
- * One guard-house alert, text only: address, camera, time and items. No snapshot, clip, identity or people data -
+ * One guard-house alert, text only: address, camera and time. No snapshot, clip, identity or people data -
  * images of the home stay with the homeowner (privacy).
  * `now` is passed in so "x min ago" refreshes with the page clock.
  */
@@ -36,7 +35,6 @@ function OpenAlert({ alert, now, onAcknowledged }: { alert: GuardAlert; now: num
               <span className="break-words">{alert.houseUnit}</span>
             </p>
             <p className="mt-1 text-sm text-ink-2">{alert.cameraName}</p>
-            <ItemsBadge items={alert.items} className="mt-2 text-sm" />
           </div>
           <p className="text-lg text-white">
             <span className="font-semibold tabular-nums">{formatTime(alert.timestamp)}</span>

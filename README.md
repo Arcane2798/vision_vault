@@ -35,20 +35,17 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
 | Recognition switch per person (for testing: make a resident count as a stranger without deleting their photos) | ✅ |
 | Township guard house: text alert with house address and time (no images of the home), Guard House screen with acknowledge | ✅ |
 | AI assistant "Viva Bot": ask about incidents and who is at the door, register visitors, turn security on or off (confirm before any change) | ✅ |
-| Intruder's items: knife / scissors / baseball bat near an unknown person (prototype, paused: `ITEM_DETECTION=1` turns it on) | ⏸ |
-| Family tracker: who is home and who is out, from arrivals and departures at the door (paused) | ⏸ |
+| Family tracker: who is home — a resident the camera recognises is home; walking out past the door camera marks them out | ✅ |
 | House map + safe path: floor plan of the demo house with one recorded camera per room, a CCTV wall that replays every camera in sync with person boxes drawn, people per room, and the safest way out avoiding the intruder | ✅ |
-| Township-wide guard dashboard, liveness / anti-spoofing, gun detection model, ESP32 buzzer, account login | 📋 planned |
 
-### Paused and removed features
+### Removed features
 
-Paused features are still in the code and can be switched back on. Removed features were dropped by decision.
+Dropped by decision during the build.
 
 | Feature | State | Why |
 |---|---|---|
-| Intruder's items (knife / scissors / bat) | ⏸ paused Wed 21 Oct — `ITEM_DETECTION=1` turns it on | Focus on detecting people and recognising faces; untested with a real knife, and small YOLO models miss many |
-| Family tracker (who is home / out) | ⏸ paused Wed 21 Oct — still runs (dashboard card, `/api/family`) | Needs a walk-in / walk-out test; a resident leaving with their back turned isn't recognised |
-| Departure filter (someone walking out from inside is "left", not an intruder) | ⏸ paused Wed 21 Oct — `DEPARTURE_FILTER=1` turns it on | It hid a real intruder walking away from a living-room camera |
+| Intruder's items (knife / scissors / bat near an unknown person) | ✖ removed Thu 22 Oct | Was a prototype: small YOLO models miss many knives, and the focus is on people and faces |
+| Departure filter (an unknown walking out from inside counted as "left") | ✖ removed Thu 22 Oct | It hid a real intruder walking away from the camera |
 | Normal / High security levels | ✖ removed Thu 22 Oct | Replaced by a plain On / Off |
 | Away-from-home (vacation) dates that switched to High, and Viva Bot's "we're away" action | ✖ removed Thu 22 Oct | Went with Normal / High; Off with a timer covers the party case |
 | Automatic High at night (sleep-time schedule) | ✖ removed Wed 21 Oct | Replaced by one 5 s grace period at every level |
@@ -86,9 +83,9 @@ Paused features are still in the code and can be switched back on. Removed featu
 
 | Page | What it shows |
 |---|---|
-| **Dashboard** | Live engine status (FPS, who is at the door), counters (incl. alerts awaiting the guard house), 14-day trend, recent incidents |
+| **Dashboard** | Live engine status (FPS, who is at the door), **who is home** (family tracker), counters (incl. alerts awaiting the guard house), 14-day trend, recent incidents |
 | **Live Monitoring** | Live annotated feed and the security switch (On / Off, Off optionally until a time) |
-| **Incidents** | History with search and filters; each incident has the snapshot, clip, identity, items carried and the guard house's response |
+| **Incidents** | History with search and filters; each incident has the snapshot, clip, identity and the guard house's response |
 | **Residents & Visitors** | Register faces by photo upload; give visitors an allowed time window; switch a person's recognition off to test how the camera treats a stranger |
 | **House map** | Floor plan with camera positions and view cones; upload one video per camera, press **Process videos**, then **Play**: people move from room to room on the plan, the **CCTV wall** below plays every camera in sync, and each resident gets a **safe way out** when an intruder appears |
 | **Test with Video** | Run the system on a recorded video instead of the camera |
@@ -101,7 +98,7 @@ Paused features are still in the code and can be switched back on. Removed featu
 - **Backend:** Python, FastAPI, SQLite, ffmpeg (via imageio-ffmpeg), Telegram Bot API
 - **AI assistant:** Google Gemini API (`google-genai`), tool calling over the home's own data; text only, no camera frames
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Recharts
-- **Tests:** pytest (120 tests, no camera needed)
+- **Tests:** pytest (119 tests, no camera needed)
 
 ## Getting started
 
@@ -184,8 +181,6 @@ The tests use a fake engine and a temporary database, so they never touch the ca
 | `FACE_CHECK_FRAMES` | `3` | Frames between face checks while a person is still unknown |
 | — | — | Face match threshold 0.30 (cosine similarity), set in `rules.py` |
 | `VISION_MODE` | — | `legacy` = 640×480, small recogniser, check every 8 frames |
-| `ITEM_DETECTION` | `0` | `1` = look for knives / scissors / bats near an unknown person (prototype, paused) |
-| `DEPARTURE_FILTER` | `0` | `1` = someone who starts next to the (inside) camera and walks out is logged as "left", not as an intruder (paused: it could hide a real intruder walking away) |
 | `CHAT_MODEL` | `gemini-3.5-flash-lite` | Gemini model for Viva Bot |
 
 The house map is `house_map.json`: rooms (position and size), doors between rooms, exits (`"exit": true`, with
@@ -204,7 +199,7 @@ All dashboard endpoints are under `/api`.
 | Incidents | `GET /api/incidents`, `GET /api/incidents/{id}`, `GET /api/dashboard/summary`, `GET /api/dashboard/trend` |
 | Residents & visitors | `GET/POST /api/people`, `PATCH/DELETE /api/people/{id}`, `POST /api/people/{id}/photos`, `GET /api/people/{id}/photo`, `POST /api/people/reload` |
 | Security | `GET/PUT /api/security` (On / Off, Off timer) |
-| Family tracker (paused) | `GET /api/family`, `PUT /api/family/{id}/status`, `GET /api/family/movements` |
+| Family tracker | `GET /api/family`, `PUT /api/family/{id}/status`, `GET /api/family/movements` |
 | Guard house | `GET /api/guard/alerts`, `POST /api/guard/alerts/{id}/ack` |
 | House map | `GET /api/map`, `GET /api/map/state`, `POST /api/map/process`, `GET /api/map/status`, `POST /api/map/cameras/{id}/video`, `PATCH /api/map/cameras/{id}`, `GET /map_videos/*` (CCTV wall) |
 | Viva Bot | `POST /api/chat` |
@@ -218,7 +213,7 @@ Full request and response shapes are documented in [AGENTS.md](AGENTS.md#current
 ```
 vision_vault/
 ├── engine.py         # vision pipeline: detection (OpenVINO), tracking, face recognition, paths
-├── rules.py          # pure decision rules (visitor windows, security levels, items, arrivals) — unit-tested
+├── rules.py          # pure decision rules (visitor windows, security levels, arrivals / departures) — unit-tested
 ├── vault_utils.py    # database, clip recorder, H.264 conversion, Telegram
 ├── api.py            # REST + WebSocket API for the dashboard and the Guard House screen
 ├── chat.py           # Viva Bot: tools over the home's data, confirm-before-change actions
@@ -243,10 +238,9 @@ vision_vault/
 
 ## Known limitations
 
-- **No liveness check yet:** a printed photo of an enrolled person can be accepted as that person.
+- **No liveness check:** a printed photo of an enrolled person can be accepted as that person.
 - **One live camera:** "where is someone" means "last seen at the front door at 14:32". The house map is a concept: every
   camera on it plays a recorded video, processed once and replayed together.
-- **Item detection is paused:** it was a prototype (small YOLO models miss many knives).
 - **Residents walking away:** someone leaving with their back to the camera can't be recognised, so they may be alerted as unknown.
 - **Low match threshold (0.30):** catches residents on small CCTV faces, but leaves little margin: a stranger who looks like a resident could be taken for them.
 - Runs on a laptop (about 8–9 FPS with the Intel GPU); recognition needs a reasonably clear view of the face.

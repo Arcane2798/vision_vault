@@ -52,7 +52,7 @@ def test_invalid_names(name):
 def test_security_params():
     on, off = security_params("on"), security_params("off")
     assert on == {"alerts": True, "grace": 5.0, "match_thresh": 0.30, "person_conf": 0.25,
-                  "min_track_frames": 3, "departure_filter": False, "guard_alert": True}
+                  "min_track_frames": 3, "guard_alert": True}
     # Off: same thresholds, still tracks, never alerts
     assert off == dict(on, alerts=False, guard_alert=False)
     assert rules.SECURITY_LEVELS == ("on", "off") and rules.DEFAULT_LEVEL == "on"
@@ -113,31 +113,13 @@ def test_stale_tracks():
     assert stale_tracks({}, 0, 30.0) == set()
 
 
-def test_items_near():
-    from rules import items_near, items_text
-    person = (100, 100, 200, 400)                       # 100 wide, 300 tall
-    knife_in_hand = ("knife", (190, 250, 230, 270))      # overlaps the right edge
-    knife_at_arm = ("knife", (205, 250, 214, 260))       # outside the box, inside the 15% margin
-    bat_far = ("baseball bat", (400, 100, 450, 300))
-    assert items_near(person, [knife_in_hand, bat_far]) == ["knife"]
-    assert items_near(person, [knife_at_arm]) == ["knife"]
-    assert items_near(person, [knife_at_arm], margin=0) == []
-    assert items_near(person, [knife_in_hand, ("scissors", (120, 120, 130, 130)), knife_at_arm]) == ["knife", "scissors"]
-    assert items_near(person, []) == []
-    assert items_text(["knife", "scissors"]) == "knife, scissors"
-
-
 def test_family_tracker_rules():
-    from rules import (ARRIVED, HOME, LEFT, OUT, UNKNOWN_PRESENCE, is_departing,
-                       movement_direction, presence_status)
+    from rules import ARRIVED, HOME, LEFT, OUT, UNKNOWN_PRESENCE, movement_direction, presence_status
     assert movement_direction([0.2, 0.21, 0.2], [0.35, 0.4, 0.38]) == ARRIVED     # walked towards the camera
     assert movement_direction([0.6, 0.62, 0.6], [0.3, 0.32, 0.31]) == LEFT
     assert movement_direction([0.3, 0.3], [0.33, 0.32]) is None                 # stood still
     assert movement_direction([], [0.3]) is None
     assert movement_direction([0.2, 0.2, 0.9], [0.4, 0.4, 0.4]) == ARRIVED      # one noisy box ignored
-    assert is_departing([0.6, 0.6], [0.45, 0.44]) is True                       # close, walking away
-    assert is_departing([0.3, 0.3], [0.2, 0.2]) is False                        # started far: a real visitor/intruder
-    assert is_departing([0.6, 0.6], [0.58, 0.6]) is False                       # close but not leaving
     assert presence_status(None, None, None) == UNKNOWN_PRESENCE
     assert presence_status(LEFT, 100.0, 90.0) == OUT
     assert presence_status(ARRIVED, 100.0, 90.0) == HOME

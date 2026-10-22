@@ -3,7 +3,6 @@ import { ChevronRight } from 'lucide-react';
 import type { Incident } from '@/types';
 import { eventTypeLabel, formatConfidence, formatDateTime, incidentHeadline, incidentIdentity, isRuleBased } from '@/utils/format';
 import { GuardNotifiedBadge } from './GuardNotifiedBadge';
-import { ItemsBadge } from './ItemsBadge';
 
 /** Table on desktop, cards on mobile. Each row opens the incident details. */
 export function IncidentList({ incidents, showSnapshot = true }: { incidents: Incident[]; showSnapshot?: boolean }) {
@@ -52,7 +51,6 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
                 <td className="px-4 py-2">
                   <div className="flex flex-col items-start gap-1">
                     {i.guardNotified ? <GuardNotifiedBadge acknowledged={!!i.guardAcknowledgedAt} /> : <span className="text-xs text-ink-3">Homeowner alerted</span>}
-                    <ItemsBadge items={i.items} />
                   </div>
                 </td>
                 <td className="px-2 text-ink-3">
@@ -78,7 +76,6 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
                 <p className="text-xs text-ink-3">{formatDateTime(i.timestamp)}</p>
                 <div className="flex flex-wrap gap-1">
                   {i.guardNotified && <GuardNotifiedBadge acknowledged={!!i.guardAcknowledgedAt} />}
-                    <ItemsBadge items={i.items} />
                 </div>
               </div>
             </Link>

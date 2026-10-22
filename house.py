@@ -230,8 +230,6 @@ def merge_live(cfg: dict, occ: dict, in_view) -> dict:
     occ = {k: list(v) for k, v in occ.items()}
     for p in in_view:
         kind = {"guest_allowed": "guest", "guest_outside": "guest"}.get(p["kind"], p["kind"])
-        if kind == "leaving":
-            continue
         occ.setdefault(live["room"], []).append({"name": p["name"], "kind": kind, "camera": live["id"]})
     return occ
 

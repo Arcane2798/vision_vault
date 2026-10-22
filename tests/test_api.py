@@ -176,7 +176,7 @@ def test_guard_alerts_list(client):
     assert [x["id"] for x in alerts] == [str(b), str(a)]
     x = alerts[1]
     # text only: no snapshot or clip of the home, no identity
-    assert set(x) == {"id", "timestamp", "houseUnit", "cameraName", "items", "acknowledgedAt", "ackNote"}
+    assert set(x) == {"id", "timestamp", "houseUnit", "cameraName", "acknowledgedAt", "ackNote"}
     assert x["houseUnit"] == "No. 12, Test Lane" and x["acknowledgedAt"] is None
     assert len(client.get("/api/guard/alerts?limit=1").json()) == 1
     assert len(client.get("/api/guard/alerts?limit=0").json()) == 1      # clamped to 1
@@ -211,17 +211,6 @@ def test_guard_ack_errors(client, sent):
     assert client.post(f"/api/guard/alerts/{g}/ack", json={"note": "x" * 201}).status_code == 400
     assert client.post(f"/api/guard/alerts/{g}/ack", json={"note": "x" * 200}).status_code == 200
     assert sql("SELECT guard_ack_at FROM events WHERE id=?", (plain,))[0][0] is None
-
-
-def test_incident_items(client):
-    import vault_utils
-    eid = add_event(items=["knife"], guard_notified=True)
-    assert client.get(f"/api/incidents/{eid}").json()["items"] == ["knife"]
-    vault_utils.set_event_items(eid, ["knife", "scissors"])
-    assert client.get(f"/api/incidents/{eid}").json()["items"] == ["knife", "scissors"]
-    assert client.get("/api/guard/alerts").json()[0]["items"] == ["knife", "scissors"]
-    plain = add_event()
-    assert client.get(f"/api/incidents/{plain}").json()["items"] == []
 
 
 def test_family_tracker_api(client, engine):
