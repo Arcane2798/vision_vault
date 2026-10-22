@@ -190,3 +190,11 @@ def test_cctv_wall_videos(client, tmp_path, monkeypatch):
     assert urls == {"cam-01": None, "k": None, "h": "/map_videos/h_2.mp4"}
     house.prune_annotated(tl)                                     # older and half-written files go
     assert sorted(f.name for f in (tmp_path / "wall").iterdir()) == ["h_2.mp4"]
+
+
+def test_safe_path_advice_uses_via():
+    cfg = json.loads(json.dumps(CFG))
+    cfg["rooms"][0]["via"] = "the front door"
+    occ = {"hall": [{"name": "unknown", "kind": "unknown", "camera": "h"}],
+           "living": [{"name": "Azhad", "kind": "family", "camera": "cam-01"}]}
+    assert house.plan_safe_paths(cfg, occ)[0]["advice"] == "Leave via the front door."

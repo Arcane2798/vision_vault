@@ -4,7 +4,7 @@
   "height": 20,
   "rooms": [
     {"id": "living", "name": "Living room", "x": 0, "y": 0, "w": 20, "h": 8},
-    {"id": "outside", "name": "Outside", "x": 20, "y": 0, "w": 3, "h": 8, "exit": true},
+    {"id": "outside", "name": "Outside", "via": "the front door", "x": 20, "y": 0, "w": 3, "h": 8, "exit": true},
     {"id": "bilik1", "name": "Bedroom 1", "x": 0, "y": 8, "w": 6, "h": 7},
     {"id": "dapur", "name": "Kitchen", "x": 6, "y": 8, "w": 8, "h": 7},
     {"id": "tandas", "name": "Toilet", "x": 14, "y": 8, "w": 6, "h": 4},

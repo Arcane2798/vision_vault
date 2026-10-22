@@ -161,6 +161,7 @@ def plan_safe_paths(cfg: dict, occupancy: dict) -> list:
     """For every resident on the map: the safe route out, or advice to stay put.
     `occupancy` is {room_id: [{name, kind, camera}]}."""
     names = {r["id"]: r["name"] for r in cfg["rooms"]}
+    via = {r["id"]: r.get("via", r["name"]) for r in cfg["rooms"]}   # e.g. "the front door"
     exits = [r["id"] for r in cfg["rooms"] if r.get("exit")]
     blocked = {room for room, people in occupancy.items()
                if any(p["kind"] == "unknown" for p in people)}
@@ -178,7 +179,7 @@ def plan_safe_paths(cfg: dict, occupancy: dict) -> list:
             elif len(path) == 1:
                 advice = f"Already outside ({names[room]}). Move away from the house."
             else:
-                advice = "Leave via " + " → ".join(names[r] for r in path[1:]) + "."
+                advice = "Leave via " + " → ".join(via[r] for r in path[1:]) + "."
                 if room in blocked:
                     advice = f"The intruder is in the {names[room]} with you. " + advice
             plans.append({"name": p["name"], "from": room, "path": path, "advice": advice})
