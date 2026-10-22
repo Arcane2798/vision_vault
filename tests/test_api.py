@@ -175,11 +175,9 @@ def test_guard_alerts_list(client):
     alerts = client.get("/api/guard/alerts").json()
     assert [x["id"] for x in alerts] == [str(b), str(a)]
     x = alerts[1]
-    assert set(x) == {"id", "timestamp", "houseUnit", "cameraName", "snapshotUrl", "clipUrl", "items",
-                      "clipReady", "acknowledgedAt", "ackNote"}
-    assert x["houseUnit"] == "No. 12, Test Lane" and x["snapshotUrl"].endswith("/snapshots/s.jpg")
-    assert x["clipUrl"] is None and x["clipReady"] is False and x["acknowledgedAt"] is None
-    assert "identity" not in x
+    # text only: no snapshot or clip of the home, no identity
+    assert set(x) == {"id", "timestamp", "houseUnit", "cameraName", "items", "acknowledgedAt", "ackNote"}
+    assert x["houseUnit"] == "No. 12, Test Lane" and x["acknowledgedAt"] is None
     assert len(client.get("/api/guard/alerts?limit=1").json()) == 1
     assert len(client.get("/api/guard/alerts?limit=0").json()) == 1      # clamped to 1
 

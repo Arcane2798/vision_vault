@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { ItemsBadge } from '@/components/incidents/ItemsBadge';
-import { CheckCircle2, ImageOff, Loader2, MapPin, Play, ShieldAlert, X } from 'lucide-react';
+import { CheckCircle2, Lock, MapPin, ShieldAlert } from 'lucide-react';
 import { guardService } from '@/services';
 import type { GuardAlert } from '@/types';
 import { cn, formatGuardAck, formatRelative, formatTime } from '@/utils/format';
 import { Button } from '@/components/ui/Button';
 
-const QUICK_NOTES = ['Guard dispatched', 'Checking CCTV', 'False alarm'];
+const QUICK_NOTES = ['Guard dispatched', 'Calling homeowner', 'False alarm']; // guards no longer see the home's CCTV
 const NOTE_MAX = 200;
 
 /**
- * One guard-house alert. Shows only the address, time, snapshot and clip - never identity or people data.
+ * One guard-house alert, text only: address, camera, time and items. No snapshot, clip, identity or people data -
+ * images of the home stay with the homeowner (privacy).
  * `now` is passed in so "x min ago" refreshes with the page clock.
  */
 export function GuardAlertCard({ alert, now, onAcknowledged }: { alert: GuardAlert; now: number; onAcknowledged: (a: GuardAlert) => void }) {
@@ -21,13 +22,10 @@ function OpenAlert({ alert, now, onAcknowledged }: { alert: GuardAlert; now: num
   const [acking, setAcking] = useState(false);
   return (
     <article className="relative overflow-hidden rounded-2xl border-2 border-red-600 bg-surface-1" aria-label={`Open alert at ${alert.houseUnit}`}>
-      {/* pulsing red border; only the border pulses so the snapshot stays readable */}
+      {/* pulsing red border; only the border pulses so the text stays readable */}
       <div className="pointer-events-none absolute inset-0 animate-pulse rounded-2xl border-4 border-red-500" aria-hidden />
-      <div className="grid md:grid-cols-5">
-        <div className="md:col-span-3">
-          <Evidence alert={alert} large />
-        </div>
-        <div className="flex flex-col gap-4 p-4 sm:p-5 md:col-span-2">
+      <div className="grid gap-4 p-4 sm:p-5 md:grid-cols-5">
+        <div className="flex flex-col gap-4 md:col-span-3">
           <p className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-red-400">
             <ShieldAlert className="h-5 w-5" aria-hidden />
             Unknown person alert
@@ -44,15 +42,19 @@ function OpenAlert({ alert, now, onAcknowledged }: { alert: GuardAlert; now: num
             <span className="font-semibold tabular-nums">{formatTime(alert.timestamp)}</span>
             <span className="text-ink-2"> · {relative(alert.timestamp, now)}</span>
           </p>
-          <div className="mt-auto">
-            {acking ? (
-              <AckPanel alert={alert} onDone={onAcknowledged} onCancel={() => setAcking(false)} />
-            ) : (
-              <Button variant="danger" className="h-14 w-full text-lg" icon={<CheckCircle2 className="h-5 w-5" />} onClick={() => setAcking(true)}>
-                Acknowledge
-              </Button>
-            )}
-          </div>
+          <p className="mt-auto flex items-center gap-1.5 text-xs text-ink-3">
+            <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            Camera images stay with the homeowner. Contact them or go to the unit.
+          </p>
+        </div>
+        <div className="flex flex-col justify-end md:col-span-2">
+          {acking ? (
+            <AckPanel alert={alert} onDone={onAcknowledged} onCancel={() => setAcking(false)} />
+          ) : (
+            <Button variant="danger" className="h-14 w-full text-lg" icon={<CheckCircle2 className="h-5 w-5" />} onClick={() => setAcking(true)}>
+              Acknowledge
+            </Button>
+          )}
         </div>
       </div>
     </article>
@@ -62,10 +64,7 @@ function OpenAlert({ alert, now, onAcknowledged }: { alert: GuardAlert; now: num
 function AcknowledgedAlert({ alert, now }: { alert: GuardAlert; now: number }) {
   return (
     <article className="overflow-hidden rounded-xl border border-line bg-surface-1/60 text-ink-3" aria-label={`Acknowledged alert at ${alert.houseUnit}`}>
-      <div className="flex flex-col gap-3 p-3 opacity-70 sm:flex-row sm:items-center">
-        <div className="w-full shrink-0 grayscale sm:w-44">
-          <Evidence alert={alert} />
-        </div>
+      <div className="p-3 opacity-70">
         <div className="min-w-0 space-y-1">
           <p className="break-words text-xl font-bold text-ink-2">{alert.houseUnit}</p>
           <p className="text-sm">
@@ -78,51 +77,6 @@ function AcknowledgedAlert({ alert, now }: { alert: GuardAlert; now: number }) {
         </div>
       </div>
     </article>
-  );
-}
-
-/** Snapshot, swapped for the clip when "Play clip" is pressed (only offered once the clip is ready). */
-function Evidence({ alert, large }: { alert: GuardAlert; large?: boolean }) {
-  const [playing, setPlaying] = useState(false);
-  const canPlay = alert.clipReady && !!alert.clipUrl;
-  return (
-    <div className="relative bg-black">
-      {playing && canPlay ? (
-        <>
-          <video src={alert.clipUrl!} controls autoPlay playsInline className="aspect-video w-full bg-black" />
-          <button
-            onClick={() => setPlaying(false)}
-            className="absolute right-2 top-2 rounded-full bg-black/70 p-1.5 text-white hover:bg-black"
-            aria-label="Close clip"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </>
-      ) : alert.snapshotUrl ? (
-        <img src={alert.snapshotUrl} alt={`Snapshot from ${alert.cameraName} at ${formatTime(alert.timestamp)}`} className="aspect-video w-full object-contain" />
-      ) : (
-        <div className="flex aspect-video w-full flex-col items-center justify-center gap-1 text-sm text-ink-3">
-          <ImageOff className="h-6 w-6" aria-hidden />
-          No snapshot
-        </div>
-      )}
-      {!playing && canPlay && (
-        <button
-          onClick={() => setPlaying(true)}
-          className={cn(
-            'absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-lg bg-black/75 font-semibold text-white hover:bg-black',
-            large ? 'px-3 py-2 text-sm' : 'px-2 py-1 text-xs',
-          )}
-        >
-          <Play className="h-4 w-4" aria-hidden /> Play clip
-        </button>
-      )}
-      {large && alert.clipUrl && !alert.clipReady && (
-        <span className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-lg bg-black/75 px-3 py-2 text-sm text-ink-2" role="status">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Clip processing…
-        </span>
-      )}
-    </div>
   );
 }
 

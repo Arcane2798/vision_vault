@@ -15,7 +15,7 @@ const clockDate = new Intl.DateTimeFormat('en-GB', { timeZone: config.timezone, 
 
 /**
  * The township guard house's own screen (outside AppLayout: no sidebar, top bar or assistant).
- * Shows only address, time, snapshot and clip of each alert - never identity, people or face data.
+ * Text only: address, camera and time of each alert - never a snapshot, clip, identity, people or face data.
  */
 export default function GuardPage() {
   const alerts = useAsync(() => guardService.list(50), [], POLL_MS);

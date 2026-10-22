@@ -17,7 +17,7 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
 - **Visitor registration that the camera understands.** Homeowners register a visitor with a time window — the same idea
   as a gated community's visitor pass — and the system enforces it automatically.
 - **Privacy by design.** Faces, footage and logs stay on the home's own machine. Only alerts leave the house, and the
-  guard house sees the address and the stranger's snapshot — never who lives there.
+  guard house gets a text alert with the address and time — no images of the home and never who lives there.
 - **Built to scale.** One home today; the same alert stream can feed a township-wide guard dashboard tomorrow.
 
 ## Features
@@ -33,7 +33,7 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
 | Security On / Off: Off pauses alerts and recordings, optionally until a set time (e.g. midnight after a party) | ✅ |
 | Visitor registration with time windows (e.g. "allow Ali Saturday 2–6 pm") | ✅ |
 | Recognition switch per person (for testing: make a resident count as a stranger without deleting their photos) | ✅ |
-| Township guard house: alert with house address and photo, Guard House screen with acknowledge | ✅ |
+| Township guard house: text alert with house address and time (no images of the home), Guard House screen with acknowledge | ✅ |
 | AI assistant "Viva Bot": ask about incidents and who is at the door, register visitors, turn security on or off (confirm before any change) | ✅ |
 | Intruder's items: knife / scissors / baseball bat near an unknown person (prototype, paused: `ITEM_DETECTION=1` turns it on) | ⏸ |
 | Family tracker: who is home and who is out, from arrivals and departures at the door (paused) | ⏸ |
@@ -72,7 +72,7 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
 | **Residents & Visitors** | Register faces by photo upload; give visitors an allowed time window; switch a person's recognition off to test how the camera treats a stranger |
 | **House map** | Floor plan with camera positions and view cones; upload one video per camera, press **Process videos**, then **Play**: people move from room to room on the plan, the **CCTV wall** below plays every camera in sync, and each resident gets a **safe way out** when an intruder appears |
 | **Test with Video** | Run the system on a recorded video instead of the camera |
-| **Guard House** (bottom-left switch) | The township guard's screen: alerts with house address and snapshot, acknowledge with a note |
+| **Guard House** (bottom-left switch) | The township guard's screen: text alerts with house address and time, acknowledge with a note |
 | **Viva Bot** (top bar) | Chat assistant: "What happened at the door today?", "Who is at the door right now?", "Turn security off until midnight for a party" |
 
 ## Tech stack
@@ -216,7 +216,7 @@ vision_vault/
 
 - Face photos, clips, snapshots, test videos, the event database and API keys stay on the home's machine and are excluded
   from this repository by `.gitignore`.
-- The guard house only receives the house address, the time and the stranger's snapshot / clip — no names or photos of
+- The guard house only receives a text alert: the house address, the camera and the time — no snapshot, clip, names or photos of
   residents.
 - Viva Bot sends Gemini text only (incident times, names, security level), never camera frames or face photos. On the
   free tier, Google may use prompts to improve its products.

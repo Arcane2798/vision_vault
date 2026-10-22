@@ -252,15 +252,12 @@ def _incident(r, base):
     return out
 
 
-def _guard_alert(r, base):
-    """events row -> guard alert JSON. No identity or people data: the guard house only sees
-    the address, time and the stranger's snapshot/clip."""
-    clip = f"{base}/clips/{Path(r['clip_path']).name}" if r["clip_path"] else None
-    snap = (f"{base}/snapshots/{Path(r['snapshot_path']).name}"
-            if r["snapshot_path"] else None)
+def _guard_alert(r):
+    """events row -> guard alert JSON, text only (owner, Thu 22 Oct: images of the home are a
+    privacy breach): address, camera, time and items. No identity, people data, snapshot or clip;
+    the footage stays with the homeowner."""
     return {"id": str(r["id"]), "timestamp": _iso(r["ts"]), "houseUnit": house_unit(),
-            "cameraName": r["camera"] or "", "snapshotUrl": snap, "clipUrl": clip,
-            "clipReady": bool(clip and r.get("clip_ready")),
+            "cameraName": r["camera"] or "",
             "acknowledgedAt": _iso(r["guard_ack_at"]) if r.get("guard_ack_at") else None,
             "ackNote": r.get("guard_ack_note"),
             "items": _items(r)}
@@ -754,15 +751,14 @@ def create_router(engine):
         return rows[0]
 
     @router.get("/guard/alerts")
-    def guard_alerts(request: Request, limit: int = 50):
+    def guard_alerts(limit: int = 50):
         limit = max(1, min(limit, 200))
         rows = _rows("SELECT * FROM events WHERE guard_notified=1 ORDER BY ts DESC, id DESC"
                      " LIMIT ?", (limit,))
-        base = base_url(request)
-        return [_guard_alert(r, base) for r in rows]
+        return [_guard_alert(r) for r in rows]
 
     @router.post("/guard/alerts/{alert_id}/ack")
-    def guard_ack(alert_id: int, request: Request, body: Optional[GuardAck] = None):
+    def guard_ack(alert_id: int, body: Optional[GuardAck] = None):
         note = ((body.note if body else None) or "").strip() or None
         if note and len(note) > MAX_ACK_NOTE:
             raise HTTPException(400, f"note must be at most {MAX_ACK_NOTE} characters.")
@@ -781,7 +777,7 @@ def create_router(engine):
             con.close()
         if first:
             send_telegram(guard_ack_message(datetime.fromtimestamp(now).strftime("%H:%M"), note))
-        return _guard_alert(guard_row(alert_id), base_url(request))
+        return _guard_alert(guard_row(alert_id))
 
     # ---------- AI assistant (tools + loop live in chat.py) ----------
     @router.post("/chat")

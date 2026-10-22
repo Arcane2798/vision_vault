@@ -914,7 +914,8 @@ class VisionEngine:
                           f"Camera: {self.camera_name}\n"
                           f"Unknown people in view: {n_unknown}\n"
                           f"Time: {time.strftime('%H:%M:%S')}{carrying}")
-            send_telegram(guard_text, snap, chat_id=guard_chat, token=guard_token())
+            # text only: no snapshot of the home goes to the guard house (privacy)
+            send_telegram(guard_text, chat_id=guard_chat, token=guard_token())
 
     def _close_track(self, tid, now):
         """A track left the view: record arrived / left for a known person, or "someone left"

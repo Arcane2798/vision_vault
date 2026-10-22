@@ -74,3 +74,27 @@ def test_old_saved_levels_load_as_on(sent):
     assert s["level"] == "on" and s["effective_level"] == "on"
     assert set(s) == {"level", "off_until", "updated_at", "effective_level"}
     assert vault_utils.get_settings()["away_enabled"][0] == "1"   # old rows left untouched
+
+
+def test_guard_telegram_copy_is_text_only(tmp_path, monkeypatch):
+    """The homeowner gets the snapshot; the guard house gets text only (privacy)."""
+    import threading
+    import types
+    import engine as eng
+    sent = []
+    monkeypatch.setattr(eng, "send_telegram", lambda *a, **k: sent.append((a, k)))
+    monkeypatch.setattr(eng, "log_event", lambda *a, **k: 1)
+    monkeypatch.setattr(eng.cv2, "imwrite", lambda *a, **k: True)
+    monkeypatch.setattr(eng, "guard_chat_id", lambda: "guard-chat")
+    monkeypatch.setattr(eng, "guard_token", lambda: "guard-token")
+    monkeypatch.setattr(eng, "house_unit", lambda: "No. 12, Test Lane")
+    monkeypatch.setattr(eng, "SNAP_DIR", tmp_path)
+    monkeypatch.setattr(eng, "CLIP_DIR", tmp_path)
+    fake = types.SimpleNamespace(
+        lock=threading.Lock(), params={"guard_alert": True}, track_items={}, track_event={},
+        last_tg={}, camera_name="Front door", recorder=types.SimpleNamespace(trigger=lambda c, f: c))
+    eng.VisionEngine._trigger_event(fake, 7, None, 1000.0, "intrusion", "unknown", 1, 5.0)
+    owner, guard = sent
+    assert owner[0][1].endswith(".jpg")                           # homeowner: photo attached
+    assert len(guard[0]) == 1 and "photo_path" not in guard[1]    # guard: text only
+    assert "No. 12, Test Lane" in guard[0][0] and guard[1]["chat_id"] == "guard-chat"

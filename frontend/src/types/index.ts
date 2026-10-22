@@ -277,16 +277,13 @@ export interface ChatResponse {
  * GET /api/guard/alerts item - what the township guard house sees.
  * Deliberately has no identity, people or face data: only the address and the stranger's snapshot/clip.
  */
+/** GET /api/guard/alerts item. Text only: no snapshot or clip reaches the guard house (privacy). */
 export interface GuardAlert {
   id: string;
   timestamp: string;
   /** HOUSE_UNIT on the backend, e.g. "No. 12, Jalan Elmina 3/1" (fallback "This home") */
   houseUnit: string;
   cameraName: string;
-  snapshotUrl: string | null;
-  clipUrl: string | null;
-  /** play clipUrl only when true */
-  clipReady: boolean;
   /** first acknowledgement time (ISO), null while unacknowledged */
   acknowledgedAt: string | null;
   ackNote: string | null;
