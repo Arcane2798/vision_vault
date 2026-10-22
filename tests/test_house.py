@@ -172,3 +172,21 @@ def test_map_video_upload_and_offset_api(client, tmp_path, monkeypatch):
     assert client.patch("/api/map/cameras/cam-01", json={"offset": 1}).status_code == 400
     assert client.patch("/api/map/cameras/nope", json={"offset": 1}).status_code == 404
 
+
+
+def test_cctv_wall_videos(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(house, "MAP_FILE", tmp_path / "m.json")
+    monkeypatch.setattr(house, "TIMELINE_FILE", tmp_path / "t.json")
+    monkeypatch.setattr(house, "VIDEO_DIR", tmp_path / "videos")
+    monkeypatch.setattr(house, "ANNOTATED_DIR", tmp_path / "wall")
+    (tmp_path / "m.json").write_text(json.dumps(CFG))
+    (tmp_path / "wall").mkdir()
+    for name in ("h_2.mp4", "h_1.mp4", "k_1.raw.mp4"):
+        (tmp_path / "wall" / name).write_bytes(b"x")
+    tl = {"processedAt": 1.0, "cameras": {"h": [{"t": 0, "people": []}]},
+          "videos": {"h": "h_2.mp4", "k": "k_9.mp4"}}            # k's file is missing
+    (tmp_path / "t.json").write_text(json.dumps(tl))
+    urls = {c["id"]: c.get("annotatedUrl") for c in client.get("/api/map").json()["cameras"]}
+    assert urls == {"cam-01": None, "k": None, "h": "/map_videos/h_2.mp4"}
+    house.prune_annotated(tl)                                     # older and half-written files go
+    assert sorted(f.name for f in (tmp_path / "wall").iterdir()) == ["h_2.mp4"]

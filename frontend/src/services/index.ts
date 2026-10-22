@@ -5,7 +5,7 @@
  */
 import { isMock } from '@/config/env';
 import { mockApi } from '@/mocks/mockApi';
-import type { AuthSession, Camera, CameraInput, ChatRequest, ChatResponse, DashboardSummary, FamilyMember, GuardAckRequest, HouseMap, MapState, MapStatus, GuardAlert, Incident, IncidentQuery, IncidentStatus, LiveStatus, Movement, Person, PersonInput, PersonUpdate, SecuritySettings, SecurityUpdate, TestVideo, TrendPoint, User, VideoSource, VideoSourceUpdate } from '@/types';
+import type { AuthSession, Camera, CameraInput, ChatRequest, ChatResponse, DashboardSummary, FamilyMember, GuardAckRequest, HouseMap, MapCamera, MapState, MapStatus, GuardAlert, Incident, IncidentQuery, IncidentStatus, LiveStatus, Movement, Person, PersonInput, PersonUpdate, SecuritySettings, SecurityUpdate, TestVideo, TrendPoint, User, VideoSource, VideoSourceUpdate } from '@/types';
 import { api, backendUrl } from './apiClient';
 
 export const authService = {
@@ -94,6 +94,10 @@ export const mapService = {
   setOffset: (cameraId: string, offset: number): Promise<HouseMap> =>
     api(`/map/cameras/${encodeURIComponent(cameraId)}`, { method: 'PATCH', body: { offset } }),
   status: (): Promise<MapStatus> => api('/map/status'),
+  /** processed room video (person boxes drawn) for the CCTV wall */
+  videoSrc: (cam: MapCamera): string => backendUrl(cam.annotatedUrl ?? ''),
+  /** the live camera's MJPEG stream (use in an <img>) */
+  liveStreamSrc: (): string => backendUrl('/video'),
 };
 
 

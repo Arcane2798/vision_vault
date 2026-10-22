@@ -269,17 +269,22 @@ def send_telegram(text, photo_path=None, chat_id=None, on_sent=None, token=None)
                 print("[telegram] on_sent failed:", e)
     threading.Thread(target=_run, daemon=True).start()
 
+def encode_h264(src, dst):
+    """Re-encode `src` to browser-playable H.264 at `dst` (blocking; raises on failure)."""
+    subprocess.run(
+        [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-i", str(src),
+         "-vcodec", "libx264", "-pix_fmt", "yuv420p",
+         "-preset", "veryfast", "-movflags", "+faststart", str(dst)],
+        check=True, capture_output=True)
+
+
 def convert_to_h264(path, on_done=None):
     """Re-encode `path` to browser-playable H.264 in a daemon thread, then call on_done(path).
     on_done also runs if conversion fails (the mp4v file is kept), so a clip never stays "processing"."""
     def _run():
         tmp = path + ".h264.mp4"
         try:
-            subprocess.run(
-                [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-i", path,
-                 "-vcodec", "libx264", "-pix_fmt", "yuv420p",
-                 "-preset", "veryfast", "-movflags", "+faststart", tmp],
-                check=True, capture_output=True)
+            encode_h264(path, tmp)
             os.replace(tmp, path)
         except Exception as e:
             print("[ffmpeg] conversion failed:", e)

@@ -9,6 +9,7 @@ import { Card, CardHeader } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/States';
 import { MapVideosCard } from '@/components/map/MapVideosCard';
+import { CctvWall } from '@/components/map/CctvWall';
 
 type Mode = 'live' | 'replay';
 const SPEEDS = [1, 2, 4];
@@ -197,6 +198,10 @@ export default function HouseMapPage() {
             <SafePathCard state={state} map={map.data} />
             <MapVideosCard map={map.data} status={status} onChanged={() => map.reload()} onProcess={process} processError={processError} />
           </div>
+
+          <div className="xl:col-span-3">
+            <CctvWall map={map.data} state={state} mode={mode} t={t} playing={playing} speed={speed} />
+          </div>
         </div>
       )}
     </>
@@ -254,11 +259,12 @@ function FloorPlan({ map, state }: { map: HouseMap; state: MapState | null }) {
           opacity={0.9}
         />
       ))}
-      {map.cameras.map((c, i) => {
+      {map.cameras.map((c) => {
         const r = map.rooms.find((x) => x.id === c.room);
         if (!r) return null;
+        const k = map.cameras.filter((x) => x.room === c.room).indexOf(c); // side by side when a room has two cameras
         return (
-          <g key={c.id} transform={`translate(${r.x + r.w - 0.55 - i * 0.02}, ${r.y + 0.25})`}>
+          <g key={c.id} transform={`translate(${r.x + r.w - 0.55 - k * 0.5}, ${r.y + 0.25})`}>
             <rect width={0.4} height={0.3} rx={0.05} fill={c.live ? '#ef4444' : c.videoFound ? '#64748b' : '#7f1d1d'} />
             <title>{`${c.name}${c.live ? ' (live)' : c.videoFound ? '' : ' (video missing)'}`}</title>
           </g>

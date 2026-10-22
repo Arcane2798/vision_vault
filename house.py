@@ -18,6 +18,7 @@ from pathlib import Path
 MAP_FILE = Path("house_map.json")
 TIMELINE_FILE = Path("house_map_timeline.json")
 VIDEO_DIR = Path("test_videos")
+ANNOTATED_DIR = Path("map_videos")   # processed copies with person boxes, for the CCTV wall
 SAMPLE_FPS = 4.0          # frames per second of each recorded video that are analysed
 SEEN_WINDOW = 1.5         # a camera sample counts for this many seconds of replay time
 MAX_OFFSET = 3600.0       # a camera's video may start up to an hour into the replay
@@ -263,14 +264,38 @@ class MapProcessor:
             self._set(state="done", progress=1.0, camera=None, processedAt=timeline["processedAt"])
         except Exception as e:      # shown on the map page
             self._set(state="error", error=str(e))
+        finally:
+            prune_annotated(load_timeline())
+
+
+def annotated_file(timeline: dict, cam_id: str):
+    """Path of this camera's processed video (person boxes drawn) if it exists, else None."""
+    name = (timeline.get("videos") or {}).get(cam_id)
+    path = ANNOTATED_DIR / name if name else None
+    return path if path and path.is_file() else None
+
+
+def prune_annotated(timeline: dict) -> None:
+    """Delete processed videos the timeline no longer uses (best effort: a file the browser is
+    still streaming may be locked on Windows; it goes on the next run)."""
+    keep = set((timeline.get("videos") or {}).values())
+    for f in ANNOTATED_DIR.glob("*.mp4") if ANNOTATED_DIR.is_dir() else ():
+        if f.name not in keep:
+            try:
+                f.unlink()
+            except OSError:
+                pass
 
 
 def process_videos(engine, cfg, progress=lambda cam, p: None) -> dict:
-    """{processedAt, cameras: {cam_id: [{t, people: [{name, kind}]}]}} for every recorded camera.
+    """{processedAt, cameras: {cam_id: [{t, people: [{name, kind}]}]}, videos: {cam_id: file}} for
+    every recorded camera. `videos` are copies in ANNOTATED_DIR with the person boxes drawn (same
+    timing as the original), played on the House map's CCTV wall.
     Uses the engine's face model and enrolled faces; a separate YOLO instance does the tracking."""
     import cv2
     from ultralytics import YOLO
     import engine as eng
+    from vault_utils import encode_h264
     from rules import FAMILY, GUEST_ALLOWED, GUEST_OUTSIDE, classify_person, security_params
 
     # rooms without a video yet are skipped (they stay empty on the map)
@@ -280,9 +305,11 @@ def process_videos(engine, cfg, progress=lambda cam, p: None) -> dict:
         raise MapError("no room videos uploaded yet")
     with engine.lock:
         known, people = engine.known, engine.people
-    thresh = security_params("on")["match_thresh"]
+    on = security_params("on")
+    thresh = on["match_thresh"]
     kind_of = {FAMILY: "family", GUEST_ALLOWED: "guest", GUEST_OUTSIDE: "guest"}
-    out = {}
+    out, videos, stamp = {}, {}, int(time.time())
+    ANNOTATED_DIR.mkdir(exist_ok=True)
     for n, cam in enumerate(recorded):
         path = VIDEO_DIR / Path(cam["video"]).name
         cap = cv2.VideoCapture(str(path))
@@ -293,20 +320,28 @@ def process_videos(engine, cfg, progress=lambda cam, p: None) -> dict:
         step = max(1, round(src_fps / SAMPLE_FPS))
         yolo = YOLO("yolov8n.pt")
         identity, samples, idx = {}, [], 0
+        boxes = []                # [(x1, y1, x2, y2, colour, label)] from the latest analysed frame
+        raw = ANNOTATED_DIR / f"{cam['id']}_{stamp}.raw.mp4"
+        writer = None
         while True:
             ok, full = cap.read()
             if not ok:
                 break
             idx += 1
-            if (idx - 1) % step:
-                continue
             if full.shape[1] > eng.CAPTURE_W:
                 full = cv2.resize(full, (eng.CAPTURE_W, int(full.shape[0] * eng.CAPTURE_W / full.shape[1])))
             frame = cv2.resize(full, (eng.PROCESS_W, int(full.shape[0] * eng.PROCESS_W / full.shape[1])))
+            if writer is None:
+                writer = cv2.VideoWriter(str(raw), cv2.VideoWriter_fourcc(*"mp4v"), src_fps,
+                                         (frame.shape[1], frame.shape[0]))
+            if (idx - 1) % step:
+                _draw_boxes(cv2, frame, boxes)   # frames between analyses keep the last boxes
+                writer.write(frame)
+                continue
             scale = full.shape[1] / frame.shape[1]
-            res = yolo.track(frame, classes=[0], conf=eng.PERSON_CONF, persist=True,
+            res = yolo.track(frame, classes=[0], conf=on["person_conf"], persist=True,
                              tracker="bytetrack.yaml", verbose=False)[0]
-            seen = []
+            seen, boxes = [], []
             if res.boxes.id is not None:
                 for (x1, y1, x2, y2), tid in zip(res.boxes.xyxy.cpu().numpy().astype(int),
                                                  res.boxes.id.int().cpu().tolist()):
@@ -320,11 +355,30 @@ def process_videos(engine, cfg, progress=lambda cam, p: None) -> dict:
                             best = max(faces, key=lambda f: f.bbox[2] - f.bbox[0])
                             identity[tid] = engine._identify(best.normed_embedding, known, thresh)[0]
                     name = identity.get(tid, "unknown")
-                    kind = kind_of.get(classify_person(name, people.get(name), time.time()), "unknown")
-                    seen.append({"name": name, "kind": kind})
+                    decision = classify_person(name, people.get(name), time.time())
+                    seen.append({"name": name, "kind": kind_of.get(decision, "unknown")})
+                    colour, label = eng.STYLE[decision]
+                    boxes.append((x1, y1, x2, y2, colour, label.format(name=name)))
+            _draw_boxes(cv2, frame, boxes)
+            writer.write(frame)
             # seconds into this video; the camera's offset is applied at replay (occupancy_at)
             samples.append({"t": round((idx - 1) / src_fps, 2), "people": seen})
             progress(cam["id"], (n + min(1.0, idx / total)) / len(recorded))
         cap.release()
         out[cam["id"]] = samples
-    return {"processedAt": time.time(), "cameras": out}
+        if writer is not None:
+            writer.release()
+            final = raw.with_name(f"{cam['id']}_{stamp}.mp4")
+            try:
+                encode_h264(raw, final)      # mp4v does not play in browsers
+                videos[cam["id"]] = final.name
+            except Exception as e:           # the map replay still works without the wall video
+                print(f"[map] could not encode the CCTV video for {cam['id']}: {e}")
+            raw.unlink(missing_ok=True)
+    return {"processedAt": time.time(), "cameras": out, "videos": videos}
+
+
+def _draw_boxes(cv2, frame, boxes):
+    for x1, y1, x2, y2, colour, label in boxes:
+        cv2.rectangle(frame, (x1, y1), (x2, y2), colour, 2)
+        cv2.putText(frame, label, (x1, max(18, y1 - 7)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, colour, 2)

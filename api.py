@@ -661,7 +661,9 @@ def create_router(engine):
             p = map_video(c)
             found = p.is_file()
             mtimes[c["id"]] = p.stat().st_mtime if found else None
+            wall = house.annotated_file(tl, c["id"])
             cams.append(dict(c, videoFound=found,
+                             annotatedUrl=f"/map_videos/{wall.name}" if wall else None,
                              videoSizeBytes=p.stat().st_size if found else None,
                              videoModifiedAt=_iso(mtimes[c["id"]]) if found else None,
                              videoDuration=_video_duration(p) if found else None))

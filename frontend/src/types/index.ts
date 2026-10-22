@@ -332,6 +332,8 @@ export interface MapCamera {
   /** seconds into the replay at which this camera's video starts */
   offset?: number;
   videoFound: boolean;
+  /** processed copy with person boxes drawn (CCTV wall); null until "Process videos" has run */
+  annotatedUrl?: string | null;
   videoSizeBytes?: number | null;
   videoModifiedAt?: string | null;
   /** seconds */

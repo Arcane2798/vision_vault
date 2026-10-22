@@ -1,27 +1,30 @@
 {
-  "name": "Sample terrace house (edit to match your demo house)",
+  "name": "Demo house (owner's floor plan, Thu 22 Oct)",
   "width": 20,
-  "height": 12,
+  "height": 22,
   "rooms": [
-    {"id": "front_yard", "name": "Front yard", "x": 0, "y": 0, "w": 3, "h": 12, "exit": true},
-    {"id": "living", "name": "Living room", "x": 3, "y": 0, "w": 8, "h": 7},
-    {"id": "hall", "name": "Hallway", "x": 3, "y": 7, "w": 8, "h": 5},
-    {"id": "kitchen", "name": "Kitchen", "x": 11, "y": 0, "w": 6, "h": 6},
-    {"id": "bedroom1", "name": "Master bedroom", "x": 11, "y": 6, "w": 6, "h": 6},
-    {"id": "back_yard", "name": "Back yard", "x": 17, "y": 0, "w": 3, "h": 12, "exit": true}
+    {"id": "outside", "name": "Outside (front door)", "x": 0, "y": 0, "w": 20, "h": 2, "exit": true},
+    {"id": "living", "name": "Living room", "x": 0, "y": 2, "w": 20, "h": 8},
+    {"id": "bilik1", "name": "Bedroom 1", "x": 0, "y": 10, "w": 6, "h": 7},
+    {"id": "dapur", "name": "Kitchen", "x": 6, "y": 10, "w": 8, "h": 7},
+    {"id": "tandas", "name": "Toilet", "x": 14, "y": 10, "w": 6, "h": 4},
+    {"id": "bilik2", "name": "Bedroom 2", "x": 0, "y": 17, "w": 8, "h": 5},
+    {"id": "bilik3", "name": "Bedroom 3", "x": 8, "y": 17, "w": 7, "h": 5}
   ],
   "doors": [
-    ["front_yard", "living"],
-    ["living", "hall"],
-    ["living", "kitchen"],
-    ["hall", "bedroom1"],
-    ["kitchen", "back_yard"],
-    ["bedroom1", "back_yard"]
+    ["outside", "living"],
+    ["living", "dapur"],
+    ["dapur", "bilik1"],
+    ["dapur", "tandas"],
+    ["dapur", "bilik2"],
+    ["dapur", "bilik3"]
   ],
   "cameras": [
     {"id": "cam-01", "name": "Front door (live)", "room": "living", "live": true},
-    {"id": "map-kitchen", "name": "Kitchen", "room": "kitchen", "video": "kitchen.mp4", "offset": 0},
-    {"id": "map-hall", "name": "Hallway", "room": "hall", "video": "hall.mp4", "offset": 0},
-    {"id": "map-bedroom", "name": "Master bedroom", "room": "bedroom1", "video": "bedroom.mp4", "offset": 0}
+    {"id": "map-living", "name": "Living room", "room": "living", "video": "ruang_tamu.mp4", "offset": 0},
+    {"id": "map-dapur", "name": "Kitchen", "room": "dapur", "video": "dapur.mp4", "offset": 0},
+    {"id": "map-bilik1", "name": "Bedroom 1", "room": "bilik1", "video": "bilik1.mp4", "offset": 0},
+    {"id": "map-bilik2", "name": "Bedroom 2", "room": "bilik2", "video": "bilik2.mp4", "offset": 0},
+    {"id": "map-bilik3", "name": "Bedroom 3", "room": "bilik3", "video": "bilik3.mp4", "offset": 0}
   ]
 }

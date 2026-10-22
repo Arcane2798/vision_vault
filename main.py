@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api import create_router
 from engine import VisionEngine
+import house
 
 import os
 _src = os.getenv("VIDEO_SOURCE", "0")
@@ -36,6 +37,8 @@ Path("clips").mkdir(exist_ok=True)
 Path("snapshots").mkdir(exist_ok=True)
 app.mount("/clips", StaticFiles(directory="clips"), name="clips")
 app.mount("/snapshots", StaticFiles(directory="snapshots"), name="snapshots")
+house.ANNOTATED_DIR.mkdir(exist_ok=True)
+app.mount("/map_videos", StaticFiles(directory=house.ANNOTATED_DIR), name="map_videos")   # CCTV wall
 
 
 def mjpeg():
