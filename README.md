@@ -40,6 +40,26 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
 | House map + safe path: floor plan of the demo house with one recorded camera per room, a CCTV wall that replays every camera in sync with person boxes drawn, people per room, and the safest way out avoiding the intruder | ✅ |
 | Township-wide guard dashboard, liveness / anti-spoofing, gun detection model, ESP32 buzzer, account login | 📋 planned |
 
+### Paused and removed features
+
+Paused features are still in the code and can be switched back on. Removed features were dropped by decision.
+
+| Feature | State | Why |
+|---|---|---|
+| Intruder's items (knife / scissors / bat) | ⏸ paused Wed 21 Oct — `ITEM_DETECTION=1` turns it on | Focus on detecting people and recognising faces; untested with a real knife, and small YOLO models miss many |
+| Family tracker (who is home / out) | ⏸ paused Wed 21 Oct — still runs (dashboard card, `/api/family`) | Needs a walk-in / walk-out test; a resident leaving with their back turned isn't recognised |
+| Departure filter (someone walking out from inside is "left", not an intruder) | ⏸ paused Wed 21 Oct — `DEPARTURE_FILTER=1` turns it on | It hid a real intruder walking away from a living-room camera |
+| Normal / High security levels | ✖ removed Thu 22 Oct | Replaced by a plain On / Off |
+| Away-from-home (vacation) dates that switched to High, and Viva Bot's "we're away" action | ✖ removed Thu 22 Oct | Went with Normal / High; Off with a timer covers the party case |
+| Automatic High at night (sleep-time schedule) | ✖ removed Wed 21 Oct | Replaced by one 5 s grace period at every level |
+| Manual incident review (new → under review → confirmed / dismissed) and Viva Bot's review action | ✖ removed Wed 21 Oct | The system is autonomous; the API fields remain but the UI no longer uses them |
+| Static-figure filter (ignore posters / photos on the wall) | ✖ removed Wed 21 Oct | No posters in the demo; it risked ignoring a person standing still |
+| Snapshot and clip for the guard house (screen and Telegram) | ✖ removed Thu 22 Oct | Images of the home are a privacy breach; guards get text only, the homeowner keeps the footage |
+| Live camera on the House map | ✖ removed Thu 22 Oct | Every camera on the map plays a recorded video, so the whole house replays together |
+| Cameras page / multi-camera management | ✖ removed Tue 20 Oct | One home, one live camera |
+| Guard House screen on a separate phone | ✖ dropped Tue 20 Oct | The demo runs it on the same laptop (bottom-left switch) |
+| Account login (head of house = admin) | ✖ skipped (owner decision) | Not needed for a one-home demo |
+
 ## How it works
 
 ```
