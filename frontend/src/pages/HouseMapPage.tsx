@@ -23,7 +23,10 @@ const PERSON_COLOR: Record<MapPerson['kind'], string> = { family: '#22c55e', gue
  */
 export default function HouseMapPage() {
   const map = useAsync(() => mapService.get(), []);
-  const [mode, setMode] = useState<Mode>('live');
+  const [chosenMode, setMode] = useState<Mode>('live');
+  // without a live camera on the map there is nothing to show live: always the replay
+  const hasLive = !!map.data?.cameras.some((c) => c.live);
+  const mode: Mode = hasLive ? chosenMode : 'replay';
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
@@ -111,7 +114,7 @@ export default function HouseMapPage() {
         title="House map"
         description="Where residents and intruders are, room by room, and the safest way out for each resident."
         actions={
-          <div role="radiogroup" aria-label="Map mode" className="inline-flex rounded-lg border border-line bg-surface-2 p-1">
+          hasLive && <div role="radiogroup" aria-label="Map mode" className="inline-flex rounded-lg border border-line bg-surface-2 p-1">
             {(['live', 'replay'] as const).map((m) => (
               <button
                 key={m}
@@ -135,7 +138,9 @@ export default function HouseMapPage() {
 
       <p className="mb-4 flex items-start gap-2 rounded-lg border border-line bg-surface-2/60 px-3 py-2 text-xs text-ink-2">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-300" aria-hidden />
-        Concept demo: a real home needs one camera per room. Here the live front-door camera is combined with recorded videos of the other rooms.
+        {hasLive
+          ? 'Concept demo: a real home needs one camera per room. Here the live front-door camera is combined with recorded videos of the other rooms.'
+          : 'Concept demo: every camera plays a recorded video, so the whole house can be replayed together. Upload one video per camera, press Process videos, then Play.'}
         Edit <code className="text-ink-1">house_map.json</code> to change rooms, doors and which video belongs to which room.
       </p>
 
@@ -162,7 +167,7 @@ export default function HouseMapPage() {
               <FloorPlan map={map.data} state={state} />
               {mode === 'replay' && (
                 <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <Button size="sm" variant="primary" icon={playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />} onClick={() => {
+                  <Button size="sm" variant="primary" icon={playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />} disabled={!timeline?.ready} title={timeline?.ready ? undefined : 'Process the recorded videos first'} onClick={() => {
                     if (!playing && t >= duration) setT(0);
                     setPlaying(!playing);
                   }}>

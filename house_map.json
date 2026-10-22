@@ -90,10 +90,9 @@
   ],
   "cameras": [
     {
-      "id": "cam-01",
-      "name": "Front door (live)",
+      "id": "map-front-door",
+      "name": "Front door",
       "room": "living",
-      "live": true,
       "video": "front_door_cam.mp4",
       "offset": 0,
       "x": 12.7,
