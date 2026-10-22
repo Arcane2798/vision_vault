@@ -106,8 +106,8 @@
       "video": "ruang_tamu.mp4",
       "offset": 0,
       "x": 0.6,
-      "y": 1,
-      "facing": 20,
+      "y": 7.4,
+      "facing": -15,
       "fov": 90
     },
     {
