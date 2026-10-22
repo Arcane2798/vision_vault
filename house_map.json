@@ -3,28 +3,156 @@
   "width": 23,
   "height": 20,
   "rooms": [
-    {"id": "living", "name": "Living room", "x": 0, "y": 0, "w": 20, "h": 8},
-    {"id": "outside", "name": "Outside", "via": "the front door", "x": 20, "y": 0, "w": 3, "h": 8, "exit": true},
-    {"id": "bilik1", "name": "Bedroom 1", "x": 0, "y": 8, "w": 6, "h": 7},
-    {"id": "dapur", "name": "Kitchen", "x": 6, "y": 8, "w": 8, "h": 7},
-    {"id": "tandas", "name": "Toilet", "x": 14, "y": 8, "w": 6, "h": 4},
-    {"id": "bilik2", "name": "Bedroom 2", "x": 0, "y": 15, "w": 8, "h": 5},
-    {"id": "bilik3", "name": "Bedroom 3", "x": 8, "y": 15, "w": 7, "h": 5}
+    {
+      "id": "living",
+      "name": "Living room",
+      "x": 0,
+      "y": 0,
+      "w": 20,
+      "h": 8
+    },
+    {
+      "id": "outside",
+      "name": "Outside",
+      "via": "the front door",
+      "x": 20,
+      "y": 0,
+      "w": 3,
+      "h": 8,
+      "exit": true
+    },
+    {
+      "id": "bilik1",
+      "name": "Bedroom 1",
+      "x": 0,
+      "y": 8,
+      "w": 6,
+      "h": 7
+    },
+    {
+      "id": "dapur",
+      "name": "Kitchen",
+      "x": 6,
+      "y": 8,
+      "w": 8,
+      "h": 7
+    },
+    {
+      "id": "tandas",
+      "name": "Toilet",
+      "x": 14,
+      "y": 8,
+      "w": 6,
+      "h": 4
+    },
+    {
+      "id": "bilik2",
+      "name": "Bedroom 2",
+      "x": 0,
+      "y": 15,
+      "w": 8,
+      "h": 5
+    },
+    {
+      "id": "bilik3",
+      "name": "Bedroom 3",
+      "x": 8,
+      "y": 15,
+      "w": 7,
+      "h": 5
+    }
   ],
   "doors": [
-    ["living", "outside"],
-    ["living", "dapur"],
-    ["dapur", "bilik1"],
-    ["dapur", "tandas"],
-    ["dapur", "bilik2"],
-    ["dapur", "bilik3"]
+    [
+      "living",
+      "outside"
+    ],
+    [
+      "living",
+      "dapur"
+    ],
+    [
+      "dapur",
+      "bilik1"
+    ],
+    [
+      "dapur",
+      "tandas"
+    ],
+    [
+      "dapur",
+      "bilik2"
+    ],
+    [
+      "dapur",
+      "bilik3"
+    ]
   ],
   "cameras": [
-    {"id": "cam-01", "name": "Front door (live)", "room": "living", "live": true, "x": 12.7, "y": 0.6, "facing": 40, "fov": 90},
-    {"id": "map-living", "name": "Living room", "room": "living", "video": "ruang_tamu.mp4", "offset": 0, "x": 0.6, "y": 0.6, "facing": 20, "fov": 90},
-    {"id": "map-dapur", "name": "Kitchen", "room": "dapur", "video": "dapur.mp4", "offset": 0, "x": 13.6, "y": 8.4, "facing": 135, "fov": 90},
-    {"id": "map-bilik1", "name": "Bedroom 1", "room": "bilik1", "video": "bilik1.mp4", "offset": 0, "x": 5.6, "y": 8.4, "facing": 135, "fov": 90},
-    {"id": "map-bilik2", "name": "Bedroom 2", "room": "bilik2", "video": "bilik2.mp4", "offset": 0, "x": 7.6, "y": 15.4, "facing": 135, "fov": 90},
-    {"id": "map-bilik3", "name": "Bedroom 3", "room": "bilik3", "video": "bilik3.mp4", "offset": 0, "x": 14.6, "y": 15.4, "facing": 135, "fov": 90}
+    {
+      "id": "cam-01",
+      "name": "Front door (live)",
+      "room": "living",
+      "live": true,
+      "x": 12.7,
+      "y": 0.6,
+      "facing": 40,
+      "fov": 90
+    },
+    {
+      "id": "map-living",
+      "name": "Living room",
+      "room": "living",
+      "video": "ruang_tamu.mp4",
+      "offset": 0,
+      "x": 0.6,
+      "y": 1,
+      "facing": 20,
+      "fov": 90
+    },
+    {
+      "id": "map-dapur",
+      "name": "Kitchen",
+      "room": "dapur",
+      "video": "dapur.mp4",
+      "offset": 0,
+      "x": 13.6,
+      "y": 8.4,
+      "facing": 135,
+      "fov": 90
+    },
+    {
+      "id": "map-bilik1",
+      "name": "Bedroom 1",
+      "room": "bilik1",
+      "video": "bilik1.mp4",
+      "offset": 0,
+      "x": 5.6,
+      "y": 8.4,
+      "facing": 135,
+      "fov": 90
+    },
+    {
+      "id": "map-bilik2",
+      "name": "Bedroom 2",
+      "room": "bilik2",
+      "video": "bilik2.mp4",
+      "offset": 0,
+      "x": 7.6,
+      "y": 15.4,
+      "facing": 135,
+      "fov": 90
+    },
+    {
+      "id": "map-bilik3",
+      "name": "Bedroom 3",
+      "room": "bilik3",
+      "video": "bilik3.mp4",
+      "offset": 0,
+      "x": 14.6,
+      "y": 15.4,
+      "facing": 135,
+      "fov": 90
+    }
   ]
 }
