@@ -29,7 +29,7 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
 | Intrusion rules that cut false alarms: minimum track age and a 5 s grace period; an intruder who is briefly lost and found again keeps their timer | ✅ |
 | Evidence: snapshot (with the intruder's path) + 10 s clip, re-encoded to H.264 for browser playback | ✅ |
 | Telegram alert to the homeowner with photo | ✅ |
-| Web dashboard: live feed, real-time alerts, incident history, 14-day trend; fully autonomous (no manual review) and shows the guard house's response live | ✅ |
+| Web dashboard in the Sime Darby Property look (red sidebar, light cards): live feed, real-time alerts, incident history, 14-day trend; fully autonomous (no manual review) and shows the guard house's response live | ✅ |
 | Security On / Off: Off pauses alerts and recordings, optionally until a set time (e.g. midnight after a party) | ✅ |
 | Visitor registration with time windows (e.g. "allow Ali Saturday 2–6 pm") | ✅ |
 | Recognition switch per person (for testing: make a resident count as a stranger without deleting their photos) | ✅ |
@@ -83,13 +83,13 @@ Dropped by decision during the build.
 
 | Page | What it shows |
 |---|---|
-| **Dashboard** | Live engine status (FPS, who is at the door), **who is home** (family tracker), counters (incl. alerts awaiting the guard house), 14-day trend, recent incidents |
+| **Dashboard** | Headline card (alerts today, security on / off, alerts awaiting the guard house), live engine status (FPS, who is at the door), **who is home** (family tracker), counters, 14-day trend (today in orange), recent incidents |
 | **Live Monitoring** | Live annotated feed and the security switch (On / Off, Off optionally until a time) |
 | **Incidents** | History with search and filters; each incident has the snapshot, clip, identity and the guard house's response |
 | **Residents & Visitors** | Register faces by photo upload; give visitors an allowed time window; switch a person's recognition off to test how the camera treats a stranger |
-| **House map** | Floor plan with camera positions and view cones; upload one video per camera, press **Process videos**, then **Play**: people move from room to room on the plan, the **CCTV wall** below plays every camera in sync, and each resident gets a **safe way out** when an intruder appears |
+| **House map** | Floor plan with camera positions and view cones; upload one video per camera, press **Process videos**, then **Play**: people move from room to room on the plan (each drawn where the camera that saw them is looking, e.g. by the front door), the **CCTV wall** below plays every camera in sync, and each resident gets a **safe way out** when an intruder appears |
 | **Test with Video** | Run the system on a recorded video instead of the camera |
-| **Guard House** (bottom-left switch) | The township guard's screen: text alerts with house address and time, acknowledge with a note |
+| **Guard House** (bottom-left switch) | The township guard's screen (red header, large addresses): text alerts with house address and time, acknowledge with a note |
 | **Viva Bot** (top bar) | Chat assistant: "What happened at the door today?", "Who is at the door right now?", "Turn security off until midnight for a party" |
 
 ## Tech stack
@@ -97,8 +97,8 @@ Dropped by decision during the build.
 - **Vision:** Ultralytics YOLO11s (exported to OpenVINO, runs on the Intel integrated GPU), ByteTrack, InsightFace (buffalo_s face detector + buffalo_l ResNet-50 recogniser), OpenCV
 - **Backend:** Python, FastAPI, SQLite, ffmpeg (via imageio-ffmpeg), Telegram Bot API
 - **AI assistant:** Google Gemini API (`google-genai`), tool calling over the home's own data; text only, no camera frames
-- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Recharts
-- **Tests:** pytest (119 tests, no camera needed)
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Recharts; Sime Darby Property theme — red `#d81921` as the brand colour, orange `#f38121` as a small accent, Poppins type (colours are CSS variables in `frontend/src/index.css`)
+- **Tests:** pytest (121 tests, no camera needed)
 
 ## Getting started
 
@@ -244,3 +244,4 @@ vision_vault/
 - **Residents walking away:** someone leaving with their back to the camera can't be recognised, so they may be alerted as unknown.
 - **Low match threshold (0.30):** catches residents on small CCTV faces, but leaves little margin: a stranger who looks like a resident could be taken for them.
 - Runs on a laptop (about 8–9 FPS with the Intel GPU); recognition needs a reasonably clear view of the face.
+- If the vision loop ever hits an unexpected error it prints it and restarts within a second, so the live stream never stays frozen.
