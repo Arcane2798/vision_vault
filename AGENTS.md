@@ -67,7 +67,7 @@ Each agent commits only its own paths. Cross-area changes are requested in the a
         │ annotated JPEG                       │ intrusion
         ▼                                      ▼
    /video (MJPEG stream)           vault_utils.py: snapshot, clip (5 s pre + 5 s post,
-        │                          re-encoded to H.264), SQLite `events`, Telegram (15 s cooldown)
+        │                          re-encoded to H.264), SQLite `events`, Telegram (3 s cooldown) 
         ▼                                      │
  FastAPI  main.py + api.py  (/api/*)  ◄────────┘
         │  REST + WebSocket

@@ -50,7 +50,7 @@ DETECTOR_DEVICE = (env("DETECTOR_DEVICE", "gpu") or "gpu").lower()   # OpenVINO:
 FACE_REC_INTERVAL = int(env("FACE_CHECK_FRAMES", "8" if LEGACY else "3"))
 
 # GRACE / MATCH_THRESH depend on the security level: see rules.security_params
-TG_COOLDOWN = 15.0        # min seconds between Telegram messages of the same event type
+TG_COOLDOWN = 3.0         # min seconds between Telegram messages of the same event type
 CLIP_PRE_SEC = 5          # seconds of video kept before an event
 CLIP_POST_SEC = 5         # seconds recorded after the (last) event; clips use the measured FPS
 IMG_EXT = {".jpg", ".jpeg", ".png"}
