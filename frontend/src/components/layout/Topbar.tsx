@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Bell, Bot, ChevronRight, Leaf, LogOut, MonitorPlay, Moon, Sun } from 'lucide-react';
+import { Bell, Bot, Building2, ChevronRight, LogOut, MonitorPlay, Moon, Sun } from 'lucide-react';
 import { config } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
 import { useChat } from '@/context/ChatContext';
@@ -232,7 +232,7 @@ export function Topbar() {
   );
 }
 
-const themeIcon: Record<Theme, typeof Sun> = { simedarby: Leaf, light: Sun, dark: Moon };
+const themeIcon: Record<Theme, typeof Sun> = { simedarby: Building2, light: Sun, dark: Moon };
 
 /** Three-way theme switch (Sime Darby / light / dark) as a radio group of icon segments. */
 function ThemeSwitch({ theme, onChange }: { theme: Theme; onChange: (t: Theme) => void }) {

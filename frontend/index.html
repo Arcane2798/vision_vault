@@ -18,7 +18,8 @@
     <style>
       /* boot screen shown until React mounts (self-contained: the app CSS is not loaded yet) */
       .vv-boot { position: fixed; inset: 0; display: grid; place-items: center; background: #f4f5f8; }
-      [data-theme='simedarby'] .vv-boot { background: #f5f6f2; }
+      [data-theme='simedarby'] .vv-boot { background: #faf8f5; }
+      [data-theme='simedarby'] .vv-boot-frame { --c: #c2410c; }
       [data-theme='dark'] .vv-boot { background: #070c1a; }
       .vv-boot-frame { position: relative; width: 56px; height: 40px; overflow: hidden; --c: #152a5c;
         background: linear-gradient(var(--c),var(--c)) 0 0/12px 1.5px, linear-gradient(var(--c),var(--c)) 0 0/1.5px 12px,

@@ -12,8 +12,8 @@
    * Three themes, each designed on its own (not inverted):
    *   light     - white panels on a cool grey canvas, deep navy accents
    *   dark      - deep navy canvas, pale blue accents (the light theme turned inside out)
-   *   simedarby - warm white workspace, navy sidebar, leaf-green accents for the township brand
-   * --accent is the theme's signature colour (active nav, charts, flow bars); it equals --brand except in simedarby.
+   *   simedarby - white with Sime Darby orange (buttons, active nav, charts)
+   * --accent is the theme's signature colour (active nav, charts, flow bars); in simedarby it is a brighter orange than the button colour.
    */
   :root,
   [data-theme='light'] {
@@ -92,23 +92,24 @@
 
   [data-theme='simedarby'] {
     color-scheme: light;
-    --surface-0: 245 246 242;
+    --surface-0: 250 248 245;
     --surface-1: 255 255 255;
-    --surface-2: 249 250 246;
-    --surface-3: 237 240 233;
-    --surface-4: 224 229 219;
-    --line: 227 231 222;
-    --line-strong: 204 211 198;
-    --ink-1: 10 30 60;
-    --ink-2: 62 80 108;
-    --ink-3: 98 113 136;
+    --surface-2: 252 250 247;
+    --surface-3: 244 239 233;
+    --surface-4: 233 226 218;
+    --line: 237 231 224;
+    --line-strong: 216 207 197;
+    --ink-1: 28 25 23;
+    --ink-2: 82 74 68;
+    --ink-3: 112 103 95;
 
-    --brand: 7 45 99;
-    --brand-soft: 228 236 246;
-    --brand-fg: 14 72 142;
+    /* buttons use the deeper orange so white text stays readable (contrast > 4.5:1) */
+    --brand: 194 65 12;
+    --brand-soft: 254 238 226;
+    --brand-fg: 176 61 10;
     --brand-on: 255 255 255;
-    --accent: 96 160 48;
-    --accent-fg: 50 110 26;
+    --accent: 240 120 24;
+    --accent-fg: 176 61 10;
 
     --ok: 40 140 60;
     --ok-fg: 30 100 44;
@@ -123,27 +124,8 @@
     --guard: 100 76 200;
     --guard-fg: 82 56 170;
 
-    --shadow-panel: 0 1px 2px rgb(10 30 60 / 0.04);
-    --shadow-pop: 0 16px 40px -12px rgb(10 30 60 / 0.22), 0 0 0 1px rgb(10 30 60 / 0.06);
-  }
-
-  /* the Sime Darby sidebar is solid navy; in light / dark it uses the page's own surfaces */
-  [data-theme='simedarby'] .sidebar-skin {
-    color-scheme: dark;
-    --surface-1: 7 45 99;
-    --surface-2: 15 57 115;
-    --surface-3: 24 70 132;
-    --line: 32 74 132;
-    --line-strong: 52 94 152;
-    --ink-1: 255 255 255;
-    --ink-2: 204 218 238;
-    --ink-3: 156 178 210;
-    --brand-fg: 255 255 255;
-    --accent: 140 200 80;
-    --accent-fg: 160 214 104;
-    --brand: 140 200 80;
-    --brand-on: 7 45 99;
-    --guard-fg: 206 194 255;
+    --shadow-panel: 0 1px 2px rgb(28 25 23 / 0.04);
+    --shadow-pop: 0 16px 40px -12px rgb(28 25 23 / 0.2), 0 0 0 1px rgb(28 25 23 / 0.06);
   }
 
   html,

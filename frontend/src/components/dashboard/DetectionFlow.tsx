@@ -17,7 +17,7 @@ interface Node {
 export function DetectionFlow({ incidents }: { incidents: Incident[] }) {
   const total = incidents.length;
 
-  const byCamera = countBy(incidents, (i) => i.cameraName).map(([label, count]) => ({ label, count, tone: 'bg-accent' }));
+  const byCamera = countBy(incidents, (i) => i.cameraName).map(([label, count]) => ({ label, count, tone: 'bg-ink-2' }));
   const byType = countBy(incidents, (i) => i.label).map(([label, count]) => ({
     label: eventTypeLabel(label),
     count,

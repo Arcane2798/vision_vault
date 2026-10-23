@@ -81,5 +81,5 @@ export function useTheme() {
 export const CHART_COLORS: Record<Theme, { grid: string; axis: string; text: string; tooltipBg: string; tooltipBorder: string; cursor: string; line: string; area: string; dot: string }> = {
   light: { grid: '#e4e7ed', axis: '#646e82', text: '#0e1626', tooltipBg: '#ffffff', tooltipBorder: '#e4e7ed', cursor: '#ced3dc', line: '#1e4096', area: '#1e4096', dot: '#152a5c' },
   dark: { grid: '#1c2844', axis: '#828fac', text: '#e8ecf5', tooltipBg: '#111b33', tooltipBorder: '#2e3c60', cursor: '#2e3c60', line: '#96b4f5', area: '#96b4f5', dot: '#e8ecf5' },
-  simedarby: { grid: '#e3e7de', axis: '#627188', text: '#0a1e3c', tooltipBg: '#ffffff', tooltipBorder: '#e3e7de', cursor: '#ccd3c6', line: '#072d63', area: '#60a030', dot: '#072d63' },
+  simedarby: { grid: '#ede7e0', axis: '#70675f', text: '#1c1917', tooltipBg: '#ffffff', tooltipBorder: '#ede7e0', cursor: '#d8cfc5', line: '#c2410c', area: '#f07818', dot: '#c2410c' },
 };

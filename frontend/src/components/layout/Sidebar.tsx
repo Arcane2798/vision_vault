@@ -43,14 +43,14 @@ const linkCls = (active: boolean, mini: boolean) =>
     active ? 'bg-surface-2 font-medium text-ink-1 before:bg-accent' : 'text-ink-2 hover:bg-surface-2 hover:text-ink-1',
   );
 
-/** Desktop: a full-height rail. `sidebar-skin` turns it solid navy in the Sime Darby theme. */
+/** Desktop: a full-height rail on the page's own surfaces. */
 export function Sidebar({ collapsed, onToggleCollapsed }: { collapsed: boolean; onToggleCollapsed: () => void }) {
   const { can } = useAuth();
   return (
     <aside
       aria-label="Main navigation"
       className={cn(
-        'sidebar-skin sticky top-0 hidden h-screen shrink-0 flex-col border-r border-line bg-surface-1 text-ink-1 transition-[width] duration-200 ease-out lg:flex',
+        'sticky top-0 hidden h-screen shrink-0 flex-col border-r border-line bg-surface-1 text-ink-1 transition-[width] duration-200 ease-out lg:flex',
         collapsed ? 'w-[4.25rem]' : 'w-60',
       )}
     >
@@ -133,7 +133,7 @@ export function MobileNav() {
   const { can } = useAuth();
   const items = NAV_ITEMS.filter((i) => can(i.permission));
   return (
-    <nav aria-label="Main navigation" className="sidebar-skin border-t border-line bg-surface-1 px-2 lg:hidden">
+    <nav aria-label="Main navigation" className="border-t border-line bg-surface-1 px-2 lg:hidden">
       <ul className="flex items-center justify-between gap-1 overflow-x-auto [scrollbar-width:none]">
         {items.map(({ to, label, Icon }) => (
           <li key={to} className="shrink-0">
