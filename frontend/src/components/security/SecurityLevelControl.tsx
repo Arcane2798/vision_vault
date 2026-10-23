@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Field';
 import { ErrorState, LoadingState } from '@/components/ui/States';
 import { LEVEL_STYLE } from './SecurityBadge';
 
-const ON_DESCRIPTION = 'Alerts after an unknown person has been in view for 5 s; residents and visitors pass silently.';
+const ON_DESCRIPTION = 'Alerts after an unknown person has been detected; residents and visitors pass silently.';
 
 /** Next 01:00 in the browser's local time (tonight, or tomorrow night if it is already past 1 am). */
 function next1am(): Date {
