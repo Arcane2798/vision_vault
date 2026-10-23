@@ -291,7 +291,7 @@ TOOLS = [
      "parameters": {"type": "object", "properties": {}}},
     {"name": "set_security_level",
      "description": "Prepare turning security on or off for the user to confirm. on = normal "
-                    "operation: an unknown person seen for 3 s alerts the homeowner and the guard "
+                    "operation: an unknown person seen for 5 s alerts the homeowner and the guard "
                     "house. off = no alerts or recordings (people are still shown), e.g. during a "
                     "party, optionally until a time.",
      "parameters": {"type": "object", "properties": {

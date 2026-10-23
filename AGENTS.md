@@ -63,7 +63,7 @@ Each agent commits only its own paths. Cross-area changes are requested in the a
  VisionEngine thread (engine.py)
    YOLO11s (OpenVINO) + ByteTrack → person tracks
    InsightFace on head crop → matched identity or "unknown"
-   Rules: track ≥ 3 frames, unknown for the grace period (3 s, any level that is On) → intrusion
+   Rules: track ≥ 3 frames, unknown for the grace period (5 s, any level that is On) → intrusion
         │ annotated JPEG                       │ intrusion
         ▼                                      ▼
    /video (MJPEG stream)           vault_utils.py: snapshot, clip (5 s pre + 5 s post,
@@ -202,7 +202,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
 | 3 | Intrusion snapshot + clip | ✅ done (clip race + speed fixed) | Phase 2: `clip_ready` |
 | 4 | Telegram alert | ✅ done | Phase 2: guard-house copy, weapon note |
 | 5 | Web dashboard (live, history, analytics) | ✅ done (rebranded to Vision Vault) | Phase 0: rebrand, `/api/status` |
-| 5.1 | Security level control | ✅ done (On / Off, Off optionally until a time; 3 s grace when On) | Phase 1: `security_level`; simplified to On / Off Thu 22 Oct (Normal / High and away-from-home dates removed) |
+| 5.1 | Security level control | ✅ done (On / Off, Off optionally until a time; 5 s grace when On) | Phase 1: `security_level`; simplified to On / Off Thu 22 Oct (Normal / High and away-from-home dates removed) |
 | 6 | Visitor registration | ✅ done | Phase 1: `people` table + `/people` page — **core** |
 | 7 | Guard-house alert & dashboard | ✅ Telegram copy + mock Guard House view (/guard) with acknowledge | Phase 2: alert to guard-house Telegram. Dashboard for many homes = KIV (pitch only) |
 | 8 | AI assistant (live feed, locate family) | ✅ Gemini chat with tools + confirm (needs GEMINI_API_KEY) | Phase 1: `lastSeen` per person. Phase 2: chatbot + tools |
@@ -269,7 +269,7 @@ orange, unknown red. (The static-figure filter was removed Wed 21 Oct: no poster
       dates were replaced by a plain On / Off). Old saved or sent values `normal`, `high`, `home`, `away` are mapped to `on`
       by `rules.normalize_level`. Stored in a `settings` table (`key, value`), default `on`.
       Pure function `security_params(level) -> dict` gives the rule thresholds:
-      `on` — alerts on, guard alert on, GRACE 3 s (5 s until owner Fri 23 Oct), MATCH_THRESH 0.25 (was 0.40, 0.30 Thu 22 Oct; owner Fri 23 Oct, knowing the replay test gave 11% of stranger windows matched at 0.25 vs 0% at 0.30), person conf 0.55 (was 0.25; owner Fri 23 Oct: replay of the 10 test videos removed every duplicate / drifting box and kept all real people), 3 frames, departure filter off (paused);
+      `on` — alerts on, guard alert on, GRACE 5 s, MATCH_THRESH 0.25 (was 0.40, 0.30 Thu 22 Oct; owner Fri 23 Oct, knowing the replay test gave 11% of stranger windows matched at 0.25 vs 0% at 0.30), person conf 0.55 (was 0.25; owner Fri 23 Oct: replay of the 10 test videos removed every duplicate / drifting box and kept all real people), 3 frames, departure filter off (paused);
       `off` — same thresholds but no alerts, recordings or guard copies (e.g. a party); people are still tracked and shown.
       Off lasts until `off_until` (settings key; "" = until turned back on), then the level returns to `on`
       (`rules.off_active`, `rules.effective_level(level, now, off_until)`).

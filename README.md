@@ -26,7 +26,7 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
 |---|---|
 | Real-time person detection and tracking (YOLO11s on OpenVINO + ByteTrack), with the path each person walked drawn on the video | ✅ |
 | Face recognition of residents: faces cropped from 720p, ResNet-50 recogniser (InsightFace buffalo_l); checks faces from 16 px up | ✅ |
-| Intrusion rules that cut false alarms: minimum track age and a 3 s grace period; an intruder who is briefly lost and found again keeps their timer | ✅ |
+| Intrusion rules that cut false alarms: minimum track age and a 5 s grace period; an intruder who is briefly lost and found again keeps their timer | ✅ |
 | Evidence: snapshot (with the intruder's path) + 10 s clip, re-encoded to H.264 for browser playback | ✅ |
 | Telegram alert to the homeowner with photo | ✅ |
 | Web dashboard in the Sime Darby Property look (red sidebar, light cards): live feed, real-time alerts, incident history, 14-day trend; fully autonomous (no manual review) and shows the guard house's response live | ✅ |
@@ -48,7 +48,7 @@ Dropped by decision during the build.
 | Departure filter (an unknown walking out from inside counted as "left") | ✖ removed Thu 22 Oct | It hid a real intruder walking away from the camera |
 | Normal / High security levels | ✖ removed Thu 22 Oct | Replaced by a plain On / Off |
 | Away-from-home (vacation) dates that switched to High, and Viva Bot's "we're away" action | ✖ removed Thu 22 Oct | Went with Normal / High; Off with a timer covers the party case |
-| Automatic High at night (sleep-time schedule) | ✖ removed Wed 21 Oct | Replaced by one grace period (now 3 s) at every level |
+| Automatic High at night (sleep-time schedule) | ✖ removed Wed 21 Oct | Replaced by one 5 s grace period at every level |
 | Manual incident review (new → under review → confirmed / dismissed) and Viva Bot's review action | ✖ removed Wed 21 Oct | The system is autonomous; the API fields remain but the UI no longer uses them |
 | Static-figure filter (ignore posters / photos on the wall) | ✖ removed Wed 21 Oct | No posters in the demo; it risked ignoring a person standing still |
 | Snapshot and clip for the guard house (screen and Telegram) | ✖ removed Thu 22 Oct | Images of the home are a privacy breach; guards get text only, the homeowner keeps the footage |
