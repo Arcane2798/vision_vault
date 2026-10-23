@@ -176,7 +176,7 @@ The tests use a fake engine and a temporary database, so they never touch the ca
 | `FACE_RECOGNIZER` / `FACE_DETECTOR` | `buffalo_l` / `buffalo_s` | InsightFace model packs |
 | `FACE_CHECK_FRAMES` | `3` | Frames between face checks while a person is still unknown |
 | — | — | Person confidence 0.55: a track counts as a person once one detection reaches it (the tracker still follows boxes down to 0.10), set in `rules.py` |
-| — | — | Face match threshold 0.30 (cosine similarity), set in `rules.py` |
+| — | — | Face match threshold 0.25 (cosine similarity), set in `rules.py` |
 | `VISION_MODE` | — | `legacy` = 640×480, small recogniser, check every 8 frames |
 | `CHAT_MODEL` | `gemini-3.5-flash-lite` | Gemini model for Viva Bot |
 
@@ -185,8 +185,8 @@ How the two thresholds were chosen (replay of the 10 test videos with the engine
 - **Person confidence 0.55:** every real person reached 0.88 or more; duplicate boxes (two people overlapping, someone
   half hidden or at the frame edge) and one box that drifted onto the floor never passed 0.60. 0.55 removed all of them,
   kept all 15 people and confirmed them about 0.2 s later on average.
-- **Face match 0.30:** the lowest safe value. Below it a stranger was matched to a resident in 9–11% of 5-second windows;
-  at 0.30 none were, and a resident was recognised in 66% of windows (34% at 0.36).
+- **Face match 0.25:** chosen so residents are recognised more often on the webcam (77% of 5-second windows, against 66%
+  at 0.30). The cost: a stranger was matched to a resident in 11% of windows at 0.25, and in none at 0.30.
 
 The house map is `house_map.json`: rooms (position and size), doors between rooms, exits (`"exit": true`, with
 `"via"` naming it in the advice, e.g. "the front door") and cameras (room, video file name, and optional `x`, `y`,
@@ -246,7 +246,8 @@ vision_vault/
 - **One live camera:** "where is someone" means "last seen at the front door at 14:32". The house map is a concept: every
   camera on it plays a recorded video, processed once and replayed together.
 - **Residents walking away:** someone leaving with their back to the camera can't be recognised, so they may be alerted as unknown.
-- **Low match threshold (0.30):** catches residents on small CCTV faces, but leaves little margin: a stranger who looks like a resident could be taken for them.
+- **Low match threshold (0.25):** catches residents on small CCTV faces, but in testing about 1 in 9 strangers was taken for a resident
+  (no alert). Raise it to 0.30 in `rules.py` for a stricter system.
 - **Face behind the person:** the face check looks at the top of the person's box, so a resident standing right behind a
   stranger can be matched instead of the stranger's own face.
 - Runs on a laptop (about 8–9 FPS with the Intel GPU); recognition needs a reasonably clear view of the face.

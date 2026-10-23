@@ -62,7 +62,7 @@ TRACK_LOW_CONF = 0.1
 MIN_TRACK_FRAMES = 3     # default when On; per level: rules.security_params
 # ignore faces narrower than this, in capture pixels. Was 40, which skipped every face in the
 # corner-CCTV room videos (faces 13-30 px). Tested Thu 22 Oct: 16+ px faces still pick the right
-# person, and other people stay below 0.30, so the match threshold keeps strangers out.
+# person, and other people mostly stay below 0.30 (the match threshold is 0.25: rules.security_params).
 MIN_FACE_PX = 16
 MIN_DET_SCORE = 0.6      # ignore low-confidence face detections
 
