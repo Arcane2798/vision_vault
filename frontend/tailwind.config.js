@@ -12,6 +12,7 @@ export default {
         line: v('line'),
         ink: { 1: v('ink-1'), 2: v('ink-2'), 3: v('ink-3') },
         brand: { DEFAULT: v('brand'), soft: v('brand-soft'), dark: v('brand-dark') },
+        accent: v('accent'), // #f38121, a secondary touch (never for actions)
         ok: v('ok'),
         warn: v('warn'),
         danger: v('danger'),

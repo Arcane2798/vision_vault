@@ -81,7 +81,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
             <span className="hidden text-sm text-brand lg:block">
               Welcome back, <b className="font-semibold">{user?.name}</b>
             </span>
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-brand-soft ring-2 ring-brand/30" title={user ? roleLabel[user.role] : undefined}>
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-brand-soft ring-2 ring-accent/70" title={user ? roleLabel[user.role] : undefined}>
               <UserIcon className="h-5 w-5 text-brand" aria-hidden />
             </span>
           </button>

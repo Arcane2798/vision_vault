@@ -297,9 +297,9 @@ function Door({ a, b }: { a?: MapRoom; b?: MapRoom }) {
   const front = a.exit || b.exit;
   return (
     <g>
-      <line x1={seg[0]} y1={seg[1]} x2={seg[2]} y2={seg[3]} stroke="#f59e0b" strokeWidth={0.16} strokeLinecap="round" />
+      <line x1={seg[0]} y1={seg[1]} x2={seg[2]} y2={seg[3]} stroke="#f38121" strokeWidth={0.16} strokeLinecap="round" />
       {front && (
-        <text x={seg[0] - 0.25} y={(seg[1] + seg[3]) / 2 + 0.12} fontSize={0.34} textAnchor="end" fill="#b45309">
+        <text x={seg[0] - 0.25} y={(seg[1] + seg[3]) / 2 + 0.12} fontSize={0.34} textAnchor="end" fill="#c2410c">
           Front door
         </text>
       )}

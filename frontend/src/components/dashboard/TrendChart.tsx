@@ -1,13 +1,14 @@
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { TrendPoint } from '@/types';
 
-const COLORS = { bar: '#d81921', grid: '#e5e8ee', axis: '#808896' };
+const COLORS = { bar: '#d81921', today: '#f38121', grid: '#e5e8ee', axis: '#808896' };
 
 const shortDate = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 
-/** Intrusion alerts per day (the system acts on its own, so there is no "confirmed" split). */
+/** Intrusion alerts per day (the system acts on its own, so there is no "confirmed" split); today's bar in orange. */
 export function TrendChart({ data }: { data: TrendPoint[] }) {
   const rows = data.map((p) => ({ date: p.date, alerts: p.potential + p.confirmed }));
+  const last = rows.length - 1; // the trend ends today
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer>
@@ -16,12 +17,16 @@ export function TrendChart({ data }: { data: TrendPoint[] }) {
           <XAxis dataKey="date" tickFormatter={shortDate} stroke={COLORS.axis} fontSize={11} tickLine={false} axisLine={false} interval="preserveStartEnd" />
           <YAxis allowDecimals={false} stroke={COLORS.axis} fontSize={11} tickLine={false} axisLine={false} />
           <Tooltip
-            cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+            cursor={{ fill: 'rgba(243,129,33,0.08)' }}
             labelFormatter={(d) => shortDate(String(d))}
             contentStyle={{ background: '#ffffff', border: '1px solid #e5e8ee', borderRadius: 12, fontSize: 12, boxShadow: '0 4px 24px rgba(17,24,39,0.08)' }}
             labelStyle={{ color: '#1f2430' }}
           />
-          <Bar dataKey="alerts" name="Intrusion alerts" fill={COLORS.bar} radius={[4, 4, 0, 0]} />
+          <Bar dataKey="alerts" name="Intrusion alerts" fill={COLORS.bar} radius={[4, 4, 0, 0]}>
+            {rows.map((r, i) => (
+              <Cell key={r.date} fill={i === last ? COLORS.today : COLORS.bar} />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -15,7 +15,7 @@ interface StatCardProps {
   loading?: boolean;
 }
 
-const toneCls = { default: 'bg-brand-soft text-brand', warn: 'bg-warn/15 text-amber-700', danger: 'bg-danger/15 text-red-700', ok: 'bg-ok/15 text-green-700' };
+const toneCls = { default: 'bg-accent/15 text-accent', warn: 'bg-warn/15 text-amber-700', danger: 'bg-danger/15 text-red-700', ok: 'bg-ok/15 text-green-700' };
 
 export function StatCard({ label, value, suffix, hint, icon, tone = 'default', to, loading }: StatCardProps) {
   const body = (

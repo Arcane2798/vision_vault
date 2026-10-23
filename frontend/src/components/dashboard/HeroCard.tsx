@@ -41,7 +41,7 @@ export function HeroCard({ alertsToday, awaitingGuard, securityOn, loading }: He
   );
 }
 
-/** Segmented ring (as in the SDP dashboard style) around a shield: red while security is on, grey when off. */
+/** Segmented ring around a shield: SDP red and orange while security is on, grey when off. */
 function ShieldRing({ on }: { on: boolean }) {
   const r = 42;
   const c = 2 * Math.PI * r;
@@ -59,7 +59,7 @@ function ShieldRing({ on }: { on: boolean }) {
             fill="none"
             strokeWidth="6"
             strokeLinecap="round"
-            className={on ? (i % 2 ? 'stroke-brand/40' : 'stroke-brand') : 'stroke-ink-3/40'}
+            className={on ? (i % 2 ? 'stroke-accent' : 'stroke-brand') : 'stroke-ink-3/40'}
             strokeDasharray={`${seg - 8} ${c - seg + 8}`}
             strokeDashoffset={-i * seg}
           />

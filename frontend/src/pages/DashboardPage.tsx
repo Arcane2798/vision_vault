@@ -94,7 +94,7 @@ export default function DashboardPage() {
 
       <div className="mt-4 grid gap-4 xl:grid-cols-5">
         <Card className="xl:col-span-3">
-          <CardHeader title="Incident trend" subtitle="Intrusion alerts per day · last 14 days" />
+          <CardHeader title="Incident trend" subtitle="Intrusion alerts per day · last 14 days · today in orange" />
           <div className="p-4">
             {trend.initialLoading ? (
               <LoadingState />
