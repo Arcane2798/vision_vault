@@ -25,7 +25,7 @@ Built for the **Sime Darby Property University Hackathon 2026 — Township of To
 | Feature | Status |
 |---|---|
 | Real-time person detection and tracking (YOLO11s on OpenVINO + ByteTrack), with the path each person walked drawn on the video | ✅ |
-| Face recognition of residents: faces cropped from 720p, ResNet-50 recogniser (InsightFace buffalo_l); works on small corner-CCTV faces (16 px and up) after adding camera crops with `enroll_from_video.py` | ✅ |
+| Face recognition of residents: faces cropped from 720p, ResNet-50 recogniser (InsightFace buffalo_l); checks faces from 16 px up | ✅ |
 | Intrusion rules that cut false alarms: minimum track age and a 5 s grace period; an intruder who is briefly lost and found again keeps their timer | ✅ |
 | Evidence: snapshot (with the intruder's path) + 10 s clip, re-encoded to H.264 for browser playback | ✅ |
 | Telegram alert to the homeowner with photo | ✅ |
@@ -136,10 +136,6 @@ faces/
 └── bob/    photo1.jpg  ...
 ```
 
-CCTV cameras high in a corner see small faces that rarely match phone photos. Add crops from the camera itself:
-record a short video in which only that person appears, then run `py enroll_from_video.py alice clip.mp4` and press
-**Refresh faces** on the Residents & Visitors page.
-
 Start the server. On the first run the model weights download and YOLO11s is exported to OpenVINO once (about a minute):
 
 ```bash
@@ -219,7 +215,6 @@ vision_vault/
 ├── chat.py           # Viva Bot: tools over the home's data, confirm-before-change actions
 ├── house.py          # house map: room occupancy, video processing (boxed CCTV-wall videos), safe path
 ├── house_map.json    # floor plan, doors, exits and cameras of the demo house
-├── enroll_from_video.py  # add a resident's face crops from CCTV footage
 ├── main.py           # FastAPI app, live video stream, static evidence files
 ├── tests/            # pytest suite
 ├── frontend/         # React + TypeScript dashboard
