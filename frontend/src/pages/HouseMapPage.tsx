@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Info, Pause, Play, Radio, Route } from 'lucide-react';
+import { Pause, Play, Radio, Route } from 'lucide-react';
 import { useAsync } from '@/hooks/useAsync';
 import { mapService } from '@/services';
 import type { HouseMap, MapCamera, MapPerson, MapRoom, MapState, MapStatus } from '@/types';
@@ -135,16 +135,6 @@ export default function HouseMapPage() {
           </div>
         }
       />
-
-      <p className="mb-4 flex items-start gap-2 rounded-lg border border-line bg-surface-2/60 px-3 py-2 text-xs text-ink-2">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
-        <span>
-          {hasLive
-            ? 'Concept demo: a real home needs one camera per room. Here the live front-door camera is combined with recorded videos of the other rooms.'
-            : 'Concept demo: every camera plays a recorded video, so the whole house can be replayed together. Upload one video per camera, press Process videos, then Play.'}{' '}
-          Edit <code className="text-ink-1">house_map.json</code> to change rooms, doors and which video belongs to which room.
-        </span>
-      </p>
 
       {map.initialLoading ? (
         <LoadingState label="Loading the house map…" />
