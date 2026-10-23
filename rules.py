@@ -118,9 +118,11 @@ _ON = {"alerts": True,          # raise intrusion / visitor alerts at all (off a
        # weakest detection that confirms a track as a person. 0.25 = ByteTrack's own
        # new_track_thresh, the real floor (a lower value behaves the same). Tested Thu 22 Oct
        # on the four room videos: 0.55 / 0.20 / 0.10 all gave the same alerts and no false ones,
-       # and lower caught living_room_2's stranger earlier. Raised to 0.35 Fri 23 Oct (owner):
-       # non-human objects were sometimes tracked as people.
-       "person_conf": 0.35,
+       # and lower caught living_room_2's stranger earlier. 0.55 since Fri 23 Oct (owner):
+       # replay of all 10 test videos: every real person peaks >= 0.88, while duplicate boxes
+       # (people overlapping, half hidden, at the edge) and a box drifting onto the floor never
+       # pass 0.60; 0.55 drops all of them, keeps all 15 people, ~0.2 s later confirmation.
+       "person_conf": 0.55,
        "min_track_frames": 3,    # frames a person must be tracked before the rules apply
        "guard_alert": True}     # also alert the guard house
 
