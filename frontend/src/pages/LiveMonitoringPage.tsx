@@ -3,7 +3,6 @@ import { useAsync } from '@/hooks/useAsync';
 import { useLiveStatus } from '@/hooks/useLiveStatus';
 import { cameraService } from '@/services';
 import { Card, CardHeader } from '@/components/ui/Card';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/States';
 import { CameraFeed } from '@/components/cameras/CameraFeed';
 import { LiveStatusStrip } from '@/components/live/LiveStatusStrip';
@@ -25,8 +24,6 @@ export default function LiveMonitoringPage() {
 
   return (
     <>
-      <PageHeader title="Live monitoring" description="Boxes and names are drawn into the video by the AI engine on your home computer." />
-
       <LiveStatusStrip status={live.data} loading={live.loading} error={live.error} />
 
       <div className="grid gap-4 xl:grid-cols-3">
