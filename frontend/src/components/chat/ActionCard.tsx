@@ -13,7 +13,7 @@ interface Props {
 }
 
 const STATE_TEXT: Partial<Record<ActionState, { text: string; cls: string; Icon: typeof Check }>> = {
-  done: { text: 'Done', cls: 'text-green-300', Icon: CheckCircle2 },
+  done: { text: 'Done', cls: 'text-green-700', Icon: CheckCircle2 },
   cancelled: { text: 'Cancelled', cls: 'text-ink-3', Icon: Ban },
   expired: { text: 'Replaced by a newer suggestion', cls: 'text-ink-3', Icon: Ban },
 };
@@ -26,7 +26,7 @@ export function ActionCard({ action, state, error, onConfirm, onCancel }: Props)
 
   return (
     <div className="mt-2 rounded-lg border border-brand/40 bg-surface-1 p-3">
-      <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-blue-300">
+      <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-brand">
         {addPerson ? <UserPlus className="h-3.5 w-3.5" aria-hidden /> : <ClipboardEdit className="h-3.5 w-3.5" aria-hidden />}
         Needs your confirmation
       </p>
@@ -59,7 +59,7 @@ export function ActionCard({ action, state, error, onConfirm, onCancel }: Props)
       )}
 
       {state === 'failed' && error && (
-        <p role="alert" className="mt-2 flex items-start gap-1.5 text-xs text-red-300">
+        <p role="alert" className="mt-2 flex items-start gap-1.5 text-xs text-red-700">
           <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           {error}
         </p>

@@ -7,15 +7,15 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md';
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-brand text-white hover:bg-blue-500',
-  secondary: 'bg-surface-3 text-ink-1 hover:bg-[#2b3848] border border-line',
+  primary: 'bg-brand text-white hover:bg-brand-dark',
+  secondary: 'bg-surface-1 text-ink-1 hover:bg-surface-2 border border-line shadow-sm',
   ghost: 'text-ink-2 hover:bg-surface-3 hover:text-ink-1',
-  danger: 'bg-danger text-white hover:bg-red-500',
+  danger: 'bg-danger text-white hover:bg-brand-dark',
 };
 
 export const buttonStyles = (variant: Variant = 'secondary', size: Size = 'md', className?: string) =>
   cn(
-    'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors',
+    'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-colors',
     'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
     'disabled:cursor-not-allowed disabled:opacity-50',
     size === 'sm' ? 'h-8 px-3 text-sm' : 'h-10 px-4 text-sm',

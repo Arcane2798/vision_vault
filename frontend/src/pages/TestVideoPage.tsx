@@ -127,7 +127,7 @@ function NowPlaying({ source, switching, onSwitch }: { source: VideoSource; swit
   if (source.kind === 'camera') {
     return (
       <Card className="flex items-center gap-3 px-4 py-3">
-        <Video className="h-5 w-5 text-green-400" aria-hidden />
+        <Video className="h-5 w-5 text-green-600" aria-hidden />
         <p className="text-sm">
           Watching the <span className="font-medium">live camera</span>. Pick a recorded video to test with it.
         </p>
@@ -138,7 +138,7 @@ function NowPlaying({ source, switching, onSwitch }: { source: VideoSource; swit
   return (
     <Card className="space-y-3 px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
-        {source.finished ? <CheckCircle2 className="h-5 w-5 text-green-400" aria-hidden /> : <Film className="h-5 w-5 text-brand" aria-hidden />}
+        {source.finished ? <CheckCircle2 className="h-5 w-5 text-green-600" aria-hidden /> : <Film className="h-5 w-5 text-brand" aria-hidden />}
         <p className="min-w-0 flex-1 truncate text-sm">
           {source.finished ? 'Finished: ' : 'Playing: '}
           <span className="font-medium">{source.name}</span>

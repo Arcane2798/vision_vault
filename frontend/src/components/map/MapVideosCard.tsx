@@ -40,7 +40,7 @@ export function MapVideosCard({ map, status, onChanged, onProcess, processError 
 
         {live && (
           <p className="flex items-center gap-2 text-sm">
-            <CameraIcon className="h-4 w-4 text-red-400" aria-hidden />
+            <CameraIcon className="h-4 w-4 text-red-600" aria-hidden />
             <span className="min-w-0 flex-1 truncate">
               {live.name} <span className="text-ink-3">· {roomName(map, live.room)}</span>
             </span>
@@ -75,13 +75,13 @@ export function MapVideosCard({ map, status, onChanged, onProcess, processError 
             </p>
           )}
           {tl.stale && !processing && (
-            <p className="flex items-start gap-1.5 text-xs text-amber-300">
+            <p className="flex items-start gap-1.5 text-xs text-amber-700">
               <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
               Videos or recognised people changed since the last processing (e.g. a resident's recognition was switched off). Press Re-process videos to update the replay.
             </p>
           )}
           {(processError || status?.state === 'error') && (
-            <p className="flex items-start gap-1.5 text-xs text-red-300">
+            <p className="flex items-start gap-1.5 text-xs text-red-700">
               <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
               {processError ?? status?.error}
             </p>
@@ -140,12 +140,12 @@ function CameraRow({ map, cam, disabled, onChanged }: { map: HouseMap; cam: MapC
   return (
     <li className={cn('rounded-lg border px-3 py-2', cam.videoFound ? 'border-line bg-surface-2/50' : 'border-amber-400/40 bg-amber-400/5')}>
       <div className="flex flex-wrap items-center gap-2">
-        <CameraIcon className={cn('h-4 w-4 shrink-0', cam.videoFound ? 'text-ink-2' : 'text-amber-300')} aria-hidden />
+        <CameraIcon className={cn('h-4 w-4 shrink-0', cam.videoFound ? 'text-ink-2' : 'text-amber-700')} aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">
             {cam.name} <span className="font-normal text-ink-3">· {roomName(map, cam.room)}</span>
           </p>
-          <p className={cn('truncate text-xs', cam.videoFound ? 'text-ink-3' : 'text-amber-300')}>
+          <p className={cn('truncate text-xs', cam.videoFound ? 'text-ink-3' : 'text-amber-700')}>
             {cam.videoFound
               ? `${cam.video} · ${cam.videoDuration != null ? fmt(cam.videoDuration) : 'length unknown'}${cam.videoSizeBytes ? ` · ${mb(cam.videoSizeBytes)}` : ''}`
               : `No video yet (will be saved as ${cam.video})`}
@@ -186,8 +186,8 @@ function CameraRow({ map, cam, disabled, onChanged }: { map: HouseMap; cam: MapC
         <span className="whitespace-nowrap">s into the replay</span>
       </div>
       {uploading && <p className="mt-1 text-xs text-ink-2">Uploading… (large videos take a while)</p>}
-      {done && !uploading && <p className="mt-1 truncate text-xs text-green-300">{done}</p>}
-      {error && <p className="mt-1 text-xs text-red-300">{error}</p>}
+      {done && !uploading && <p className="mt-1 truncate text-xs text-green-700">{done}</p>}
+      {error && <p className="mt-1 text-xs text-red-700">{error}</p>}
     </li>
   );
 }

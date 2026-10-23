@@ -137,11 +137,13 @@ export default function HouseMapPage() {
       />
 
       <p className="mb-4 flex items-start gap-2 rounded-lg border border-line bg-surface-2/60 px-3 py-2 text-xs text-ink-2">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-300" aria-hidden />
-        {hasLive
-          ? 'Concept demo: a real home needs one camera per room. Here the live front-door camera is combined with recorded videos of the other rooms.'
-          : 'Concept demo: every camera plays a recorded video, so the whole house can be replayed together. Upload one video per camera, press Process videos, then Play.'}
-        Edit <code className="text-ink-1">house_map.json</code> to change rooms, doors and which video belongs to which room.
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+        <span>
+          {hasLive
+            ? 'Concept demo: a real home needs one camera per room. Here the live front-door camera is combined with recorded videos of the other rooms.'
+            : 'Concept demo: every camera plays a recorded video, so the whole house can be replayed together. Upload one video per camera, press Process videos, then Play.'}{' '}
+          Edit <code className="text-ink-1">house_map.json</code> to change rooms, doors and which video belongs to which room.
+        </span>
       </p>
 
       {map.initialLoading ? (
@@ -156,7 +158,7 @@ export default function HouseMapPage() {
               subtitle={
                 mode === 'live' ? (
                   <span className="inline-flex items-center gap-1.5">
-                    <Radio className="h-3.5 w-3.5 text-red-400" aria-hidden /> Live
+                    <Radio className="h-3.5 w-3.5 text-red-600" aria-hidden /> Live
                   </span>
                 ) : (
                   `Replay ${fmt(t)} / ${fmt(duration)}`
@@ -180,7 +182,7 @@ export default function HouseMapPage() {
                     step={0.25}
                     value={t}
                     onChange={(e) => setT(Number(e.target.value))}
-                    className="min-w-40 flex-1 accent-blue-500"
+                    className="min-w-40 flex-1 accent-brand"
                     aria-label="Replay time"
                   />
                   <span className="w-24 text-right text-xs tabular-nums text-ink-3">
@@ -195,7 +197,7 @@ export default function HouseMapPage() {
                   </div>
                 </div>
               )}
-              {stateError && <p className="mt-3 text-xs text-red-300">{stateError}</p>}
+              {stateError && <p className="mt-3 text-xs text-red-700">{stateError}</p>}
             </div>
           </Card>
 
@@ -224,7 +226,7 @@ function FloorPlan({ map, state }: { map: HouseMap; state: MapState | null }) {
     <svg viewBox={`-0.2 -0.2 ${W + 0.4} ${H + 0.4}`} className="h-auto w-full rounded-lg bg-surface-2" role="img" aria-label="Floor plan with people and safe paths">
       <defs>
         <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80" />
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#15803d" />
         </marker>
       </defs>
       {map.rooms.map((r) => (
@@ -240,11 +242,11 @@ function FloorPlan({ map, state }: { map: HouseMap; state: MapState | null }) {
             strokeWidth={intruder.has(r.id) ? 0.08 : 0.04}
             strokeDasharray={r.exit ? '0.25 0.15' : undefined}
           />
-          <text x={r.x + 0.25} y={r.y + 0.55} fontSize={0.42} fill="#cbd5e1" fontWeight={600}>
+          <text x={r.x + 0.25} y={r.y + 0.55} fontSize={0.42} fill="#334155" fontWeight={600}>
             {r.name}
           </text>
           {r.exit && (
-            <text x={r.x + 0.25} y={r.y + 1.05} fontSize={0.32} fill="#4ade80">
+            <text x={r.x + 0.25} y={r.y + 1.05} fontSize={0.32} fill="#15803d">
               way out
             </text>
           )}
@@ -256,7 +258,7 @@ function FloorPlan({ map, state }: { map: HouseMap; state: MapState | null }) {
           key={p.name}
           points={p.path!.map((id) => centre[id].join(',')).join(' ')}
           fill="none"
-          stroke="#4ade80"
+          stroke="#15803d"
           strokeWidth={0.14}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -297,7 +299,7 @@ function Door({ a, b }: { a?: MapRoom; b?: MapRoom }) {
     <g>
       <line x1={seg[0]} y1={seg[1]} x2={seg[2]} y2={seg[3]} stroke="#f59e0b" strokeWidth={0.16} strokeLinecap="round" />
       {front && (
-        <text x={seg[0] - 0.25} y={(seg[1] + seg[3]) / 2 + 0.12} fontSize={0.34} textAnchor="end" fill="#fbbf24">
+        <text x={seg[0] - 0.25} y={(seg[1] + seg[3]) / 2 + 0.12} fontSize={0.34} textAnchor="end" fill="#b45309">
           Front door
         </text>
       )}
@@ -344,7 +346,7 @@ function People({ room, people }: { room: MapRoom; people: MapPerson[] }) {
             <circle cx={x} cy={y} r={0.28} fill={PERSON_COLOR[p.kind]} stroke="#0f172a" strokeWidth={0.05}>
               <title>{p.kind === 'unknown' ? 'Unknown person' : p.name}</title>
             </circle>
-            <text x={x} y={y + 0.62} fontSize={0.28} textAnchor="middle" fill="#e2e8f0">
+            <text x={x} y={y + 0.62} fontSize={0.28} textAnchor="middle" fill="#1f2430">
               {p.kind === 'unknown' ? 'Unknown' : p.name}
             </text>
           </g>

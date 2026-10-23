@@ -1,18 +1,23 @@
+/** Colours are CSS variables (src/index.css): the light Sime Darby Property theme by default,
+ *  the dark palette inside `.theme-dark` (Guard House screen). */
+const v = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        surface: { 0: '#0b0f14', 1: '#111821', 2: '#18212c', 3: '#222d3a' },
-        line: '#2a3644',
-        ink: { 1: '#e8edf2', 2: '#a9b4c0', 3: '#7d8896' },
-        brand: { DEFAULT: '#3b82f6', soft: '#1e3a5f' },
-        ok: '#22c55e',
-        warn: '#f59e0b',
-        danger: '#ef4444',
+        surface: { 0: v('surface-0'), 1: v('surface-1'), 2: v('surface-2'), 3: v('surface-3') },
+        line: v('line'),
+        ink: { 1: v('ink-1'), 2: v('ink-2'), 3: v('ink-3') },
+        brand: { DEFAULT: v('brand'), soft: v('brand-soft'), dark: v('brand-dark') },
+        ok: v('ok'),
+        warn: v('warn'),
+        danger: v('danger'),
       },
-      fontFamily: { sans: ['Inter', 'Segoe UI', 'system-ui', 'sans-serif'] },
+      boxShadow: { card: '0 4px 24px rgba(17, 24, 39, 0.06)' },
+      fontFamily: { sans: ['Poppins', 'Inter', 'Segoe UI', 'system-ui', 'sans-serif'] },
     },
   },
   plugins: [],

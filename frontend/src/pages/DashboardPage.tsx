@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, BellRing, Cctv, ListChecks, MonitorPlay, ShieldAlert } from 'lucide-react';
+import { ArrowRight, BellRing, Cctv, ListChecks, MonitorPlay } from 'lucide-react';
 import { config } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
 import { useRealtime } from '@/context/RealtimeContext';
@@ -14,6 +14,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui/States';
 import { GuardNotifiedBadge } from '@/components/incidents/GuardNotifiedBadge';
 import { StatCard } from '@/components/dashboard/StatCard';
+import { HeroCard } from '@/components/dashboard/HeroCard';
+import { useSecurity } from '@/context/SecurityContext';
 import { TrendChart } from '@/components/dashboard/TrendChart';
 import { LiveStatusStrip } from '@/components/live/LiveStatusStrip';
 import { FamilyTrackerCard } from '@/components/family/FamilyTrackerCard';
@@ -28,6 +30,7 @@ export default function DashboardPage() {
   const trend = useAsync(() => dashboardService.trend(14), [], config.refreshIntervalMs * 4);
   const recent = useAsync(() => incidentService.list({ sort: 'newest' }).then((l) => l.slice(0, 6)), [refreshKey], config.refreshIntervalMs);
   const live = useLiveStatus();
+  const { security } = useSecurity();
   const s = summary.data;
 
   return (
@@ -49,14 +52,23 @@ export default function DashboardPage() {
         }
       />
 
-      <LiveStatusStrip status={live.data} loading={live.loading} error={live.error} />
+      <HeroCard
+        alertsToday={s?.incidentsToday}
+        awaitingGuard={s?.awaitingGuard}
+        securityOn={(security?.effectiveLevel ?? 'on') === 'on'}
+        loading={summary.initialLoading}
+      />
+
+      <div className="mt-4">
+        <LiveStatusStrip status={live.data} loading={live.loading} error={live.error} />
+      </div>
 
       {summary.error && !s ? (
         <Card>
           <ErrorState error={summary.error} onRetry={summary.reload} />
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <StatCard
             label="Active cameras"
             value={s?.activeCameras}
@@ -67,7 +79,6 @@ export default function DashboardPage() {
             to={can('view:live') ? '/live' : undefined}
             loading={summary.initialLoading}
           />
-          <StatCard label="Incidents today" value={s?.incidentsToday} hint="Flagged by AI since midnight" icon={<ShieldAlert className="h-4 w-4" />} loading={summary.initialLoading} />
           <StatCard
             label="Awaiting guard house"
             value={s?.awaitingGuard ?? 0}
@@ -102,8 +113,8 @@ export default function DashboardPage() {
             title="Recent detection activity"
             subtitle="Newest AI-flagged incidents"
             action={
-              <Link to="/incidents" className="inline-flex items-center gap-1 text-xs text-blue-300 hover:underline">
-                View all <ArrowRight className="h-3 w-3" aria-hidden />
+              <Link to="/incidents" className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand hover:underline">
+                See more <ArrowRight className="h-3.5 w-3.5" aria-hidden />
               </Link>
             }
           />

@@ -15,7 +15,7 @@ interface AuthContextValue {
 }
 
 /** Used when VITE_AUTH_ENABLED=false (local demo only). */
-const LOCAL_USER: User = { id: 'local', name: 'Local demo user', email: 'local@township', role: 'admin' };
+const LOCAL_USER: User = { id: 'local', name: 'Homeowner', email: 'local@township', role: 'admin' };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 

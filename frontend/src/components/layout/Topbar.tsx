@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Bell, Bot, LogOut, Menu, Radio, User as UserIcon } from 'lucide-react';
 import { config } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
@@ -9,6 +9,7 @@ import type { ConnectionState } from '@/types';
 import { cn, formatGuardAck, formatRelative, incidentHeadline, roleLabel } from '@/utils/format';
 import { GuardNotifiedBadge } from '@/components/incidents/GuardNotifiedBadge';
 import { SecurityBadge } from '@/components/security/SecurityBadge';
+import { NAV_ITEMS } from './Sidebar';
 
 const connectionUi: Record<ConnectionState, { label: string; dot: string }> = {
   connected: { label: 'Live alerts connected', dot: 'bg-ok' },
@@ -38,28 +39,34 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
   const userRef = useClickOutside(() => setUserOpen(false));
   const conn = connectionUi[connection];
   const chat = useChat();
+  const { pathname } = useLocation();
+  // page title like "Dashboard" (longest matching nav path, so /incidents/12 shows "Incidents")
+  const page = [...NAV_ITEMS].sort((a, b) => b.to.length - a.to.length).find((i) => (i.to === '/' ? pathname === '/' : pathname.startsWith(i.to)));
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-surface-0/90 px-4 backdrop-blur lg:px-6">
+    <header className="sticky top-0 z-20 flex h-20 items-center gap-3 bg-surface-0/95 px-4 backdrop-blur lg:px-8">
       <button className="rounded-lg p-2 text-ink-2 hover:bg-surface-3 lg:hidden" onClick={onMenu} aria-label="Open menu">
         <Menu className="h-5 w-5" />
       </button>
 
-      <div className="flex items-center gap-2 text-xs text-ink-2" role="status" aria-live="polite">
-        <span className={cn('h-2.5 w-2.5 rounded-full', conn.dot)} aria-hidden />
-        <Radio className="h-3.5 w-3.5 sm:hidden" aria-hidden />
-        <span className="hidden sm:inline">{conn.label}</span>
-        <span className="sr-only sm:hidden">{conn.label}</span>
+      <div className="min-w-0">
+        <p className="truncate text-lg font-medium text-ink-3">{page?.label ?? config.appName}</p>
+        <div className="flex items-center gap-1.5 text-[11px] text-ink-3" role="status" aria-live="polite">
+          <span className={cn('h-2 w-2 rounded-full', conn.dot)} aria-hidden />
+          <Radio className="h-3 w-3 sm:hidden" aria-hidden />
+          <span className="hidden sm:inline">{conn.label}</span>
+          <span className="sr-only sm:hidden">{conn.label}</span>
+        </div>
       </div>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex items-center gap-1.5">
         <span className="mr-1">
           <SecurityBadge />
         </span>
         <button
           className={cn(
-            'flex items-center gap-1.5 rounded-lg p-2 text-sm text-ink-2 hover:bg-surface-3 hover:text-ink-1',
-            chat.open && 'bg-surface-3 text-ink-1',
+            'flex items-center gap-1.5 rounded-full border border-brand/30 bg-surface-1 p-2 text-sm font-medium text-brand hover:bg-brand-soft md:px-3',
+            chat.open && 'bg-brand-soft',
           )}
           aria-expanded={chat.open}
           aria-label="Ask Viva Bot"
@@ -69,9 +76,34 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
           <Bot className="h-5 w-5" aria-hidden />
           <span className="hidden md:inline">Viva Bot</span>
         </button>
+        <div className="relative" ref={userRef}>
+          <button className="flex items-center gap-3 rounded-full py-1 pl-2 pr-1 hover:bg-surface-3" aria-expanded={userOpen} onClick={() => setUserOpen((o) => !o)}>
+            <span className="hidden text-sm text-brand lg:block">
+              Welcome back, <b className="font-semibold">{user?.name}</b>
+            </span>
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-brand-soft ring-2 ring-brand/30" title={user ? roleLabel[user.role] : undefined}>
+              <UserIcon className="h-5 w-5 text-brand" aria-hidden />
+            </span>
+          </button>
+          {userOpen && (
+            <div className="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border border-line bg-surface-1 shadow-2xl">
+              <div className="border-b border-line px-4 py-3">
+                <p className="text-sm font-medium">{user?.name}</p>
+                <p className="truncate text-xs text-ink-3">{user?.email}</p>
+              </div>
+              {config.authEnabled ? (
+                <button className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink-1" onClick={logout}>
+                  <LogOut className="h-4 w-4" aria-hidden /> Sign out
+                </button>
+              ) : (
+                <p className="px-4 py-2.5 text-xs text-ink-3">Login is disabled (VITE_AUTH_ENABLED=false).</p>
+              )}
+            </div>
+          )}
+        </div>
         <div className="relative" ref={bellRef}>
           <button
-            className="relative rounded-lg p-2 text-ink-2 hover:bg-surface-3 hover:text-ink-1"
+            className="relative rounded-full p-2 text-ink-2 hover:bg-surface-3 hover:text-ink-1"
             aria-label={`Alerts, ${unseen} new`}
             aria-expanded={bellOpen}
             onClick={() => (setBellOpen((o) => !o), markSeen())}
@@ -108,44 +140,18 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
                           <GuardNotifiedBadge acknowledged={!!a.guardAcknowledgedAt} />
                         </div>
                       )}
-                      {a.guardAcknowledgedAt && <p className="mt-1 text-xs text-green-300">Guard house: {formatGuardAck(a.guardAcknowledgedAt, a.guardAckNote)}</p>}
+                      {a.guardAcknowledgedAt && <p className="mt-1 text-xs text-green-700">Guard house: {formatGuardAck(a.guardAcknowledgedAt, a.guardAckNote)}</p>}
                     </Link>
                   </li>
                 ))}
               </ul>
-              <Link to="/incidents" onClick={() => setBellOpen(false)} className="block border-t border-line px-4 py-2.5 text-center text-xs text-blue-300 hover:bg-surface-2">
+              <Link to="/incidents" onClick={() => setBellOpen(false)} className="block border-t border-line px-4 py-2.5 text-center text-xs text-brand hover:bg-surface-2">
                 View all incidents
               </Link>
             </div>
           )}
         </div>
 
-        <div className="relative" ref={userRef}>
-          <button className="flex items-center gap-2 rounded-lg p-1.5 pr-2 hover:bg-surface-3" aria-expanded={userOpen} onClick={() => setUserOpen((o) => !o)}>
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-surface-3">
-              <UserIcon className="h-4 w-4 text-ink-2" aria-hidden />
-            </span>
-            <span className="hidden text-left leading-tight md:block">
-              <span className="block text-sm font-medium">{user?.name}</span>
-              <span className="block text-[11px] text-ink-3">{user && roleLabel[user.role]}</span>
-            </span>
-          </button>
-          {userOpen && (
-            <div className="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border border-line bg-surface-1 shadow-2xl">
-              <div className="border-b border-line px-4 py-3">
-                <p className="text-sm font-medium">{user?.name}</p>
-                <p className="truncate text-xs text-ink-3">{user?.email}</p>
-              </div>
-              {config.authEnabled ? (
-                <button className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink-1" onClick={logout}>
-                  <LogOut className="h-4 w-4" aria-hidden /> Sign out
-                </button>
-              ) : (
-                <p className="px-4 py-2.5 text-xs text-ink-3">Login is disabled (VITE_AUTH_ENABLED=false).</p>
-              )}
-            </div>
-          )}
-        </div>
       </div>
     </header>
   );

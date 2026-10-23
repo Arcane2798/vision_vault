@@ -110,8 +110,8 @@ export function SecurityLevelControl() {
         </div>
 
         {!isOn && !offOpen && (
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">
-            <span className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-800">
+            <span className="w-full">
               Security is off {security.offUntil ? `until ${formatUntil(security.offUntil)}` : 'until you turn it back on'} — alerts and recordings are paused.
             </span>
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOffOpen(true)}>
@@ -145,13 +145,13 @@ export function SecurityLevelControl() {
                 Cancel
               </Button>
             </div>
-            {customUntil && !customValid && <p className="text-xs text-red-300">Pick a time in the future.</p>}
+            {customUntil && !customValid && <p className="text-xs text-red-700">Pick a time in the future.</p>}
             <p className="text-xs text-ink-3">While off, people are still tracked on the live view, but nothing is recorded and no one is alerted.</p>
           </div>
         )}
 
         {message && (
-          <p role="status" className={message.ok ? 'text-sm text-green-300' : 'text-sm text-red-300'}>
+          <p role="status" className={message.ok ? 'text-sm text-green-700' : 'text-sm text-red-700'}>
             {message.text}
           </p>
         )}

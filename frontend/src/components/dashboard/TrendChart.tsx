@@ -1,7 +1,7 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { TrendPoint } from '@/types';
 
-const COLORS = { bar: '#ef4444', grid: '#2a3644', axis: '#7d8896' };
+const COLORS = { bar: '#d81921', grid: '#e5e8ee', axis: '#808896' };
 
 const shortDate = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 
@@ -18,8 +18,8 @@ export function TrendChart({ data }: { data: TrendPoint[] }) {
           <Tooltip
             cursor={{ fill: 'rgba(255,255,255,0.04)' }}
             labelFormatter={(d) => shortDate(String(d))}
-            contentStyle={{ background: '#111821', border: '1px solid #2a3644', borderRadius: 8, fontSize: 12 }}
-            labelStyle={{ color: '#e8edf2' }}
+            contentStyle={{ background: '#ffffff', border: '1px solid #e5e8ee', borderRadius: 12, fontSize: 12, boxShadow: '0 4px 24px rgba(17,24,39,0.08)' }}
+            labelStyle={{ color: '#1f2430' }}
           />
           <Bar dataKey="alerts" name="Intrusion alerts" fill={COLORS.bar} radius={[4, 4, 0, 0]} />
         </BarChart>

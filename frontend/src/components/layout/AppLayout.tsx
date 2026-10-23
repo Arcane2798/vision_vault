@@ -24,7 +24,7 @@ export function AppLayout() {
           <div className="flex min-w-0 flex-1 flex-col">
             <Topbar onMenu={() => setMenuOpen(true)} />
             {isMock && <SampleDataBanner />}
-            <main id="main" className="flex-1 p-4 lg:p-6">
+            <main id="main" className="flex-1 px-4 pb-8 pt-1 lg:px-8">
               <Outlet />
             </main>
           </div>
@@ -38,10 +38,10 @@ export function AppLayout() {
 
 function SampleDataBanner() {
   return (
-    <div className="flex items-center gap-2 border-b border-warn/30 bg-warn/10 px-4 py-2 text-xs text-amber-200 lg:px-6">
+    <div className="flex items-center gap-2 border-b border-warn/30 bg-warn/10 px-4 py-2 text-xs text-amber-800 lg:px-6">
       <FlaskConical className="h-4 w-4 shrink-0" aria-hidden />
       <span>
-        <b>Sample data mode.</b> Cameras, incidents and images are generated for demonstration - not real CCTV. Run <code className="rounded bg-black/30 px-1">npm run configure -- --live</code> to connect the backend.
+        <b>Sample data mode.</b> Cameras, incidents and images are generated for demonstration - not real CCTV. Run <code className="rounded bg-black/5 px-1">npm run configure -- --live</code> to connect the backend.
       </span>
     </div>
   );
@@ -64,7 +64,7 @@ function AlertToast() {
       )}
     >
       <div className="flex gap-3">
-        {ack ? <ShieldCheck className="h-5 w-5 shrink-0 text-green-400" aria-hidden /> : <ShieldAlert className="h-5 w-5 shrink-0 text-warn" aria-hidden />}
+        {ack ? <ShieldCheck className="h-5 w-5 shrink-0 text-green-600" aria-hidden /> : <ShieldAlert className="h-5 w-5 shrink-0 text-warn" aria-hidden />}
         <div className="min-w-0 flex-1">
           {ack ? (
             <>
@@ -82,7 +82,7 @@ function AlertToast() {
               {inc.guardNotified && <GuardNotifiedBadge className="mt-1.5" />}
             </>
           )}
-          <Link to={`/incidents/${inc.id}`} onClick={dismissToast} className="mt-2 inline-block text-sm font-medium text-blue-300 hover:underline">
+          <Link to={`/incidents/${inc.id}`} onClick={dismissToast} className="mt-2 inline-block text-sm font-medium text-brand hover:underline">
             View incident →
           </Link>
         </div>

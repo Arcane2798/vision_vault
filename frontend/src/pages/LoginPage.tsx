@@ -74,7 +74,7 @@ export default function LoginPage() {
             )}
           </Field>
           {errors.form && (
-            <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-red-300">
+            <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-red-700">
               {errors.form}
             </p>
           )}
@@ -84,13 +84,13 @@ export default function LoginPage() {
         </form>
 
         {isMock && (
-          <div className="mt-4 rounded-xl border border-warn/30 bg-warn/10 p-4 text-xs text-amber-200">
+          <div className="mt-4 rounded-xl border border-warn/30 bg-warn/10 p-4 text-xs text-amber-800">
             <p className="mb-2 font-semibold">Sample accounts (mock mode only)</p>
             <ul className="space-y-1.5">
               {MOCK_USERS.map((u) => (
                 <li key={u.id}>
                   <button type="button" className="text-left hover:underline" onClick={() => (setEmail(u.email), setPassword(u.password))}>
-                    <span className="font-mono">{u.email}</span> / <span className="font-mono">{u.password}</span> <span className="text-amber-200/70">({u.role})</span>
+                    <span className="font-mono">{u.email}</span> / <span className="font-mono">{u.password}</span> <span className="text-amber-800/70">({u.role})</span>
                   </button>
                 </li>
               ))}

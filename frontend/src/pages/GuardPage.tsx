@@ -63,7 +63,7 @@ export default function GuardPage() {
   );
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="theme-dark min-h-screen bg-black text-white">
       <header className="sticky top-0 z-20 border-b border-line bg-black/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">

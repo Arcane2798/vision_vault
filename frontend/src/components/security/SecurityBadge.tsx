@@ -5,8 +5,8 @@ import type { SecurityLevel } from '@/types';
 import { cn, effectiveLevelText, formatUntil } from '@/utils/format';
 
 export const LEVEL_STYLE: Record<SecurityLevel, { cls: string; Icon: typeof ShieldCheck }> = {
-  on: { cls: 'border-green-500/40 bg-green-500/10 text-green-300', Icon: ShieldCheck },
-  off: { cls: 'border-amber-400/40 bg-amber-400/10 text-amber-300', Icon: ShieldOff },
+  on: { cls: 'border-green-500/40 bg-green-500/10 text-green-700', Icon: ShieldCheck },
+  off: { cls: 'border-amber-400/40 bg-amber-400/10 text-amber-700', Icon: ShieldOff },
 };
 
 /** Small top-bar pill: ON (green) or OFF (amber, with the until-time); links to the control on Live Monitoring. */

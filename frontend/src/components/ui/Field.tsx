@@ -22,7 +22,7 @@ export function Field({ label, error, hint, children }: FieldProps) {
       </label>
       {children(id, msgId)}
       {(error || hint) && (
-        <p id={msgId} className={cn('text-xs', error ? 'text-red-300' : 'text-ink-3')}>
+        <p id={msgId} className={cn('text-xs', error ? 'text-red-700' : 'text-ink-3')}>
           {error || hint}
         </p>
       )}

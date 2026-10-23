@@ -62,7 +62,7 @@ function PersonRow({
         <Button
           size="sm"
           variant="ghost"
-          className={p.recognition ? undefined : 'text-red-300 hover:text-red-200'}
+          className={p.recognition ? undefined : 'text-red-700 hover:text-red-800'}
           icon={p.recognition ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
           loading={toggling}
           aria-pressed={!p.recognition}
@@ -90,7 +90,7 @@ function PersonRow({
             if (files.length) onAddPhotos(p, files);
           }}
         />
-        <Button size="sm" variant="ghost" className="text-red-300 hover:text-red-200" icon={<Trash2 className="h-4 w-4" />} onClick={() => onDelete(p)}>
+        <Button size="sm" variant="ghost" className="text-red-700 hover:text-red-800" icon={<Trash2 className="h-4 w-4" />} onClick={() => onDelete(p)}>
           Delete
         </Button>
       </div>

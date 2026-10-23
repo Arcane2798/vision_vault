@@ -15,14 +15,14 @@ interface StatCardProps {
   loading?: boolean;
 }
 
-const toneCls = { default: 'bg-brand/15 text-blue-300', warn: 'bg-warn/15 text-amber-300', danger: 'bg-danger/15 text-red-300', ok: 'bg-ok/15 text-green-300' };
+const toneCls = { default: 'bg-brand-soft text-brand', warn: 'bg-warn/15 text-amber-700', danger: 'bg-danger/15 text-red-700', ok: 'bg-ok/15 text-green-700' };
 
 export function StatCard({ label, value, suffix, hint, icon, tone = 'default', to, loading }: StatCardProps) {
   const body = (
-    <Card className={cn('h-full p-4', to && 'transition-colors hover:border-ink-3')}>
+    <Card className={cn('h-full p-5', to && 'transition-colors hover:border-brand/40')}>
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm text-ink-2">{label}</p>
-        <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-lg', toneCls[tone])} aria-hidden>
+        <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl', toneCls[tone])} aria-hidden>
           {icon}
         </span>
       </div>
@@ -38,7 +38,7 @@ export function StatCard({ label, value, suffix, hint, icon, tone = 'default', t
     </Card>
   );
   return to ? (
-    <Link to={to} className="block rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand">
+    <Link to={to} className="block rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand">
       {body}
     </Link>
   ) : (
