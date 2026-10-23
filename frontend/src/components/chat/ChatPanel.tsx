@@ -73,11 +73,11 @@ export function ChatPanel() {
         )}
       >
         <header className="flex items-start gap-3 border-b border-line px-4 py-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand/15 text-brand-fg" aria-hidden>
-            <Bot className="h-5 w-5" />
+          <span className="mt-1 shrink-0 text-ink-2" aria-hidden>
+            <Bot className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 id="chat-title" className="font-semibold">
+            <h2 id="chat-title" className="display text-[20px] leading-tight">
               {ASSISTANT_NAME}
             </h2>
             <p className="text-xs text-ink-3">Answers from your home&apos;s records. Changes need your confirmation.</p>
@@ -146,9 +146,8 @@ export function ChatPanel() {
 function EmptyChat({ onPick, disabled }: { onPick: (s: string) => void; disabled: boolean }) {
   return (
     <div className="flex flex-col items-center gap-3 py-6 text-center">
-      <Bot className="h-8 w-8 text-ink-3" aria-hidden />
       <div>
-        <p className="font-medium">Ask about your home</p>
+        <p className="display text-[22px]">Ask about your home</p>
         <p className="mx-auto mt-1 max-w-xs text-sm text-ink-3">Incidents, who is at the door, when a resident was last seen, visitor access and the security level.</p>
       </div>
       <ul className="flex w-full flex-col gap-2">
@@ -174,7 +173,7 @@ function Entry({ entry }: { entry: ChatEntry }) {
   if (entry.role === 'user') {
     return (
       <div className="flex flex-col items-end">
-        <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-brand/20 px-3 py-2 text-sm text-ink-1">{entry.content}</p>
+        <p className="max-w-[85%] whitespace-pre-wrap rounded-lg bg-brand-soft px-3 py-2 text-sm text-ink-1">{entry.content}</p>
         {entry.failed && <span className="mt-1 text-[11px] text-danger-fg">Not sent</span>}
       </div>
     );
@@ -182,7 +181,7 @@ function Entry({ entry }: { entry: ChatEntry }) {
   if (entry.role === 'notice') return <Notice entry={entry} />;
   return (
     <div className="max-w-[92%]">
-      <div className="rounded-2xl rounded-bl-sm bg-surface-2 px-3 py-2 text-sm text-ink-1">
+      <div className="border-l-2 border-accent py-0.5 pl-3 text-sm text-ink-1">
         <RichText text={entry.content || '(no reply)'} />
       </div>
       {entry.action && entry.actionState && (

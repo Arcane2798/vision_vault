@@ -80,6 +80,7 @@ Boxes/labels are drawn into the video frame by the engine; the frontend does not
 ## Tech stack
 - **Backend:** Python, FastAPI, Ultralytics YOLOv8n, InsightFace (`buffalo_s`, CPU), OpenCV, SQLite, imageio-ffmpeg
 - **Frontend:** `frontend/` — React 18, TypeScript, Vite 5, Tailwind 3, React Router 6, Recharts, lucide-react
+  - **Look (restyled Fri 23 Oct, owner: lecturer said it looked AI-generated):** three themes — Sime Darby (navy sidebar, leaf-green accent), Light (navy accents), Dark (deep navy). Tokens in `src/index.css`, switch in the top bar, `?theme=simedarby|light|dark` in the URL. Geist for UI, Newsreader serif for page titles, hairline borders and tight corners; no gradients, pills or icon tiles.
 - **Alerts:** Telegram bot (`TG_TOKEN`, `TG_CHAT_ID` in `.env`)
 - **AI assistant:** Google Gemini API via the `google-genai` SDK (free-tier Flash model, `GEMINI_API_KEY`); text only, never camera frames
 - **Hardware:** USB webcam

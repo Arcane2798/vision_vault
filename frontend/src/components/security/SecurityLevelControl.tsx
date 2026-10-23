@@ -136,7 +136,7 @@ export function SecurityLevelControl() {
             <div className="flex flex-wrap items-end gap-2">
               <label className="space-y-1 text-xs font-medium text-ink-2">
                 <span className="block">…or until</span>
-                <Input type="datetime-local" value={customUntil} onChange={(e) => setCustomUntil(e.target.value)} className="w-52 [color-scheme:dark]" />
+                <Input type="datetime-local" value={customUntil} onChange={(e) => setCustomUntil(e.target.value)} className="w-52" />
               </label>
               <Button size="sm" variant="primary" disabled={busy || !customValid} onClick={() => customIso && turnOff(new Date(customIso))}>
                 Turn off until then
