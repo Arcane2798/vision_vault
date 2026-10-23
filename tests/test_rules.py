@@ -51,7 +51,7 @@ def test_invalid_names(name):
 
 def test_security_params():
     on, off = security_params("on"), security_params("off")
-    assert on == {"alerts": True, "grace": 5.0, "match_thresh": 0.30, "person_conf": 0.25,
+    assert on == {"alerts": True, "grace": 5.0, "match_thresh": 0.30, "person_conf": 0.35,
                   "min_track_frames": 3, "guard_alert": True}
     # Off: same thresholds, still tracks, never alerts
     assert off == dict(on, alerts=False, guard_alert=False)
