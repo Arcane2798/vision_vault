@@ -250,7 +250,7 @@ function FloorPlan({ map, state }: { map: HouseMap; state: MapState | null }) {
               way out
             </text>
           )}
-          <People room={r} people={state?.rooms[r.id] ?? []} />
+          <People room={r} people={state?.rooms[r.id] ?? []} cameras={map.cameras} />
         </g>
       ))}
       {paths.map((p) => (
@@ -308,10 +308,14 @@ function Door({ a, b }: { a?: MapRoom; b?: MapRoom }) {
 }
 
 /** Camera icon pointing where it looks, with its field of view (clipped to its room). */
+/** Where a camera sits and which way it looks (degrees, 0 = right, 90 = down). Without hints in
+ *  house_map.json: the top-right corner of its room, looking down-left into it. */
+function cameraPose(cam: MapCamera, room: MapRoom) {
+  return { x: cam.x ?? room.x + room.w - 0.4, y: cam.y ?? room.y + 0.4, facing: cam.facing ?? 135 };
+}
+
 function CameraMark({ cam, room }: { cam: MapCamera; room: MapRoom }) {
-  const x = cam.x ?? room.x + room.w - 0.4;
-  const y = cam.y ?? room.y + 0.4;
-  const facing = cam.facing ?? 135;
+  const { x, y, facing } = cameraPose(cam, room);
   const half = ((cam.fov ?? 90) / 2) * (Math.PI / 180);
   const dir = facing * (Math.PI / 180);
   const R = 4;
@@ -333,24 +337,40 @@ function CameraMark({ cam, room }: { cam: MapCamera; room: MapRoom }) {
   );
 }
 
-function People({ room, people }: { room: MapRoom; people: MapPerson[] }) {
-  const STEP = 1.5; // room for the name under each dot
-  const cols = Math.max(1, Math.floor((room.w - 0.4) / STEP));
+const VIEW_DEPTH = 3; // people are drawn this far in front of the camera that sees them (map units)
+const STEP = 1.5; // spacing between people seen by the same camera (room for the names)
+
+/** People in a room, each drawn inside the view of the camera that saw them: someone seen by the
+ *  front-door camera appears by the door, someone seen by the corner camera in that corner. */
+function People({ room, people, cameras }: { room: MapRoom; people: MapPerson[]; cameras: MapCamera[] }) {
+  const byCamera = new Map<string, MapPerson[]>();
+  for (const p of people) byCamera.set(p.camera, [...(byCamera.get(p.camera) ?? []), p]);
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
   return (
     <>
-      {people.map((p, i) => {
-        const x = room.x + 0.8 + (i % cols) * STEP;
-        const y = room.y + room.h / 2 + Math.floor(i / cols) * 1.1;
-        return (
-          <g key={`${p.camera}-${p.name}-${i}`}>
-            <circle cx={x} cy={y} r={0.28} fill={PERSON_COLOR[p.kind]} stroke="#0f172a" strokeWidth={0.05}>
-              <title>{p.kind === 'unknown' ? 'Unknown person' : p.name}</title>
-            </circle>
-            <text x={x} y={y + 0.62} fontSize={0.28} textAnchor="middle" fill="#1f2430">
-              {p.kind === 'unknown' ? 'Unknown' : p.name}
-            </text>
-          </g>
-        );
+      {[...byCamera].flatMap(([camId, seen]) => {
+        const cam = cameras.find((c) => c.id === camId);
+        const pose = cam ? cameraPose(cam, room) : null;
+        const dir = ((pose?.facing ?? 90) * Math.PI) / 180;
+        // a point straight ahead of the camera (or the room centre for an unknown camera) ...
+        const ax = pose ? pose.x + VIEW_DEPTH * Math.cos(dir) : room.x + room.w / 2;
+        const ay = pose ? pose.y + VIEW_DEPTH * Math.sin(dir) : room.y + room.h / 2;
+        // ... with several people side by side across the view, kept inside the room
+        return seen.map((p, i) => {
+          const off = (i - (seen.length - 1) / 2) * STEP;
+          const x = clamp(ax - Math.sin(dir) * off, room.x + 0.6, room.x + room.w - 0.6);
+          const y = clamp(ay + Math.cos(dir) * off, room.y + 0.9, room.y + room.h - 0.9);
+          return (
+            <g key={`${camId}-${p.name}-${i}`}>
+              <circle cx={x} cy={y} r={0.28} fill={PERSON_COLOR[p.kind]} stroke="#0f172a" strokeWidth={0.05}>
+                <title>{`${p.kind === 'unknown' ? 'Unknown person' : p.name}${cam ? ` · seen by ${cam.name}` : ''}`}</title>
+              </circle>
+              <text x={x} y={y + 0.62} fontSize={0.28} textAnchor="middle" fill="#1f2430">
+                {p.kind === 'unknown' ? 'Unknown' : p.name}
+              </text>
+            </g>
+          );
+        });
       })}
     </>
   );
