@@ -156,7 +156,6 @@ function NowPlaying({ source, switching, onSwitch }: { source: VideoSource; swit
       <div className="h-1.5 overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
         <div className={cn('h-full rounded-full transition-[width]', source.finished ? 'bg-green-500' : 'bg-brand')} style={{ width: `${source.finished ? 100 : pct}%` }} />
       </div>
-      {source.finished && <p className="text-xs text-ink-3">Any incidents it raised are on the Incidents page. The live camera stays off until you switch back.</p>}
     </Card>
   );
 }
