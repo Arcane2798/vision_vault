@@ -55,7 +55,7 @@ Dropped by decision during the build.
 | Live camera on the House map | ✖ removed Thu 22 Oct | Every camera on the map plays a recorded video, so the whole house replays together |
 | Cameras page / multi-camera management | ✖ removed Tue 20 Oct | One home, one live camera |
 | Guard House screen on a separate phone | ✖ dropped Tue 20 Oct | The demo runs it on the same laptop (bottom-left switch) |
-| Account login (head of house = admin) | ✖ skipped (owner decision) | Not needed for a one-home demo |
+| Account login (head of house = admin) | ✖ skipped | Not needed for a one-home demo |
 
 ## How it works
 
