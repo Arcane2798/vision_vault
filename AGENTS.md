@@ -371,7 +371,7 @@ Dropped (owner, Thu 22 Oct): no further features are planned; the README no long
 ## Pending deletion (awaiting owner check — do not delete yet)
 | Item | Why |
 |---|---|
-| Old files in `clips/`, `snapshots/` + their `vault.db` rows | Owner chose to keep for now; may trim before the demo |
+| — | Nothing pending. Fri 23 Oct (owner): all clips, snapshots and the 430 `events` rows were cleared for the demo |
 
 Deleted on Tue 20 Oct (owner-approved): `dashboard/`, `Backup/`, `frontend/dist/`, `frontend/.env.local.mock.bak`,
 `__pycache__/`, `faces/rdj/`, `faces/embeddings.pkl` (rebuilds on next start), `CamerasPage.tsx`, `CameraFormModal.tsx`
