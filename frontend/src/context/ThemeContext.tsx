@@ -14,7 +14,7 @@ function saved(): Theme | null {
   }
 }
 
-const systemTheme = (): Theme => (window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+const systemTheme = (): Theme => (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 
 interface ThemeValue {
   theme: Theme;
@@ -38,9 +38,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // follow the OS while the user has not chosen
   useEffect(() => {
-    const mq = window.matchMedia?.('(prefers-color-scheme: light)');
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
     if (!mq) return;
-    const h = () => !saved() && setThemeState(mq.matches ? 'light' : 'dark');
+    const h = () => !saved() && setThemeState(mq.matches ? 'dark' : 'light');
     mq.addEventListener('change', h);
     return () => mq.removeEventListener('change', h);
   }, []);
@@ -66,7 +66,7 @@ export function useTheme() {
 }
 
 /** Concrete colours for SVG charts (Recharts takes plain colour strings). Mirrors index.css. */
-export const CHART_COLORS: Record<Theme, { grid: string; axis: string; text: string; tooltipBg: string; tooltipBorder: string; cursor: string; danger: string; caution: string; brand: string; muted: string }> = {
-  dark: { grid: '#272c33', axis: '#7e8792', text: '#f1f4f7', tooltipBg: '#191d22', tooltipBorder: '#383f48', cursor: 'rgba(255,255,255,0.04)', danger: '#ef4444', caution: '#fb923c', brand: '#2db8a6', muted: '#383f48' },
-  light: { grid: '#e3e7ec', axis: '#637083', text: '#171f29', tooltipBg: '#ffffff', tooltipBorder: '#dfe4ea', cursor: 'rgba(16,24,40,0.04)', danger: '#dc2626', caution: '#ea580c', brand: '#0d7c70', muted: '#c8d0d9' },
+export const CHART_COLORS: Record<Theme, { grid: string; axis: string; text: string; tooltipBg: string; tooltipBorder: string; cursor: string; line: string; area: string; dot: string }> = {
+  light: { grid: '#e1e7f1', axis: '#5c6884', text: '#101b3d', tooltipBg: '#ffffff', tooltipBorder: '#e1e7f1', cursor: '#cbd5e5', line: '#2f54aa', area: '#2f54aa', dot: '#1e3470' },
+  dark: { grid: '#22304f', axis: '#8692b0', text: '#eef2fa', tooltipBg: '#151f3b', tooltipBorder: '#34426a', cursor: '#34426a', line: '#a0b8f5', area: '#809eec', dot: '#eef2fa' },
 };

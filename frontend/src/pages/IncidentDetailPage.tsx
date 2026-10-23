@@ -60,7 +60,7 @@ export default function IncidentDetailPage() {
       <BackLink />
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="font-mono text-xs text-ink-3">{inc.id}</p>
+          <p className="text-xs font-medium tabular-nums text-ink-3">Incident {inc.id}</p>
           <h1 className="text-[22px] font-semibold leading-tight tracking-tight">
             {eventTypeLabel(inc.label)} at {inc.cameraName}
           </h1>
@@ -208,7 +208,7 @@ function Timeline({ inc, processing }: { inc: Incident; processing: boolean }) {
       {items.map((e) => (
         <li key={e.label} className="relative pb-4 last:pb-0">
           <span className={cn('absolute -left-[1.6rem] top-1 h-2.5 w-2.5 rounded-full ring-4 ring-surface-1', e.dot)} aria-hidden />
-          <p className="font-mono text-xs tabular-nums text-ink-3">{formatTime(e.time)}</p>
+          <p className="text-xs font-medium tabular-nums text-ink-3">{formatTime(e.time)}</p>
           <p className="text-sm font-medium">{e.label}</p>
           {e.detail && <p className="text-xs text-ink-3">{e.detail}</p>}
         </li>

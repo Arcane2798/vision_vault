@@ -26,7 +26,7 @@ export function ActionCard({ action, state, error, onConfirm, onCancel }: Props)
 
   return (
     <div className="mt-2 rounded-lg border border-brand/40 bg-surface-1 p-3">
-      <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-brand-fg">
+      <p className="flex items-center gap-1.5 text-xs font-medium text-brand-fg">
         {addPerson ? <UserPlus className="h-3.5 w-3.5" aria-hidden /> : <ClipboardEdit className="h-3.5 w-3.5" aria-hidden />}
         Needs your confirmation
       </p>

@@ -79,7 +79,7 @@ export function ListSkeleton({ rows = 4, thumb = true }: { rows?: number; thumb?
 /** Camera-shaped placeholder (16:9) while the camera list or stream is loading. */
 export function FeedSkeleton({ label = 'Connecting to camera…' }: { label?: string }) {
   return (
-    <div role="status" className="relative grid aspect-video place-items-center overflow-hidden rounded-2xl border border-line bg-surface-2">
+    <div role="status" className="relative grid aspect-video place-items-center overflow-hidden rounded-[20px] border border-line/70 panel-tint">
       <div className="flex flex-col items-center gap-3 text-sm text-ink-3">
         <Viewfinder size="lg" />
         {label}

@@ -6,6 +6,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { RealtimeProvider } from '@/context/RealtimeContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import App from './App';
+import '@fontsource-variable/plus-jakarta-sans/wght.css';
 import './index.css';
 
 document.title = config.appName;

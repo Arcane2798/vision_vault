@@ -10,7 +10,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        surface: { 0: v('surface-0'), 1: v('surface-1'), 2: v('surface-2'), 3: v('surface-3'), 4: v('surface-4'), nav: v('surface-nav') },
+        surface: { 0: v('surface-0'), 1: v('surface-1'), 2: v('surface-2'), 3: v('surface-3'), 4: v('surface-4') },
         line: { DEFAULT: v('line'), strong: v('line-strong') },
         ink: { 1: v('ink-1'), 2: v('ink-2'), 3: v('ink-3') },
         brand: { DEFAULT: v('brand'), soft: v('brand-soft'), fg: v('brand-fg'), on: v('brand-on') },
@@ -24,7 +24,7 @@ export default {
         /** guard house channel */
         guard: tone('guard'),
       },
-      fontFamily: { sans: ['Inter', 'Segoe UI', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'Cascadia Mono', 'Consolas', 'ui-monospace', 'monospace'] },
+      fontFamily: { sans: ['Plus Jakarta Sans Variable', 'Segoe UI', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'Cascadia Mono', 'Consolas', 'ui-monospace', 'monospace'] },
       boxShadow: {
         panel: 'var(--shadow-panel)',
         pop: 'var(--shadow-pop)',

@@ -135,7 +135,7 @@ export default function PeoplePage() {
       ) : (
         <div className="space-y-4">
           <Card>
-            <CardHeader title={`${personRoleLabel.family}s (family)`} subtitle={`${residents.length} registered · always allowed, no alert`} />
+            <CardHeader title={`${personRoleLabel.family}s (family)`} subtitle={`${residents.length} registered. Always allowed, never alerted.`} />
             {residents.length ? (
               <PersonList people={residents} {...listProps} />
             ) : (
@@ -143,7 +143,7 @@ export default function PeoplePage() {
             )}
           </Card>
           <Card>
-            <CardHeader title={`${personRoleLabel.guest}s`} subtitle={`${visitors.length} registered · alert when seen outside their window`} />
+            <CardHeader title={`${personRoleLabel.guest}s`} subtitle={`${visitors.length} registered. Alerted only outside their allowed time.`} />
             {visitors.length ? (
               <PersonList people={visitors} {...listProps} />
             ) : (

@@ -22,5 +22,3 @@ export function EventTypeTag({ label, className }: { label: string; className?: 
   );
 }
 
-/** Thin accent bar class for a list row of this event type. */
-export const eventAccent = (label: string) => (label === 'intrusion' ? 'bg-danger' : 'bg-caution');

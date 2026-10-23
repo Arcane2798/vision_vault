@@ -46,7 +46,7 @@ export function FamilyTrackerCard() {
     <Card>
       <CardHeader
         title="Family tracker"
-        subtitle={family.data ? `${home} of ${family.data.length} residents home · from the camera inside the front door` : 'Who is home and who is out'}
+        subtitle={family.data ? `${home} of ${family.data.length} residents home, seen by the camera inside the front door` : 'Who is home and who is out'}
       />
       {family.initialLoading ? (
         <LoadingState />
@@ -58,7 +58,7 @@ export function FamilyTrackerCard() {
         <div className="grid gap-4 p-4 lg:grid-cols-5">
           <ul className="space-y-2 lg:col-span-3">
             {family.data.map((m) => (
-              <li key={m.id} className="flex items-center gap-3 rounded-lg border border-line bg-surface-2/50 px-3 py-2">
+              <li key={m.id} className="flex items-center gap-3 rounded-xl bg-surface-1 px-3 py-2">
                 <img src={familyService.photoSrc(m)} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{m.name}</p>
@@ -79,7 +79,7 @@ export function FamilyTrackerCard() {
             {error && <li className="text-xs text-danger-fg">{error}</li>}
           </ul>
           <div className="lg:col-span-2">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-3">Recent arrivals & departures</p>
+            <p className="eyebrow mb-2">Recent arrivals & departures</p>
             {!moves.data?.length ? (
               <p className="text-xs text-ink-3">Nothing yet. Arrivals and departures at the front door appear here.</p>
             ) : (
@@ -111,7 +111,7 @@ function MovementRow({ mv }: { mv: Movement }) {
       <Icon className={cn('h-3.5 w-3.5 shrink-0', arrived ? 'text-ok-fg' : 'text-warn-fg')} aria-hidden />
       <span className="min-w-0 flex-1 truncate">
         <b className="font-medium text-ink-1">{mv.name ?? 'Someone (face not seen)'}</b> {arrived ? 'arrived' : 'left'}
-        {mv.source === 'manual' && <span className="text-ink-3"> · marked by you</span>}
+        {mv.source === 'manual' && <span className="text-ink-3"> (marked by you)</span>}
       </span>
       <span className="shrink-0 tabular-nums text-ink-3">{formatHourMinute(mv.timestamp)}</span>
     </li>

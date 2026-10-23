@@ -42,8 +42,8 @@ export function CameraFeed({ camera, compact, onSelect, selected, actions, testV
   return (
     <figure
       className={cn(
-        'group overflow-hidden rounded-2xl border bg-surface-1 shadow-panel transition-colors',
-        selected ? 'border-brand ring-2 ring-brand/40' : 'border-line',
+        'panel-tint group overflow-hidden rounded-[20px] border p-2 transition-colors',
+        selected ? 'border-brand ring-2 ring-brand/40' : 'border-line/70',
         onSelect && 'cursor-pointer hover:border-line-strong',
       )}
       onClick={onSelect}
@@ -52,7 +52,7 @@ export function CameraFeed({ camera, compact, onSelect, selected, actions, testV
       role={onSelect ? 'button' : undefined}
       aria-label={onSelect ? `Open ${camera.name}` : undefined}
     >
-      <div ref={media} className="relative aspect-video bg-black">
+      <div ref={media} className="relative aspect-video overflow-hidden rounded-2xl bg-black">
         {unavailable ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-surface-2 p-4 text-center">
             {status === 'offline' ? <WifiOff className="h-7 w-7 text-danger-fg" aria-hidden /> : <VideoOff className="h-7 w-7 text-ink-3" aria-hidden />}
@@ -102,8 +102,6 @@ export function CameraFeed({ camera, compact, onSelect, selected, actions, testV
         {!unavailable && <DetectionOverlay detections={detections} compact={compact} />}
         <DetectionList detections={detections} />
 
-        {/* viewfinder corners: the brand motif, kept faint so it never competes with the footage */}
-        {!unavailable && <div className="viewfinder pointer-events-none absolute inset-3 opacity-60 [--vf-c:rgb(255_255_255/0.45)] [--vf-l:18px]" aria-hidden />}
 
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 bg-gradient-to-b from-black/60 to-transparent p-3 font-mono text-[11px] text-white">
           <span className="flex min-w-0 items-center gap-2">
@@ -135,13 +133,12 @@ export function CameraFeed({ camera, compact, onSelect, selected, actions, testV
           </button>
         )}
       </div>
-      <figcaption className="flex items-center justify-between gap-3 px-4 py-3">
+      <figcaption className="flex items-center justify-between gap-3 px-2 pb-1 pt-2.5">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{camera.name}</p>
+          <p className="truncate text-sm font-semibold">{camera.name}</p>
           {!compact && (
             <p className="truncate text-xs text-ink-3">
-              <span className="font-mono">{camera.id}</span>
-              {camera.location && <> · {camera.location}</>}
+              {camera.location ? `${camera.location}, camera ${camera.id}` : `Camera ${camera.id}`}
             </p>
           )}
         </div>

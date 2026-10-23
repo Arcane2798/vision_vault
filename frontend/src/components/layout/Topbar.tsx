@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Bell, Bot, ChevronRight, LogOut, Menu, Moon, Sun, User as UserIcon } from 'lucide-react';
+import { ArrowUpRight, Bell, Bot, ChevronRight, LogOut, Moon, Sun } from 'lucide-react';
 import { config } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
 import { useChat } from '@/context/ChatContext';
@@ -12,6 +12,7 @@ import { GuardNotifiedBadge } from '@/components/incidents/GuardNotifiedBadge';
 import { SecurityBadge } from '@/components/security/SecurityBadge';
 import { IconButton } from '@/components/ui/Button';
 import { NAV_GROUPS } from './Sidebar';
+import { BrandLockup } from './BrandMark';
 
 const connectionUi: Record<ConnectionState, { label: string; short: string; dot: string }> = {
   connected: { label: 'Live alerts connected', short: 'Connected', dot: 'bg-ok' },
@@ -52,7 +53,7 @@ function useBreadcrumb(): { section?: string; title: string; titleTo?: string; l
   return { title: 'Not found' };
 }
 
-export function Topbar({ onMenu }: { onMenu: () => void }) {
+export function Topbar() {
   const { user, logout } = useAuth();
   const { connection, alerts: newAlerts, guardAcks, unseen, markSeen, clearAlerts } = useRealtime();
   // alerts from this session (with any guard response), plus responses to older alerts
@@ -65,12 +66,12 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
   const crumb = useBreadcrumb();
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-line bg-surface-0/85 px-4 backdrop-blur-md lg:px-6">
-      <IconButton label="Open menu" className="lg:hidden" onClick={onMenu}>
-        <Menu className="h-5 w-5" />
-      </IconButton>
+    <header className="flex h-14 items-center gap-2 rounded-full bg-surface-1 pl-4 pr-2 shadow-panel sm:pl-5">
+      <Link to="/" className="shrink-0 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" aria-label={`${config.appName} home`}>
+        <BrandLockup />
+      </Link>
 
-      <nav aria-label="Breadcrumb" className="min-w-0">
+      <nav aria-label="Breadcrumb" className="ml-4 hidden min-w-0 border-l border-line pl-4 md:block">
         <ol className="flex min-w-0 items-center gap-1.5 text-sm">
           {crumb.section && (
             <li className="hidden items-center gap-1.5 text-ink-3 sm:flex">
@@ -78,7 +79,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
               <ChevronRight className="h-3.5 w-3.5" aria-hidden />
             </li>
           )}
-          <li className={cn('truncate', crumb.leaf ? 'text-ink-3' : 'font-semibold text-ink-1')} aria-current={crumb.leaf ? undefined : 'page'}>
+          <li className={cn('truncate', crumb.leaf ? 'text-ink-3' : 'font-medium text-ink-1')} aria-current={crumb.leaf ? undefined : 'page'}>
             {crumb.titleTo ? (
               <Link to={crumb.titleTo} className="hover:text-ink-1">
                 {crumb.title}
@@ -88,17 +89,17 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
             )}
           </li>
           {crumb.leaf && (
-            <li className="flex min-w-0 items-center gap-1.5 font-semibold text-ink-1" aria-current="page">
+            <li className="flex min-w-0 items-center gap-1.5 font-medium text-ink-1" aria-current="page">
               <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-3" aria-hidden />
-              <span className="truncate font-mono text-[13px]">{crumb.leaf}</span>
+              <span className="truncate tabular-nums">{crumb.leaf}</span>
             </li>
           )}
         </ol>
       </nav>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex items-center gap-2 lg:gap-1">
         <div
-          className="mr-1 hidden items-center gap-2 rounded-full border border-line px-2.5 py-1 text-xs text-ink-2 md:flex"
+          className="mr-1 hidden items-center gap-2 rounded-full bg-surface-2 px-2.5 py-1 text-xs text-ink-2 lg:flex"
           role="status"
           aria-live="polite"
           title={conn.label}
@@ -107,7 +108,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
           <span className="hidden xl:inline">{conn.label}</span>
           <span className="xl:hidden">{conn.short}</span>
         </div>
-        <span className="mr-1">
+        <span className="mr-1 hidden sm:inline">
           <SecurityBadge />
         </span>
 
@@ -136,7 +137,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
           >
             <Bell className="h-[18px] w-[18px]" />
             {unseen > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold tabular-nums text-white ring-2 ring-surface-0">
+              <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold tabular-nums text-white ring-2 ring-surface-1">
                 {unseen > 9 ? '9+' : unseen}
               </span>
             )}
@@ -158,8 +159,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
                 {alerts.length === 0 && <li className="px-4 py-8 text-center text-sm text-ink-3">No new alerts since you opened the dashboard.</li>}
                 {alerts.map((a) => (
                   <li key={a.id} className="border-b border-line last:border-0">
-                    <Link to={`/incidents/${a.id}`} onClick={() => bell.setOpen(false)} className="relative block py-3 pl-5 pr-4 hover:bg-surface-2">
-                      <span className={cn('absolute bottom-3 left-2 top-3 w-[3px] rounded-full', a.label === 'intrusion' ? 'bg-danger' : 'bg-caution')} aria-hidden />
+                    <Link to={`/incidents/${a.id}`} onClick={() => bell.setOpen(false)} className="block px-4 py-3 hover:bg-surface-2">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-medium">{incidentHeadline(a)}</p>
                         <span className="shrink-0 text-xs tabular-nums text-ink-3">{formatRelative(a.timestamp)}</span>
@@ -184,23 +184,20 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
 
         <div className="relative" ref={account.ref}>
           <button
-            className="flex items-center gap-2 rounded-full p-1 pr-1 transition-colors hover:bg-surface-3 md:pr-3"
+            className="flex items-center rounded-full p-0.5 transition-colors hover:bg-surface-3"
             aria-expanded={account.open}
             aria-label="Account menu"
             onClick={() => account.setOpen((o) => !o)}
           >
-            <span className="grid h-7 w-7 place-items-center rounded-full border border-line bg-surface-3">
-              <UserIcon className="h-4 w-4 text-ink-2" aria-hidden />
-            </span>
-            <span className="hidden text-left leading-tight md:block">
-              <span className="block text-[13px] font-medium">{user?.name}</span>
-              <span className="block text-[11px] text-ink-3">{user && roleLabel[user.role]}</span>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-brand-soft text-[13px] font-semibold text-brand-fg" aria-hidden>
+              {(user?.name ?? '?').charAt(0).toUpperCase()}
             </span>
           </button>
           {account.open && (
             <div className="absolute right-0 mt-2 w-60 animate-fade-in overflow-hidden rounded-2xl border border-line bg-surface-1 shadow-pop">
               <div className="border-b border-line px-4 py-3">
                 <p className="text-sm font-medium">{user?.name}</p>
+                <p className="text-xs text-ink-3">{user && roleLabel[user.role]}</p>
                 <p className="truncate text-xs text-ink-3">{user?.email}</p>
               </div>
               {config.authEnabled ? (
@@ -213,6 +210,17 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
             </div>
           )}
         </div>
+
+        {/* the one call to action: straight to the camera */}
+        <Link
+          to="/live"
+          className="ml-1 hidden h-10 items-center gap-2 rounded-full bg-brand pl-4 pr-1 text-[13px] font-medium text-brand-on transition-colors hover:bg-brand/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand md:flex"
+        >
+          Watch live
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-brand-on text-brand" aria-hidden>
+            <ArrowUpRight className="h-4 w-4" />
+          </span>
+        </Link>
       </div>
     </header>
   );

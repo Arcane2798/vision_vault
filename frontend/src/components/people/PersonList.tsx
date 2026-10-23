@@ -54,7 +54,7 @@ function PersonRow({
           )}
           <p className="flex items-center gap-1.5 text-xs text-ink-3">
             <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            {formatLastSeen(p.lastSeen)} · {p.photoCount} photo{p.photoCount === 1 ? '' : 's'}
+            {formatLastSeen(p.lastSeen)}, {p.photoCount} photo{p.photoCount === 1 ? '' : 's'}
           </p>
         </div>
       </div>

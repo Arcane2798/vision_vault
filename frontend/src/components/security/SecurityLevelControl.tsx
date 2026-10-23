@@ -103,7 +103,7 @@ export function SecurityLevelControl() {
             aria-label="Security"
             disabled={busy}
             onClick={() => (isOn ? setOffOpen(!offOpen) : turnOn())}
-            className={cn('relative h-7 w-14 shrink-0 rounded-full transition-colors disabled:cursor-wait', isOn ? 'bg-ok' : 'bg-surface-3')}
+            className={cn('relative h-7 w-14 shrink-0 rounded-full transition-colors disabled:cursor-wait', isOn ? 'bg-brand' : 'bg-surface-4')}
           >
             <span className={cn('absolute top-0.5 h-6 w-6 rounded-full bg-white transition-all', isOn ? 'left-[1.875rem]' : 'left-0.5')} aria-hidden />
           </button>

@@ -40,7 +40,8 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   guest_outside_window: 'Visitor outside allowed time',
 };
 
-export const eventTypeLabel = (type: string) => EVENT_TYPE_LABELS[type] ?? type;
+/** Known types get their wording; anything else (e.g. sample data "bag_snatch") is made readable: "Bag snatch". */
+export const eventTypeLabel = (type: string) => EVENT_TYPE_LABELS[type] ?? (type.charAt(0).toUpperCase() + type.slice(1)).replace(/_/g, ' ');
 
 /** Rule-based events have no meaningful confidence (the backend sends a fixed 1.0), so it is hidden. */
 export const isRuleBased = (type: string) => type in EVENT_TYPE_LABELS;

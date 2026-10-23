@@ -22,9 +22,16 @@ export function LiveStatusStrip({ status, loading, error }: Props) {
     );
   }
   const unknown = status?.unknownCount ?? 0;
+  // a failed poll after earlier data: the tiles show old values, so say so instead of presenting them as live
+  const stale = !!error && !!status;
   return (
     <div className="mb-4 space-y-3">
-      <div className="grid gap-3 sm:grid-cols-3" aria-live="polite">
+      {stale && (
+        <p role="status" className="rounded-xl border border-warn/40 bg-warn/10 px-4 py-2 text-sm text-warn-fg">
+          Lost contact with the detection engine. These are the last values it reported.
+        </p>
+      )}
+      <div className={cn('grid gap-3 sm:grid-cols-3', stale && 'opacity-60')}>
         <Tile
           label="Detection engine"
           icon={<Activity className="h-4 w-4" />}

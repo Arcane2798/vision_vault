@@ -1,9 +1,9 @@
-import { NavLink } from 'react-router-dom';
-import { Building2, Cctv, Film, LayoutDashboard, ListChecks, Map as MapIcon, MonitorPlay, PanelLeftClose, PanelLeftOpen, Users, X } from 'lucide-react';
+import { Link, NavLink } from 'react-router-dom';
+import { Building2, ChevronRight, Cctv, Film, LayoutDashboard, ListChecks, Map as MapIcon, MonitorPlay, PanelLeftClose, PanelLeftOpen, Users } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { cn } from '@/utils/format';
+import { useSecurity } from '@/context/SecurityContext';
+import { cn, effectiveLevelText } from '@/utils/format';
 import type { Permission } from '@/utils/permissions';
-import { BrandLockup } from './BrandMark';
 
 type NavItem = { to: string; label: string; Icon: typeof Cctv; permission: Permission };
 
@@ -31,114 +31,114 @@ export const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
 
 export const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
-interface SidebarProps {
-  /** mobile drawer open */
-  open: boolean;
-  onClose: () => void;
-  /** desktop: icons only */
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
+const linkCls = (active: boolean, mini: boolean) =>
+  cn(
+    'flex h-10 items-center gap-3 rounded-xl px-3 text-[13.5px] font-medium transition-colors',
+    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/70',
+    mini && 'justify-center px-0',
+    active ? 'bg-surface-3 text-ink-1' : 'text-ink-2 hover:bg-surface-2 hover:text-ink-1',
+  );
+
+/** Desktop: a navy card floating beside the workspace. data-theme="navy" keeps its colours in both themes. */
+export function Sidebar({ collapsed, onToggleCollapsed }: { collapsed: boolean; onToggleCollapsed: () => void }) {
+  const { can } = useAuth();
+  return (
+    <aside
+      data-theme="navy"
+      aria-label="Main navigation"
+      className={cn(
+        'sticky top-[5.25rem] hidden h-[calc(100vh-6.25rem)] shrink-0 flex-col rounded-[24px] bg-surface-1 p-3 text-ink-1 transition-[width] duration-200 ease-out lg:flex',
+        collapsed ? 'w-[4.5rem]' : 'w-60',
+      )}
+    >
+      <nav className="flex-1 overflow-y-auto">
+        {NAV_GROUPS.map((g, gi) => {
+          const items = g.items.filter((i) => can(i.permission));
+          if (!items.length) return null;
+          return (
+            <ul key={g.label} aria-label={g.label} className={cn('space-y-1', gi > 0 && 'mt-3 border-t border-line pt-3')}>
+              {items.map(({ to, label, Icon }) => (
+                <li key={to}>
+                  <NavLink to={to} end={to === '/'} title={collapsed ? label : undefined} className={({ isActive }) => linkCls(isActive, collapsed)}>
+                    <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
+                    <span className={cn('truncate', collapsed && 'sr-only')}>{label}</span>
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          );
+        })}
+      </nav>
+
+      <div className="space-y-1">
+        {/* switch to the guard house's own screen (it has a matching button to come back) */}
+        <NavLink to="/guard" title={collapsed ? 'Guard House view' : undefined} className={linkCls(false, collapsed)}>
+          <Building2 className="h-[18px] w-[18px] shrink-0 text-guard-fg" aria-hidden />
+          <span className={cn('truncate', collapsed && 'sr-only')}>Guard House view</span>
+        </NavLink>
+        <button onClick={onToggleCollapsed} className={cn(linkCls(false, collapsed), 'w-full text-ink-3')} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          {collapsed ? <PanelLeftOpen className="h-[18px] w-[18px]" aria-hidden /> : <PanelLeftClose className="h-[18px] w-[18px]" aria-hidden />}
+          {!collapsed && <span>Collapse</span>}
+        </button>
+        {!collapsed && <HomeCard />}
+      </div>
+    </aside>
+  );
 }
 
-export function Sidebar({ open, onClose, collapsed, onToggleCollapsed }: SidebarProps) {
-  const { can } = useAuth();
-  // the mobile drawer always shows labels
-  const mini = collapsed && !open;
+/** Bottom of the sidebar: who is signed in and the security state, linking to the switch on Live Monitoring. */
+function HomeCard() {
+  const { user } = useAuth();
+  const { security } = useSecurity();
+  const name = user?.name ?? 'Homeowner';
   return (
-    <>
-      {open && <div className="fixed inset-0 z-30 bg-black/50 backdrop-blur-[2px] lg:hidden" onClick={onClose} aria-hidden />}
-      <aside
-        className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-line bg-surface-nav transition-[transform,width] duration-200 ease-out',
-          'lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
-          open ? 'translate-x-0' : '-translate-x-full',
-          collapsed && 'lg:w-[4.25rem]',
+    <div className="mt-2 flex items-center gap-3 rounded-2xl bg-surface-2 p-3">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/90 text-sm font-semibold text-[#1b2d63]" aria-hidden>
+        {name.charAt(0).toUpperCase()}
+      </span>
+      <div className="min-w-0 leading-tight">
+        <p className="truncate text-[13px] font-semibold">{name}</p>
+        {security ? (
+          <Link to="/live" className="inline-flex items-center gap-0.5 text-xs text-ink-2 hover:text-ink-1">
+            Security: {effectiveLevelText(security)}
+            <ChevronRight className="h-3 w-3" aria-hidden />
+          </Link>
+        ) : (
+          <p className="text-xs text-ink-3">Front door camera</p>
         )}
-        aria-label="Main navigation"
-      >
-        <div className={cn('flex h-16 shrink-0 items-center justify-between gap-2', mini ? 'lg:justify-center lg:px-0' : '', 'px-4')}>
-          <span className={cn(mini && 'lg:hidden')}>
-            <BrandLockup />
-          </span>
-          {mini && (
-            <span className="hidden lg:block">
-              <BrandLockup compact />
-            </span>
-          )}
-          <button className="rounded-full p-1.5 text-ink-2 hover:bg-surface-3 lg:hidden" onClick={onClose} aria-label="Close menu">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+      </div>
+    </div>
+  );
+}
 
-        <nav className="flex-1 overflow-y-auto px-3 pb-3 pt-2">
-          {NAV_GROUPS.map((g) => {
-            const items = g.items.filter((i) => can(i.permission));
-            if (!items.length) return null;
-            return (
-              <div key={g.label} className="mb-4">
-                <p className={cn('eyebrow mb-1.5 px-3', mini && 'lg:sr-only')}>{g.label}</p>
-                <ul className="space-y-0.5">
-                  {items.map(({ to, label, Icon }) => (
-                    <li key={to}>
-                      <NavLink
-                        to={to}
-                        end={to === '/'}
-                        onClick={onClose}
-                        title={mini ? label : undefined}
-                        className={({ isActive }) =>
-                          cn(
-                            'group relative flex h-9 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors',
-                            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand',
-                            mini && 'lg:justify-center lg:px-0',
-                            isActive ? 'bg-surface-3 text-ink-1' : 'text-ink-2 hover:bg-surface-2 hover:text-ink-1',
-                          )
-                        }
-                      >
-                        {({ isActive }) => (
-                          <>
-                            {/* active marker: a short accent bar at the left edge */}
-                            <span
-                              className={cn('absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-brand transition-opacity', isActive ? 'opacity-100' : 'opacity-0')}
-                              aria-hidden
-                            />
-                            <Icon className={cn('h-[18px] w-[18px] shrink-0', isActive ? 'text-brand-fg' : 'text-ink-3 group-hover:text-ink-2')} aria-hidden />
-                            <span className={cn('truncate', mini && 'lg:sr-only')}>{label}</span>
-                          </>
-                        )}
-                      </NavLink>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </nav>
-
-        <div className="space-y-1 border-t border-line p-3">
-          {/* switch to the guard house's own screen (it has a matching button to come back) */}
-          <NavLink
-            to="/guard"
-            onClick={onClose}
-            title={mini ? 'Switch to Guard House view' : undefined}
-            className={cn(
-              'flex h-9 items-center gap-3 rounded-xl border border-line px-3 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink-1',
-              mini && 'lg:justify-center lg:px-0',
-            )}
-          >
-            <Building2 className="h-[18px] w-[18px] shrink-0 text-guard-fg" aria-hidden />
-            <span className={cn('truncate', mini && 'lg:sr-only')}>Guard House view</span>
+/** Phones and tablets: the same navigation as a navy icon strip under the header. */
+export function MobileNav() {
+  const { can } = useAuth();
+  const items = NAV_ITEMS.filter((i) => can(i.permission));
+  return (
+    <nav data-theme="navy" aria-label="Main navigation" className="mt-2 rounded-2xl bg-surface-1 p-1.5 lg:hidden">
+      <ul className="flex items-center justify-between gap-2 overflow-x-auto [scrollbar-width:none]">
+        {items.map(({ to, label, Icon }) => (
+          <li key={to} className="shrink-0">
+            <NavLink
+              to={to}
+              end={to === '/'}
+              aria-label={label}
+              title={label}
+              className={({ isActive }) =>
+                cn('grid h-11 w-[42px] place-items-center rounded-xl transition-colors', isActive ? 'bg-surface-3 text-ink-1' : 'text-ink-2 hover:bg-surface-2 hover:text-ink-1')
+              }
+            >
+              <Icon className="h-[18px] w-[18px]" aria-hidden />
+            </NavLink>
+          </li>
+        ))}
+        <li className="shrink-0">
+          <NavLink to="/guard" aria-label="Guard House view" title="Guard House view" className="grid h-11 w-[42px] place-items-center rounded-xl text-guard-fg hover:bg-surface-2">
+            <Building2 className="h-[18px] w-[18px]" aria-hidden />
           </NavLink>
-          <button
-            onClick={onToggleCollapsed}
-            className={cn('hidden h-9 w-full items-center gap-3 rounded-xl px-3 text-sm text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink-1 lg:flex', collapsed && 'lg:justify-center lg:px-0')}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {collapsed ? <PanelLeftOpen className="h-[18px] w-[18px]" aria-hidden /> : <PanelLeftClose className="h-[18px] w-[18px]" aria-hidden />}
-            {!collapsed && <span>Collapse</span>}
-          </button>
-        </div>
-      </aside>
-    </>
+        </li>
+      </ul>
+    </nav>
   );
 }
