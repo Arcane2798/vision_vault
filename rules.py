@@ -113,7 +113,7 @@ DEFAULT_LEVEL = "on"
 LEGACY_LEVELS = {"normal": "on", "high": "on", "home": "on", "away": "on"}
 
 _ON = {"alerts": True,          # raise intrusion / visitor alerts at all (off at level "off")
-       "grace": 5.0,            # seconds an unknown must be seen before alerting
+       "grace": 3.0,            # seconds an unknown must be seen before alerting (5 s until Fri 23 Oct; owner set 3)
        "match_thresh": 0.25,    # min cosine similarity for a face match (0.40 until Thu 22 Oct, then 0.30;
                                 # owner set 0.25 Fri 23 Oct: residents scored low on the webcam. Replay test:
                                 # strangers were matched to a resident in 11% of 5 s windows at 0.25, 0% at 0.30)
@@ -191,7 +191,7 @@ def match_lost_unknown(box, lost: dict, now: float, max_gap: float = 3.0,
                        max_dist: float = 1.0) -> Optional[int]:
     """Old track id whose unknown-person timer a NEW track should carry on, or None.
 
-    ByteTrack sometimes drops a person and gives them a new id; without this the 5 s grace
+    ByteTrack sometimes drops a person and gives them a new id; without this the grace period
     would restart (and a second alert could fire for the same intruder). `lost` maps old
     track ids to {"box", "seen", "identity", "unknown_since"}. A candidate must be an
     unknown person with a running timer (never a recognised resident or visitor), not in

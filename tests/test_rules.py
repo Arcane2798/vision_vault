@@ -51,7 +51,7 @@ def test_invalid_names(name):
 
 def test_security_params():
     on, off = security_params("on"), security_params("off")
-    assert on == {"alerts": True, "grace": 5.0, "match_thresh": 0.25, "person_conf": 0.55,
+    assert on == {"alerts": True, "grace": 3.0, "match_thresh": 0.25, "person_conf": 0.55,
                   "min_track_frames": 3, "guard_alert": True}
     # Off: same thresholds, still tracks, never alerts
     assert off == dict(on, alerts=False, guard_alert=False)
@@ -60,7 +60,7 @@ def test_security_params():
         with pytest.raises(ValueError):
             security_params(old)
     security_params("on")["grace"] = 99        # must return a copy
-    assert security_params("on")["grace"] == 5.0
+    assert security_params("on")["grace"] == 3.0
 
 
 def test_effective_level():
