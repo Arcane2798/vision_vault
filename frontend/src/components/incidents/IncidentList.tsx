@@ -12,7 +12,7 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
     <>
       <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-line">
+          <thead className="border-b border-line bg-surface-2">
             <tr>
               {showSnapshot && <th className="eyebrow px-4 py-2.5 font-medium">Evidence</th>}
               <th className="eyebrow px-4 py-2.5 font-medium">Incident</th>

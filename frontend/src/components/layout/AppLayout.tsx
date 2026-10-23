@@ -41,6 +41,7 @@ export function AppLayout() {
           <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-brand focus:px-3 focus:py-2 focus:text-brand-on">
             Skip to content
           </a>
+          <div className="pointer-events-none fixed inset-x-0 top-0 z-40 h-[3px] bg-accent" aria-hidden />
           <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
           <div className="min-w-0 flex-1">
             <div className="sticky top-0 z-20 border-b border-line bg-surface-0/85 backdrop-blur-md">

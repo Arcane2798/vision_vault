@@ -12,6 +12,7 @@ export default {
       colors: {
         surface: { 0: v('surface-0'), 1: v('surface-1'), 2: v('surface-2'), 3: v('surface-3'), 4: v('surface-4') },
         line: { DEFAULT: v('line'), strong: v('line-strong') },
+        sidebar: v('sidebar'),
         ink: { 1: v('ink-1'), 2: v('ink-2'), 3: v('ink-3') },
         brand: { DEFAULT: v('brand'), soft: v('brand-soft'), fg: v('brand-fg'), on: v('brand-on') },
         /** the theme's signature colour: navy / pale blue, or leaf green in the Sime Darby theme */

@@ -125,7 +125,7 @@ export default function DashboardPage() {
                     <li key={i.id}>
                       <Link
                         to={`/incidents/${i.id}`}
-                        className="flex gap-3 rounded-lg p-2 transition-colors hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+                        className="flex gap-3 rounded-lg p-2 transition-colors hover:bg-brand-soft/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
                       >
                         {i.snapshotUrl ? (
                           <img src={i.snapshotUrl} alt="" loading="lazy" className="h-12 w-16 shrink-0 rounded-md bg-black object-cover" />

@@ -18,13 +18,14 @@
   :root,
   [data-theme='light'] {
     color-scheme: light;
-    --surface-0: 244 245 248;
+    --surface-0: 242 245 250;
     --surface-1: 255 255 255;
-    --surface-2: 248 249 251;
-    --surface-3: 237 239 243;
-    --surface-4: 225 229 236;
-    --line: 228 231 237;
-    --line-strong: 206 211 220;
+    --surface-2: 245 248 253;
+    --surface-3: 232 238 249;
+    --surface-4: 218 227 243;
+    --line: 225 230 240;
+    --line-strong: 202 211 228;
+    --sidebar: 246 248 253;
     --ink-1: 14 22 38;
     --ink-2: 66 76 96;
     --ink-3: 100 110 130;
@@ -62,6 +63,7 @@
     --surface-4: 36 50 84;
     --line: 28 40 68;
     --line-strong: 46 60 96;
+    --sidebar: 10 17 34;
     --ink-1: 232 236 245;
     --ink-2: 168 179 202;
     --ink-3: 130 143 172;
@@ -92,13 +94,14 @@
 
   [data-theme='simedarby'] {
     color-scheme: light;
-    --surface-0: 250 248 245;
+    --surface-0: 251 247 242;
     --surface-1: 255 255 255;
-    --surface-2: 252 250 247;
-    --surface-3: 244 239 233;
-    --surface-4: 233 226 218;
-    --line: 237 231 224;
-    --line-strong: 216 207 197;
+    --surface-2: 255 249 243;
+    --surface-3: 253 237 223;
+    --surface-4: 248 222 200;
+    --line: 240 229 218;
+    --line-strong: 222 204 186;
+    --sidebar: 255 248 241;
     --ink-1: 28 25 23;
     --ink-2: 82 74 68;
     --ink-3: 112 103 95;
@@ -172,7 +175,7 @@
 @layer components {
   /* small label used for section titles inside cards and table heads */
   .eyebrow {
-    @apply text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3;
+    @apply text-[11px] font-medium uppercase tracking-[0.08em] text-accent-fg;
   }
   /* the standard panel: white on the grey canvas, hairline border, no decoration */
   .panel-tint {

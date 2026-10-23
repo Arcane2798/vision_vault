@@ -197,7 +197,7 @@ export function Topbar() {
             aria-label="Account menu"
             onClick={() => account.setOpen((o) => !o)}
           >
-            <span className="grid h-8 w-8 place-items-center rounded-full border border-line-strong bg-surface-1 text-[13px] font-medium text-ink-1" aria-hidden>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-brand-soft text-[13px] font-medium text-brand-fg" aria-hidden>
               {(user?.name ?? '?').charAt(0).toUpperCase()}
             </span>
           </button>
@@ -251,7 +251,7 @@ function ThemeSwitch({ theme, onChange }: { theme: Theme; onChange: (t: Theme) =
             onClick={() => onChange(id)}
             className={cn(
               'grid h-full w-8 place-items-center rounded-[4px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand',
-              on ? 'bg-surface-3 text-ink-1' : 'text-ink-3 hover:text-ink-1',
+              on ? 'bg-brand-soft text-brand-fg' : 'text-ink-3 hover:text-ink-1',
             )}
           >
             <Icon className="h-[15px] w-[15px]" strokeWidth={1.75} aria-hidden />

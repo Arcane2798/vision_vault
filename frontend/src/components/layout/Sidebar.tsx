@@ -40,7 +40,7 @@ const linkCls = (active: boolean, mini: boolean) =>
     'focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
     "before:absolute before:inset-y-2 before:left-0 before:w-[2px] before:rounded-full before:content-['']",
     mini && 'justify-center px-0',
-    active ? 'bg-surface-2 font-medium text-ink-1 before:bg-accent' : 'text-ink-2 hover:bg-surface-2 hover:text-ink-1',
+    active ? 'bg-brand-soft font-medium text-brand-fg before:bg-accent' : 'text-ink-2 hover:bg-surface-3 hover:text-ink-1',
   );
 
 /** Desktop: a full-height rail on the page's own surfaces. */
@@ -50,7 +50,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: { collapsed: boolean; 
     <aside
       aria-label="Main navigation"
       className={cn(
-        'sticky top-0 hidden h-screen shrink-0 flex-col border-r border-line bg-surface-1 text-ink-1 transition-[width] duration-200 ease-out lg:flex',
+        'sticky top-0 hidden h-screen shrink-0 flex-col border-r border-line bg-sidebar text-ink-1 transition-[width] duration-200 ease-out lg:flex',
         collapsed ? 'w-[4.25rem]' : 'w-60',
       )}
     >
@@ -110,7 +110,7 @@ function HomeCard() {
   const name = user?.name ?? 'Homeowner';
   return (
     <div className="mt-2 flex items-center gap-3 border-t border-line px-1 pt-3">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-line-strong text-[13px] font-medium text-ink-1" aria-hidden>
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-soft text-[13px] font-medium text-brand-fg" aria-hidden>
         {name.charAt(0).toUpperCase()}
       </span>
       <div className="min-w-0 leading-tight">
@@ -133,7 +133,7 @@ export function MobileNav() {
   const { can } = useAuth();
   const items = NAV_ITEMS.filter((i) => can(i.permission));
   return (
-    <nav aria-label="Main navigation" className="border-t border-line bg-surface-1 px-2 lg:hidden">
+    <nav aria-label="Main navigation" className="border-t border-line bg-sidebar px-2 lg:hidden">
       <ul className="flex items-center justify-between gap-1 overflow-x-auto [scrollbar-width:none]">
         {items.map(({ to, label, Icon }) => (
           <li key={to} className="shrink-0">
@@ -143,7 +143,7 @@ export function MobileNav() {
               aria-label={label}
               title={label}
               className={({ isActive }) =>
-                cn('grid h-11 w-11 place-items-center border-b-2 transition-colors', isActive ? 'border-accent text-ink-1' : 'border-transparent text-ink-3 hover:text-ink-1')
+                cn('grid h-11 w-11 place-items-center border-b-2 transition-colors', isActive ? 'border-accent text-brand-fg' : 'border-transparent text-ink-3 hover:text-ink-1')
               }
             >
               <Icon className="h-[18px] w-[18px]" aria-hidden />
