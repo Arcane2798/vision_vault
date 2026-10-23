@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lock, RefreshCw, UserPlus } from 'lucide-react';
+import { RefreshCw, UserPlus } from 'lucide-react';
 import { config } from '@/config/env';
 import { useAsync } from '@/hooks/useAsync';
 import { useDataVersion } from '@/hooks/useDataVersion';
@@ -150,10 +150,6 @@ export default function PeoplePage() {
               <EmptyState title="No visitors registered" message="Register a visitor with a time window, e.g. a relative coming on Saturday 2-6 pm." />
             )}
           </Card>
-          <p className="flex items-center gap-2 text-xs text-ink-3">
-            <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            Face photos are stored only on this home computer and are never published.
-          </p>
         </div>
       )}
 
