@@ -23,22 +23,6 @@
     --warn: 217 119 6;
     --danger: 220 38 38;
   }
-  /* dark palette for the Guard House monitor (a different party's high-contrast screen) */
-  .theme-dark {
-    color-scheme: dark;
-    --surface-0: 11 15 20;
-    --surface-1: 17 24 33;
-    --surface-2: 24 33 44;
-    --surface-3: 34 45 58;
-    --line: 42 54 68;
-    --ink-1: 232 237 242;
-    --ink-2: 169 180 192;
-    --ink-3: 125 136 150;
-    --brand-soft: 90 20 24;
-    --ok: 34 197 94;
-    --warn: 245 158 11;
-    --danger: 239 68 68;
-  }
   html,
   body,
   #root {
@@ -46,9 +30,6 @@
   }
   body {
     @apply bg-surface-0 font-sans text-ink-1;
-  }
-  .theme-dark input[type='date']::-webkit-calendar-picker-indicator {
-    filter: invert(0.8);
   }
   @media (prefers-reduced-motion: reduce) {
     *,

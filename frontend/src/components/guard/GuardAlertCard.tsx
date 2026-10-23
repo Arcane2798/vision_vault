@@ -20,23 +20,23 @@ export function GuardAlertCard({ alert, now, onAcknowledged }: { alert: GuardAle
 function OpenAlert({ alert, now, onAcknowledged }: { alert: GuardAlert; now: number; onAcknowledged: (a: GuardAlert) => void }) {
   const [acking, setAcking] = useState(false);
   return (
-    <article className="relative overflow-hidden rounded-2xl border-2 border-red-600 bg-surface-1" aria-label={`Open alert at ${alert.houseUnit}`}>
+    <article className="relative overflow-hidden rounded-2xl border-2 border-brand bg-surface-1 shadow-card" aria-label={`Open alert at ${alert.houseUnit}`}>
       {/* pulsing red border; only the border pulses so the text stays readable */}
-      <div className="pointer-events-none absolute inset-0 animate-pulse rounded-2xl border-4 border-red-500" aria-hidden />
+      <div className="pointer-events-none absolute inset-0 animate-pulse rounded-2xl border-4 border-brand/60" aria-hidden />
       <div className="grid gap-4 p-4 sm:p-5 md:grid-cols-5">
         <div className="flex flex-col gap-4 md:col-span-3">
-          <p className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-red-400">
-            <ShieldAlert className="h-5 w-5" aria-hidden />
+          <p className="inline-flex w-fit items-center gap-2 rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand">
+            <ShieldAlert className="h-4 w-4" aria-hidden />
             Unknown person alert
           </p>
           <div>
-            <p className="flex items-start gap-2 text-3xl font-extrabold leading-tight text-white sm:text-4xl">
-              <MapPin className="mt-1 h-7 w-7 shrink-0 text-red-400" aria-hidden />
+            <p className="flex items-start gap-2 text-3xl font-bold leading-tight text-ink-1 sm:text-4xl">
+              <MapPin className="mt-1 h-7 w-7 shrink-0 text-brand" aria-hidden />
               <span className="break-words">{alert.houseUnit}</span>
             </p>
             <p className="mt-1 text-sm text-ink-2">{alert.cameraName}</p>
           </div>
-          <p className="text-lg text-white">
+          <p className="text-lg text-ink-1">
             <span className="font-semibold tabular-nums">{formatTime(alert.timestamp)}</span>
             <span className="text-ink-2"> · {relative(alert.timestamp, now)}</span>
           </p>
@@ -49,7 +49,7 @@ function OpenAlert({ alert, now, onAcknowledged }: { alert: GuardAlert; now: num
           {acking ? (
             <AckPanel alert={alert} onDone={onAcknowledged} onCancel={() => setAcking(false)} />
           ) : (
-            <Button variant="danger" className="h-14 w-full text-lg" icon={<CheckCircle2 className="h-5 w-5" />} onClick={() => setAcking(true)}>
+            <Button variant="primary" className="h-14 w-full text-lg" icon={<CheckCircle2 className="h-5 w-5" />} onClick={() => setAcking(true)}>
               Acknowledge
             </Button>
           )}
@@ -61,8 +61,8 @@ function OpenAlert({ alert, now, onAcknowledged }: { alert: GuardAlert; now: num
 
 function AcknowledgedAlert({ alert, now }: { alert: GuardAlert; now: number }) {
   return (
-    <article className="overflow-hidden rounded-xl border border-line bg-surface-1/60 text-ink-3" aria-label={`Acknowledged alert at ${alert.houseUnit}`}>
-      <div className="p-3 opacity-70">
+    <article className="overflow-hidden rounded-2xl border border-line/70 bg-surface-1 text-ink-3 shadow-card" aria-label={`Acknowledged alert at ${alert.houseUnit}`}>
+      <div className="p-4 opacity-75">
         <div className="min-w-0 space-y-1">
           <p className="break-words text-xl font-bold text-ink-2">{alert.houseUnit}</p>
           <p className="text-sm">
@@ -97,7 +97,7 @@ function AckPanel({ alert, onDone, onCancel }: { alert: GuardAlert; onDone: (a: 
 
   return (
     <div className="space-y-3 rounded-xl border border-line bg-surface-2 p-3">
-      <p className="text-sm font-semibold text-white">Acknowledge with a note</p>
+      <p className="text-sm font-semibold text-ink-1">Acknowledge with a note</p>
       <div className="flex flex-wrap gap-2">
         {QUICK_NOTES.map((q) => (
           <button
@@ -107,7 +107,7 @@ function AckPanel({ alert, onDone, onCancel }: { alert: GuardAlert; onDone: (a: 
             onClick={() => setNote(note === q ? '' : q)}
             className={cn(
               'rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
-              note === q ? 'border-white bg-white text-black' : 'border-line bg-surface-3 text-ink-1 hover:border-ink-2',
+              note === q ? 'border-brand bg-brand text-white' : 'border-line bg-surface-1 text-ink-1 hover:border-brand/50',
             )}
           >
             {q}
@@ -125,19 +125,19 @@ function AckPanel({ alert, onDone, onCancel }: { alert: GuardAlert; onDone: (a: 
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Or type a note (optional)"
-          className="w-full rounded-lg border border-line bg-surface-1 px-3 py-2 text-sm text-white focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
+          className="w-full rounded-lg border border-line bg-surface-1 px-3 py-2 text-sm text-ink-1 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
         />
         <p className="text-right text-xs text-ink-3">
           {note.length}/{NOTE_MAX}
         </p>
       </div>
       {error && (
-        <p role="alert" className="text-sm text-red-300">
+        <p role="alert" className="text-sm text-red-700">
           {error}
         </p>
       )}
       <div className="flex gap-2">
-        <Button variant="danger" className="h-12 flex-1" loading={busy} onClick={submit}>
+        <Button variant="primary" className="h-12 flex-1" loading={busy} onClick={submit}>
           Confirm
         </Button>
         <Button variant="ghost" className="h-12" disabled={busy} onClick={onCancel}>

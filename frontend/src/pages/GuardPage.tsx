@@ -63,42 +63,43 @@ export default function GuardPage() {
   );
 
   return (
-    <div className="theme-dark min-h-screen bg-black text-white">
-      <header className="sticky top-0 z-20 border-b border-line bg-black/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+    <div className="min-h-screen bg-surface-0 text-ink-1">
+      {/* red Sime Darby Property band with a thin orange line, as in the homeowner dashboard */}
+      <header className="sticky top-0 z-20 border-b-4 border-accent bg-brand text-white shadow-card">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-600">
-              <ShieldCheck className="h-6 w-6 text-white" aria-hidden />
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white shadow-sm">
+              <ShieldCheck className="h-6 w-6 text-brand" aria-hidden />
             </span>
             <div className="leading-tight">
-              <h1 className="text-lg font-bold sm:text-xl">Guard House — Township Security</h1>
-              <p className="text-xs text-ink-2">{clockDate.format(now)}</p>
+              <h1 className="text-lg font-semibold sm:text-xl">Guard House — Township Security</h1>
+              <p className="text-xs text-white/80">{clockDate.format(now)}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <SoundHint on={soundOn} />
             <span
               className={cn(
-                'rounded-full px-3 py-1 text-sm font-bold tabular-nums',
-                open.length ? 'bg-red-600 text-white' : 'border border-line text-ink-2',
+                'rounded-full px-3 py-1 text-sm font-semibold tabular-nums',
+                open.length ? 'bg-white text-brand' : 'border border-white/50 text-white',
               )}
               aria-live="polite"
             >
               {open.length} unacknowledged
             </span>
-            <time className="text-2xl font-bold tabular-nums sm:text-3xl" aria-label="Current time">
+            <time className="text-2xl font-semibold tabular-nums sm:text-3xl" aria-label="Current time">
               {formatTime(new Date(now).toISOString())}
             </time>
           </div>
         </div>
         {showBanner && (
-          <div role="alert" className="bg-red-600 text-white shadow-lg">
+          <div role="alert" className="bg-surface-1 text-brand shadow-card">
             <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-              <BellRing className="h-6 w-6 shrink-0 animate-pulse" aria-hidden />
-              <p className="flex-1 text-base font-bold sm:text-lg">
+              <BellRing className="h-6 w-6 shrink-0 animate-pulse text-accent" aria-hidden />
+              <p className="flex-1 text-base font-semibold sm:text-lg">
                 {banner.count > 1 ? `${banner.count} new alerts — latest at ${banner.houseUnit}` : `New alert — ${banner.houseUnit}`}
               </p>
-              <button onClick={() => setBanner(null)} className="rounded p-1 hover:bg-red-700" aria-label="Dismiss banner">
+              <button onClick={() => setBanner(null)} className="rounded p-1 text-ink-3 hover:bg-surface-3" aria-label="Dismiss banner">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -108,7 +109,7 @@ export default function GuardPage() {
 
       <main className="mx-auto max-w-6xl space-y-4 px-4 pb-20 pt-4 sm:pt-6">
         {alerts.error && alerts.data && (
-          <p role="status" className="flex items-center gap-2 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-amber-200">
+          <p role="status" className="flex items-center gap-2 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-amber-800">
             <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
             Connection lost — retrying every {POLL_MS / 1000} s. {alerts.error.message}
           </p>
@@ -129,15 +130,15 @@ export default function GuardPage() {
             </Button>
           </div>
         ) : list.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-24 text-center">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-line/70 bg-surface-1 py-24 text-center shadow-card">
             <ShieldCheck className="h-14 w-14 text-ok" aria-hidden />
-            <p className="text-2xl font-bold">All quiet — no alerts</p>
+            <p className="text-2xl font-semibold">All quiet — no alerts</p>
             <p className="text-sm text-ink-2">New alerts appear here automatically.</p>
           </div>
         ) : (
           <>
             {open.length === 0 && (
-              <p className="flex items-center justify-center gap-2 rounded-xl border border-line py-4 text-lg font-semibold text-ok">
+              <p className="flex items-center justify-center gap-2 rounded-2xl border border-line/70 bg-surface-1 py-4 text-lg font-semibold text-ok shadow-card">
                 <ShieldCheck className="h-5 w-5" aria-hidden /> All quiet — every alert is acknowledged
               </p>
             )}
@@ -149,7 +150,7 @@ export default function GuardPage() {
       </main>
 
       {/* demo convenience: jump back to the homeowner's dashboard */}
-      <LinkButton to="/" variant="secondary" icon={<Home className="h-4 w-4" />} className="fixed bottom-4 left-4 z-30 shadow-lg">
+      <LinkButton to="/" variant="primary" icon={<Home className="h-4 w-4" />} className="fixed bottom-4 left-4 z-30 rounded-full px-5 shadow-lg">
         Homeowner dashboard
       </LinkButton>
     </div>
@@ -158,12 +159,12 @@ export default function GuardPage() {
 
 function SoundHint({ on }: { on: boolean }) {
   return on ? (
-    <span className="hidden items-center gap-1 text-xs text-ink-2 sm:inline-flex">
+    <span className="hidden items-center gap-1 text-xs text-white/85 sm:inline-flex">
       <Volume2 className="h-4 w-4" aria-hidden /> Sound on
     </span>
   ) : (
     // any click on the page enables sound; this button just gives the click a target
-    <button type="button" className="inline-flex items-center gap-1 rounded-full border border-warn/50 px-2.5 py-1 text-xs font-medium text-amber-200 hover:bg-warn/10">
+    <button type="button" className="inline-flex items-center gap-1 rounded-full border border-white/60 px-2.5 py-1 text-xs font-medium text-white hover:bg-white/10">
       <VolumeX className="h-4 w-4" aria-hidden /> Click to enable sound
     </button>
   );

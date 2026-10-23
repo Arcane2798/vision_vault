@@ -1,5 +1,4 @@
-/** Colours are CSS variables (src/index.css): the light Sime Darby Property theme by default,
- *  the dark palette inside `.theme-dark` (Guard House screen). */
+/** Colours are CSS variables (src/index.css): the light Sime Darby Property theme. */
 const v = (name) => `rgb(var(--${name}) / <alpha-value>)`;
 
 /** @type {import('tailwindcss').Config} */
