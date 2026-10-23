@@ -100,7 +100,7 @@ export default function PeoplePage() {
     <>
       <PageHeader
         title="Residents & Visitors"
-        description="Residents pass silently. Visitors are allowed only inside their time window, like a gated community's visitor registration."
+        description="Residents pass silently. Visitors are allowed only inside their time window."
         actions={
           <>
             <Button
