@@ -24,7 +24,7 @@ export function CctvWall({ map, state, mode, t, playing, speed }: Props) {
     <Card>
       <CardHeader
         title="CCTV wall"
-        subtitle={mode === 'replay' ? 'Every room camera, in sync with the replay' : 'Room cameras show their recordings: press Play in Replay recordings to run them together'}
+        subtitle={mode === 'replay' ? undefined : 'Room cameras show their recordings: press Play in Replay recordings to run them together'}
       />
       <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
         {map.cameras.map((c, i) => (
