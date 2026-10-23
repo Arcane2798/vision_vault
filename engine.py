@@ -4,6 +4,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import pickle
 import threading
 import time
+import traceback
 from collections import deque
 from pathlib import Path
 
@@ -73,6 +74,7 @@ SIZE_SAMPLES = 5         # first / last box heights kept per track for the direc
 TRAIL_LEN = 60           # foot points kept per track for the path trail (~8 s at 7 fps)
 TRACK_FORGET_SEC = 30.0  # drop all state of a track not seen for this long (bounded memory)
 PRUNE_INTERVAL = 5.0     # seconds between stale-track sweeps
+LOOP_RESTART_SEC = 1.0   # pause before the capture loop is restarted after an unexpected error
 
 LEVEL_COLOR = {"off": (170, 170, 170), "on": (0, 255, 0)}  # BGR
 LEVEL_CHECK_INTERVAL = 1.0   # seconds between Off-timer re-checks
@@ -432,7 +434,7 @@ class VisionEngine:
         self.reload_people()
         self._load_security()
         self.running = True
-        self.thread = threading.Thread(target=self._loop, daemon=True)
+        self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
 
     def stop(self):
@@ -527,6 +529,19 @@ class VisionEngine:
             self.recorder.add(last_frame)
 
     # ---------- main loop ----------
+    def _run(self):
+        """The engine thread: runs the capture loop and restarts it after an unexpected error,
+        so one bad frame never leaves the stream frozen on its last picture."""
+        while self.running:
+            try:
+                self._loop()
+                return
+            except Exception:
+                traceback.print_exc()
+                print(f"[engine] capture loop crashed; restarting in {LOOP_RESTART_SEC:.0f} s")
+                self._reset_tracks()
+                time.sleep(LOOP_RESTART_SEC)
+
     def _loop(self):
         cap = self._open(self.source)
         failed_reads = 0
@@ -798,8 +813,6 @@ class VisionEngine:
         self.unknown_since[tid] = self.unknown_since.pop(old)   # one heir per lost track
         if old in self.alerted:
             self.alerted.add(tid)
-            if old in self.track_event:
-                self.track_event[tid] = self.track_event[old]
         print(f"[track] {tid} continues unknown track {old} "
               f"(timer {now - self.unknown_since[tid]:.1f} s, alerted={old in self.alerted})")
 

@@ -98,3 +98,28 @@ def test_guard_telegram_copy_is_text_only(tmp_path, monkeypatch):
     assert owner[0][1].endswith(".jpg")                           # homeowner: photo attached
     assert len(guard[0]) == 1 and "photo_path" not in guard[1]    # guard: text only
     assert "No. 12, Test Lane" in guard[0][0] and guard[1]["chat_id"] == "guard-chat"
+
+
+def test_carry_timer_of_an_alerted_intruder():
+    """Regression (Fri 23 Oct): carrying the timer of an already-alerted intruder raised an
+    AttributeError that killed the engine thread, freezing the live stream."""
+    e = engine_mod.VisionEngine.__new__(engine_mod.VisionEngine)
+    e.identity, e.unknown_since = {7: "unknown"}, {7: 95.0}
+    e.track_seen, e.last_box, e.alerted = {7: 99.0}, {7: (100, 100, 150, 300)}, {7}
+    e._carry_unknown_timer(8, (105, 100, 155, 300), 100.0)
+    assert e.unknown_since == {8: 95.0} and 8 in e.alerted          # same timer, no second alert
+
+
+def test_engine_thread_restarts_the_loop_after_an_error(monkeypatch):
+    monkeypatch.setattr(engine_mod, "LOOP_RESTART_SEC", 0)
+    e = bare_engine()
+    e.running, calls = True, []
+    e._reset_tracks = lambda: calls.append("reset")
+
+    def loop():
+        calls.append("loop")
+        if calls.count("loop") == 1:
+            raise RuntimeError("bad frame")
+    e._loop = loop
+    e._run()
+    assert calls == ["loop", "reset", "loop"]                     # crashed once, ran again
