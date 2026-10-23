@@ -2,10 +2,10 @@ import type { ReactNode } from 'react';
 
 export function PageHeader({ title, description, actions }: { title: string; description?: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-7 flex flex-col gap-3 border-b border-line pb-5 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em]">{title}</h1>
-        {description && <p className="mt-1 max-w-2xl text-sm text-ink-3">{description}</p>}
+        <h1 className="display text-[30px] leading-[1.1] text-ink-1 sm:text-[34px]">{title}</h1>
+        {description && <p className="mt-2 max-w-2xl text-sm text-ink-3">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>

@@ -1,6 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 
-export type Theme = 'dark' | 'light';
+export type Theme = 'light' | 'dark' | 'simedarby';
+
+export const THEMES: Array<{ id: Theme; label: string }> = [
+  { id: 'simedarby', label: 'Sime Darby' },
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+];
+
+const isTheme = (t: unknown): t is Theme => t === 'light' || t === 'dark' || t === 'simedarby';
 
 /** Same key as the pre-paint script in index.html. */
 const STORAGE_KEY = 'vv-theme';
@@ -8,7 +16,7 @@ const STORAGE_KEY = 'vv-theme';
 function saved(): Theme | null {
   try {
     const t = localStorage.getItem(STORAGE_KEY);
-    return t === 'light' || t === 'dark' ? t : null;
+    return isTheme(t) ? t : null;
   } catch {
     return null;
   }
@@ -19,14 +27,18 @@ const systemTheme = (): Theme => (window.matchMedia?.('(prefers-color-scheme: da
 interface ThemeValue {
   theme: Theme;
   setTheme: (t: Theme) => void;
+  /** next theme in THEMES order */
   toggle: () => void;
 }
 
 const ThemeContext = createContext<ThemeValue | null>(null);
 
-/** Dark / light switch. The saved choice wins; without one the OS preference is followed (also when it changes). */
+/** Theme switch (Sime Darby / light / dark). The saved choice wins; without one the OS preference is followed (also when it changes). */
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => (document.documentElement.getAttribute('data-theme') as Theme) || saved() || systemTheme());
+  const [theme, setThemeState] = useState<Theme>(() => {
+    const attr = document.documentElement.getAttribute('data-theme');
+    return isTheme(attr) ? attr : saved() || systemTheme();
+  });
 
   useEffect(() => {
     const root = document.documentElement;
@@ -54,7 +66,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setThemeState(t);
   }, []);
 
-  const toggle = useCallback(() => setTheme(theme === 'dark' ? 'light' : 'dark'), [theme, setTheme]);
+  const toggle = useCallback(() => setTheme(THEMES[(THEMES.findIndex((t) => t.id === theme) + 1) % THEMES.length].id), [theme, setTheme]);
 
   return <ThemeContext.Provider value={{ theme, setTheme, toggle }}>{children}</ThemeContext.Provider>;
 }
@@ -67,6 +79,7 @@ export function useTheme() {
 
 /** Concrete colours for SVG charts (Recharts takes plain colour strings). Mirrors index.css. */
 export const CHART_COLORS: Record<Theme, { grid: string; axis: string; text: string; tooltipBg: string; tooltipBorder: string; cursor: string; line: string; area: string; dot: string }> = {
-  light: { grid: '#e1e7f1', axis: '#5c6884', text: '#101b3d', tooltipBg: '#ffffff', tooltipBorder: '#e1e7f1', cursor: '#cbd5e5', line: '#2f54aa', area: '#2f54aa', dot: '#1e3470' },
-  dark: { grid: '#22304f', axis: '#8692b0', text: '#eef2fa', tooltipBg: '#151f3b', tooltipBorder: '#34426a', cursor: '#34426a', line: '#a0b8f5', area: '#809eec', dot: '#eef2fa' },
+  light: { grid: '#e4e7ed', axis: '#646e82', text: '#0e1626', tooltipBg: '#ffffff', tooltipBorder: '#e4e7ed', cursor: '#ced3dc', line: '#1e4096', area: '#1e4096', dot: '#152a5c' },
+  dark: { grid: '#1c2844', axis: '#828fac', text: '#e8ecf5', tooltipBg: '#111b33', tooltipBorder: '#2e3c60', cursor: '#2e3c60', line: '#96b4f5', area: '#96b4f5', dot: '#e8ecf5' },
+  simedarby: { grid: '#e3e7de', axis: '#627188', text: '#0a1e3c', tooltipBg: '#ffffff', tooltipBorder: '#e3e7de', cursor: '#ccd3c6', line: '#072d63', area: '#60a030', dot: '#072d63' },
 };

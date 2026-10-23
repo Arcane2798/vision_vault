@@ -37,19 +37,19 @@ export function AppLayout() {
   return (
     <SecurityProvider>
       <ChatProvider>
-        <div className="min-h-screen p-2 sm:p-3 lg:p-4">
-          <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-full focus:bg-brand focus:px-3 focus:py-2 focus:text-brand-on">
+        <div className="min-h-screen lg:flex">
+          <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-brand focus:px-3 focus:py-2 focus:text-brand-on">
             Skip to content
           </a>
-          <div className="sticky top-0 z-20 -mx-2 -mt-2 bg-surface-0/90 px-2 pb-2 pt-2 backdrop-blur-md sm:-mx-3 sm:-mt-3 sm:px-3 sm:pt-3 lg:-mx-4 lg:-mt-4 lg:px-4 lg:pt-4">
-            <Topbar />
-            <MobileNav />
-          </div>
-          <div className="flex gap-3 lg:gap-4">
-            <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
-            {/* the white workspace: every page sits on one large rounded panel */}
-            <main id="main" className="min-w-0 flex-1 rounded-[24px] bg-surface-1 p-4 shadow-panel sm:rounded-[28px] sm:p-5 lg:p-6">
-              <div className="mx-auto max-w-[1600px]">
+          <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
+          <div className="min-w-0 flex-1">
+            <div className="sticky top-0 z-20 border-b border-line bg-surface-0/85 backdrop-blur-md">
+              <Topbar />
+              <MobileNav />
+            </div>
+            {/* pages sit straight on the canvas; their cards carry the structure */}
+            <main id="main" className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+              <div className="mx-auto max-w-[1480px]">
                 {isMock && <SampleDataBanner />}
                 {/* page chunks load inside the shell, so the sidebar and top bar stay put */}
                 <Suspense fallback={<LoadingState label="Loading page…" className="py-24" />}>
@@ -70,7 +70,7 @@ export function AppLayout() {
 
 function SampleDataBanner() {
   return (
-    <div className="mb-5 flex items-center gap-2 rounded-xl border border-warn/30 bg-warn/10 px-4 py-2 text-xs text-warn-fg" role="note">
+    <div className="mb-5 flex items-center gap-2 rounded-lg border border-warn/30 bg-warn/10 px-4 py-2 text-xs text-warn-fg" role="note">
       <FlaskConical className="h-4 w-4 shrink-0" aria-hidden />
       <span>
         <b>Sample data mode.</b> Cameras, incidents and images are generated for demonstration - not real CCTV. Run <code className="rounded bg-warn/15 px-1">npm run configure -- --live</code> to connect the backend.
@@ -90,7 +90,8 @@ function AlertToast() {
     <div
       role="alert"
       className={cn(
-        'fixed bottom-4 right-4 z-50 w-[min(24rem,calc(100vw-2rem))] animate-fade-in overflow-hidden rounded-2xl border border-line bg-surface-1 p-4 shadow-pop',
+        'fixed bottom-4 right-4 z-50 w-[min(24rem,calc(100vw-2rem))] animate-fade-in overflow-hidden rounded-lg border border-line border-l-[3px] bg-surface-1 p-4 shadow-pop',
+        ack ? 'border-l-ok' : 'border-l-danger',
         chat.open && 'sm:right-[27rem]',
       )}
     >
@@ -113,11 +114,11 @@ function AlertToast() {
               {inc.guardNotified && <GuardNotifiedBadge className="mt-1.5" />}
             </>
           )}
-          <Link to={`/incidents/${inc.id}`} onClick={dismissToast} className="mt-2 inline-block text-sm font-medium text-brand-fg hover:underline">
+          <Link to={`/incidents/${inc.id}`} onClick={dismissToast} className="mt-2 inline-block text-sm font-medium text-brand-fg underline-offset-4 hover:underline">
             Open incident
           </Link>
         </div>
-        <button onClick={dismissToast} aria-label="Dismiss" className="self-start rounded-full p-1 text-ink-3 hover:bg-surface-3">
+        <button onClick={dismissToast} aria-label="Dismiss" className="self-start rounded-md p-1 text-ink-3 hover:bg-surface-3">
           <X className="h-4 w-4" />
         </button>
       </div>

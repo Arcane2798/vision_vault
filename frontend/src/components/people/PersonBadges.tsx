@@ -3,7 +3,7 @@ import type { Person } from '@/types';
 import { cn, personRoleLabel } from '@/utils/format';
 
 /** Same pill style as StatusBadge: icon + text + colour, never colour alone. */
-const base = 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium';
+const base = 'inline-flex items-center gap-1.5 whitespace-nowrap rounded border px-1.5 py-0.5 text-xs font-medium';
 
 export function PersonRoleBadge({ role }: { role: Person['role'] }) {
   const Icon = role === 'family' ? Home : UserRound;

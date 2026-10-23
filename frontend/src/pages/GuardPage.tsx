@@ -79,7 +79,7 @@ export default function GuardPage() {
             <SoundHint on={soundOn} />
             <span
               className={cn(
-                'rounded-full px-3 py-1 text-sm font-bold tabular-nums',
+                'rounded-md px-3 py-1 text-sm font-bold tabular-nums',
                 open.length ? 'bg-red-600 text-white' : 'border border-line text-ink-2',
               )}
               aria-live="polite"
@@ -163,7 +163,7 @@ function SoundHint({ on }: { on: boolean }) {
     </span>
   ) : (
     // any click on the page enables sound; this button just gives the click a target
-    <button type="button" className="inline-flex items-center gap-1 rounded-full border border-warn/50 px-2.5 py-1 text-xs font-medium text-warn-fg hover:bg-warn/10">
+    <button type="button" className="inline-flex items-center gap-1 rounded-md border border-warn/50 px-2.5 py-1 text-xs font-medium text-warn-fg hover:bg-warn/10">
       <VolumeX className="h-4 w-4" aria-hidden /> Click to enable sound
     </button>
   );

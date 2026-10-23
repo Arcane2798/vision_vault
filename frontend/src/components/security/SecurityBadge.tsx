@@ -19,7 +19,7 @@ export function SecurityBadge() {
     <Link
       to="/live"
       title={`Security: ${effectiveLevelText(security)} - change it on Live Monitoring`}
-      className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium hover:brightness-125', cls)}
+      className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium hover:brightness-125', cls)}
     >
       <Icon className="h-3.5 w-3.5" aria-hidden />
       <span className="sr-only">Security: </span>

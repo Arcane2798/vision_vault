@@ -106,7 +106,7 @@ function AckPanel({ alert, onDone, onCancel }: { alert: GuardAlert; onDone: (a: 
             aria-pressed={note === q}
             onClick={() => setNote(note === q ? '' : q)}
             className={cn(
-              'rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
+              'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors',
               note === q ? 'border-white bg-white text-black' : 'border-line bg-surface-3 text-ink-1 hover:border-ink-2',
             )}
           >

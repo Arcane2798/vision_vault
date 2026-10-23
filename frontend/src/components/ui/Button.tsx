@@ -7,18 +7,18 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md';
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-brand text-brand-on hover:bg-brand/90 shadow-panel',
-  secondary: 'bg-surface-1 text-ink-1 hover:bg-surface-2 border border-line',
+  primary: 'bg-brand text-brand-on hover:bg-brand/90',
+  secondary: 'bg-surface-1 text-ink-1 hover:bg-surface-2 border border-line hover:border-line-strong',
   ghost: 'text-ink-2 hover:bg-surface-3 hover:text-ink-1',
   danger: 'bg-danger text-white hover:bg-danger/90',
 };
 
 export const buttonStyles = (variant: Variant = 'secondary', size: Size = 'md', className?: string) =>
   cn(
-    'inline-flex items-center justify-center gap-2 rounded-full font-medium transition-[background-color,color,border-color,transform] active:scale-[0.98]',
+    'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-[background-color,color,border-color] duration-150',
     'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
-    'disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
-    size === 'sm' ? 'h-8 px-3 text-[13px]' : 'h-10 px-4 text-sm',
+    'disabled:cursor-not-allowed disabled:opacity-50',
+    size === 'sm' ? 'h-8 px-3 text-[13px]' : 'h-9 px-4 text-[13.5px]',
     variants[variant],
     className,
   );
@@ -64,7 +64,7 @@ export const IconButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTM
       aria-label={label}
       title={label}
       className={cn(
-        'relative grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-2 transition-colors hover:bg-surface-3 hover:text-ink-1',
+        'relative grid h-9 w-9 shrink-0 place-items-center rounded-md text-ink-2 transition-colors hover:bg-surface-3 hover:text-ink-1',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
         active && 'bg-surface-3 text-ink-1',
         className,

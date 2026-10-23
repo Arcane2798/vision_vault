@@ -25,7 +25,7 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
           </thead>
           <tbody>
             {incidents.map((i) => (
-              <tr key={i.id} className="cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-surface-1" onClick={() => navigate(`/incidents/${i.id}`)}>
+              <tr key={i.id} className="cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-surface-2" onClick={() => navigate(`/incidents/${i.id}`)}>
                 {showSnapshot && (
                   <td className="px-4 py-2">
                     {i.snapshotUrl ? (
@@ -69,7 +69,7 @@ export function IncidentList({ incidents, showSnapshot = true }: { incidents: In
       <ul className="divide-y divide-line md:hidden">
         {incidents.map((i) => (
           <li key={i.id}>
-            <Link to={`/incidents/${i.id}`} className="flex gap-3 px-4 py-3 hover:bg-surface-1">
+            <Link to={`/incidents/${i.id}`} className="flex gap-3 px-4 py-3 hover:bg-surface-2">
               {showSnapshot && i.snapshotUrl && <img src={i.snapshotUrl} alt="" loading="lazy" className="h-16 w-24 shrink-0 rounded-lg bg-black object-cover" />}
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex items-center justify-between gap-2">

@@ -5,7 +5,7 @@ import { cn } from '@/utils/format';
 export function GuardNotifiedBadge({ className, acknowledged, compact }: { className?: string; acknowledged?: boolean; compact?: boolean }) {
   return acknowledged ? (
     <span
-      className={cn('inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-brand px-2 py-0.5 text-[11px] font-medium text-brand-on', className)}
+      className={cn('inline-flex items-center gap-1 whitespace-nowrap rounded bg-brand px-1.5 py-0.5 text-[11px] font-medium text-brand-on', className)}
       title="The township guard house acknowledged this alert"
     >
       <ShieldCheck className="h-3 w-3" aria-hidden />
@@ -13,7 +13,7 @@ export function GuardNotifiedBadge({ className, acknowledged, compact }: { class
     </span>
   ) : (
     <span
-      className={cn('inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-guard/30 bg-guard/10 px-2 py-0.5 text-[11px] font-medium text-guard-fg', className)}
+      className={cn('inline-flex items-center gap-1 whitespace-nowrap rounded border border-guard/30 bg-guard/10 px-1.5 py-0.5 text-[11px] font-medium text-guard-fg', className)}
       title="The township guard house received a text alert with the house address and time (no images of the home)"
     >
       <Building2 className="h-3 w-3" aria-hidden />

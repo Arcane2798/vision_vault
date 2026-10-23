@@ -43,7 +43,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
           <BrandMark className="h-12 w-12 text-ink-1" />
-          <h1 className="mt-3 text-xl font-semibold">{config.appName}</h1>
+          <h1 className="display mt-3 text-[28px]">{config.appName}</h1>
           <p className="text-sm text-ink-3">Sign in to monitor cameras and review incidents</p>
         </div>
 

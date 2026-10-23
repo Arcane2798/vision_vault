@@ -11,7 +11,7 @@ export function EventTypeTag({ label, className }: { label: string; className?: 
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium',
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded border px-1.5 py-0.5 text-xs font-medium',
         intrusion ? 'border-danger/40 bg-danger/10 text-danger-fg' : 'border-caution/40 bg-caution/10 text-caution-fg',
         className,
       )}

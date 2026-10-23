@@ -3,7 +3,7 @@ import type { CameraStatus, IncidentStatus } from '@/types';
 import { cameraStatusLabel, cn, incidentStatusLabel } from '@/utils/format';
 
 /** Status is always icon + text + colour - never colour alone (accessibility). */
-const base = 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium';
+const base = 'inline-flex items-center gap-1.5 whitespace-nowrap rounded border px-1.5 py-0.5 text-xs font-medium';
 
 const incidentStyle: Record<IncidentStatus, { cls: string; Icon: typeof Eye }> = {
   new: { cls: 'border-warn/40 bg-warn/10 text-warn-fg', Icon: AlertTriangle },

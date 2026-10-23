@@ -27,7 +27,7 @@ export function LiveStatusStrip({ status, loading, error }: Props) {
   return (
     <div className="mb-4 space-y-3">
       {stale && (
-        <p role="status" className="rounded-xl border border-warn/40 bg-warn/10 px-4 py-2 text-sm text-warn-fg">
+        <p role="status" className="rounded-lg border border-warn/40 bg-warn/10 px-4 py-2 text-sm text-warn-fg">
           Lost contact with the detection engine. These are the last values it reported.
         </p>
       )}
@@ -69,19 +69,27 @@ export function LiveStatusStrip({ status, loading, error }: Props) {
   );
 }
 
-const toneCls = { default: 'bg-brand/15 text-brand-fg', danger: 'bg-danger/15 text-danger-fg', ok: 'bg-ok/15 text-ok-fg' };
+const toneDot = { default: 'bg-ink-3', danger: 'bg-danger', ok: 'bg-ok' };
 
-function Tile({ label, value, hint, icon, tone = 'default', loading }: { label: string; value: string; hint?: string; icon: ReactNode; tone?: keyof typeof toneCls; loading: boolean }) {
+/** Label, then the value large; a small dot carries the state (the label still says it in words). */
+function Tile({ label, value, hint, icon, tone = 'default', loading }: { label: string; value: string; hint?: string; icon: ReactNode; tone?: keyof typeof toneDot; loading: boolean }) {
   return (
-    <Card className="flex items-center gap-3 p-3">
-      <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-lg', toneCls[tone])} aria-hidden>
-        {icon}
-      </span>
-      <div className="min-w-0">
-        <p className="text-xs text-ink-3">{label}</p>
-        {loading ? <Skeleton className="mt-1 h-5 w-16" /> : <p className="text-lg font-semibold tabular-nums leading-tight">{value}</p>}
-        {hint && <p className="truncate text-[11px] text-ink-3">{hint}</p>}
-      </div>
+    <Card className="p-4">
+      <p className="eyebrow flex items-center gap-2">
+        <span className="text-ink-3 [&>svg]:h-3.5 [&>svg]:w-3.5" aria-hidden>
+          {icon}
+        </span>
+        {label}
+      </p>
+      {loading ? (
+        <Skeleton className="mt-3 h-6 w-20" />
+      ) : (
+        <p className="mt-2 flex items-center gap-2 text-[22px] font-medium leading-tight tracking-[-0.02em] tabular-nums">
+          {tone !== 'default' && <span className={cn('h-2 w-2 rounded-full', toneDot[tone])} aria-hidden />}
+          {value}
+        </p>
+      )}
+      {hint && <p className="mt-1 truncate text-xs text-ink-3">{hint}</p>}
     </Card>
   );
 }

@@ -2,8 +2,8 @@ import { forwardRef, useId, type InputHTMLAttributes, type ReactNode, type Selec
 import { cn } from '@/utils/format';
 
 const control =
-  'h-10 w-full rounded-xl border border-line bg-surface-1 px-3 text-sm text-ink-1 placeholder:text-ink-3 ' +
-  'focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30 aria-[invalid=true]:border-danger';
+  'h-10 w-full rounded-md border border-line-strong bg-surface-1 px-3 text-sm text-ink-1 placeholder:text-ink-3 transition-colors ' +
+  'hover:border-ink-3 focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand/15 aria-[invalid=true]:border-danger';
 
 interface FieldProps {
   label: string;

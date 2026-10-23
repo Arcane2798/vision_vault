@@ -21,7 +21,7 @@ export function PeopleInView({ people }: { people: PersonInView[] }) {
           <li
             key={`${p.kind}-${p.name}-${i}`}
             title={label}
-            className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium', style.chip)}
+            className={cn('inline-flex items-center gap-1.5 rounded border px-1.5 py-0.5 text-xs font-medium', style.chip)}
           >
             <span className={cn('h-2 w-2 rounded-full', style.dot)} aria-hidden />
             {inViewName(p)}

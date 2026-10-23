@@ -14,6 +14,8 @@ export default {
         line: { DEFAULT: v('line'), strong: v('line-strong') },
         ink: { 1: v('ink-1'), 2: v('ink-2'), 3: v('ink-3') },
         brand: { DEFAULT: v('brand'), soft: v('brand-soft'), fg: v('brand-fg'), on: v('brand-on') },
+        /** the theme's signature colour: navy / pale blue, or leaf green in the Sime Darby theme */
+        accent: tone('accent'),
         ok: tone('ok'),
         warn: tone('warn'),
         danger: tone('danger'),
@@ -24,7 +26,13 @@ export default {
         /** guard house channel */
         guard: tone('guard'),
       },
-      fontFamily: { sans: ['Plus Jakarta Sans Variable', 'Segoe UI', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'Cascadia Mono', 'Consolas', 'ui-monospace', 'monospace'] },
+      fontFamily: {
+        sans: ['Geist Variable', 'Segoe UI', 'system-ui', 'sans-serif'],
+        display: ['Newsreader Variable', 'Georgia', 'serif'],
+        mono: ['Geist Mono Variable', 'Cascadia Mono', 'Consolas', 'ui-monospace', 'monospace'],
+      },
+      // tight, architectural corners: large radii and pills read as template UI
+      borderRadius: { md: '5px', lg: '6px', xl: '8px', '2xl': '10px', '3xl': '12px' },
       boxShadow: {
         panel: 'var(--shadow-panel)',
         pop: 'var(--shadow-pop)',

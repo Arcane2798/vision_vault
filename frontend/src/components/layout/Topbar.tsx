@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowUpRight, Bell, Bot, ChevronRight, LogOut, Moon, Sun } from 'lucide-react';
+import { Bell, Bot, ChevronRight, Leaf, LogOut, MonitorPlay, Moon, Sun } from 'lucide-react';
 import { config } from '@/config/env';
 import { useAuth } from '@/context/AuthContext';
 import { useChat } from '@/context/ChatContext';
 import { useRealtime } from '@/context/RealtimeContext';
-import { useTheme } from '@/context/ThemeContext';
+import { THEMES, useTheme, type Theme } from '@/context/ThemeContext';
 import type { ConnectionState } from '@/types';
 import { cn, formatGuardAck, formatRelative, incidentHeadline, roleLabel } from '@/utils/format';
 import { GuardNotifiedBadge } from '@/components/incidents/GuardNotifiedBadge';
@@ -62,16 +62,17 @@ export function Topbar() {
   const account = usePopover();
   const conn = connectionUi[connection];
   const chat = useChat();
-  const { theme, toggle } = useTheme();
+  const { theme, setTheme, toggle } = useTheme();
   const crumb = useBreadcrumb();
 
   return (
-    <header className="flex h-14 items-center gap-2 rounded-full bg-surface-1 pl-4 pr-2 shadow-panel sm:pl-5">
-      <Link to="/" className="shrink-0 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" aria-label={`${config.appName} home`}>
+    <header className="flex h-16 items-center gap-2 px-4 sm:px-6 lg:px-10">
+      {/* the sidebar carries the brand on desktop */}
+      <Link to="/" className="mr-2 min-w-0 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand lg:hidden" aria-label={`${config.appName} home`}>
         <BrandLockup />
       </Link>
 
-      <nav aria-label="Breadcrumb" className="ml-4 hidden min-w-0 border-l border-line pl-4 md:block">
+      <nav aria-label="Breadcrumb" className="hidden min-w-0 border-l border-line pl-4 md:block lg:border-0 lg:pl-0">
         <ol className="flex min-w-0 items-center gap-1.5 text-sm">
           {crumb.section && (
             <li className="hidden items-center gap-1.5 text-ink-3 sm:flex">
@@ -97,9 +98,9 @@ export function Topbar() {
         </ol>
       </nav>
 
-      <div className="ml-auto flex items-center gap-2 lg:gap-1">
+      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2 lg:gap-1">
         <div
-          className="mr-1 hidden items-center gap-2 rounded-full bg-surface-2 px-2.5 py-1 text-xs text-ink-2 lg:flex"
+          className="mr-2 hidden items-center gap-2 text-xs text-ink-3 lg:flex"
           role="status"
           aria-live="polite"
           title={conn.label}
@@ -114,19 +115,26 @@ export function Topbar() {
 
         <button
           className={cn(
-            'flex h-9 items-center gap-1.5 rounded-full px-2 text-sm text-ink-2 transition-colors hover:bg-surface-3 hover:text-ink-1 md:px-3',
-            chat.open && 'bg-surface-3 text-ink-1',
+            'flex h-9 items-center gap-1.5 rounded-md px-2 text-[13px] text-ink-2 transition-colors hover:bg-surface-3 hover:text-ink-1 md:border md:border-line md:bg-surface-1 md:px-3',
+            chat.open && 'border-line-strong bg-surface-3 text-ink-1',
           )}
           aria-expanded={chat.open}
           aria-label="Ask Viva Bot"
           title="Ask Viva Bot"
           onClick={() => chat.setOpen(!chat.open)}
         >
-          <Bot className="h-[18px] w-[18px]" aria-hidden />
+          <Bot className="h-4 w-4" strokeWidth={1.75} aria-hidden />
           <span className="hidden md:inline">Viva Bot</span>
         </button>
 
-        <ThemeToggle theme={theme} onToggle={toggle} />
+        <ThemeSwitch theme={theme} onChange={setTheme} />
+        {/* phones: one button that steps through the themes */}
+        <IconButton label={`Theme: ${THEMES.find((t) => t.id === theme)?.label}. Switch theme`} onClick={toggle} className="sm:hidden">
+          {(() => {
+            const Icon = themeIcon[theme];
+            return <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />;
+          })()}
+        </IconButton>
 
         <div className="relative" ref={bell.ref}>
           <IconButton
@@ -135,7 +143,7 @@ export function Topbar() {
             active={bell.open}
             onClick={() => (bell.setOpen((o) => !o), markSeen())}
           >
-            <Bell className="h-[18px] w-[18px]" />
+            <Bell className="h-[18px] w-[18px]" strokeWidth={1.75} />
             {unseen > 0 && (
               <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold tabular-nums text-white ring-2 ring-surface-1">
                 {unseen > 9 ? '9+' : unseen}
@@ -143,7 +151,7 @@ export function Topbar() {
             )}
           </IconButton>
           {bell.open && (
-            <div className="absolute right-0 mt-2 w-[min(23rem,calc(100vw-2rem))] animate-fade-in overflow-hidden rounded-2xl border border-line bg-surface-1 shadow-pop">
+            <div className="absolute right-0 mt-2 w-[min(23rem,calc(100vw-2rem))] animate-fade-in overflow-hidden rounded-lg border border-line bg-surface-1 shadow-pop">
               <div className="flex items-center justify-between border-b border-line px-4 py-3">
                 <div>
                   <p className="text-sm font-semibold">Alerts this session</p>
@@ -189,12 +197,12 @@ export function Topbar() {
             aria-label="Account menu"
             onClick={() => account.setOpen((o) => !o)}
           >
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-brand-soft text-[13px] font-semibold text-brand-fg" aria-hidden>
+            <span className="grid h-8 w-8 place-items-center rounded-full border border-line-strong bg-surface-1 text-[13px] font-medium text-ink-1" aria-hidden>
               {(user?.name ?? '?').charAt(0).toUpperCase()}
             </span>
           </button>
           {account.open && (
-            <div className="absolute right-0 mt-2 w-60 animate-fade-in overflow-hidden rounded-2xl border border-line bg-surface-1 shadow-pop">
+            <div className="absolute right-0 mt-2 w-60 animate-fade-in overflow-hidden rounded-lg border border-line bg-surface-1 shadow-pop">
               <div className="border-b border-line px-4 py-3">
                 <p className="text-sm font-medium">{user?.name}</p>
                 <p className="text-xs text-ink-3">{user && roleLabel[user.role]}</p>
@@ -214,36 +222,42 @@ export function Topbar() {
         {/* the one call to action: straight to the camera */}
         <Link
           to="/live"
-          className="ml-1 hidden h-10 items-center gap-2 rounded-full bg-brand pl-4 pr-1 text-[13px] font-medium text-brand-on transition-colors hover:bg-brand/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand md:flex"
+          className="ml-1 hidden h-9 items-center gap-2 rounded-md bg-brand px-3.5 text-[13px] font-medium text-brand-on transition-colors hover:bg-brand/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand md:flex"
         >
+          <MonitorPlay className="h-4 w-4" strokeWidth={1.75} aria-hidden />
           Watch live
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-brand-on text-brand" aria-hidden>
-            <ArrowUpRight className="h-4 w-4" />
-          </span>
         </Link>
       </div>
     </header>
   );
 }
 
-/** Sun / moon switch. role="switch" so screen readers announce the state. */
-function ThemeToggle({ theme, onToggle }: { theme: 'dark' | 'light'; onToggle: () => void }) {
-  const dark = theme === 'dark';
+const themeIcon: Record<Theme, typeof Sun> = { simedarby: Leaf, light: Sun, dark: Moon };
+
+/** Three-way theme switch (Sime Darby / light / dark) as a radio group of icon segments. */
+function ThemeSwitch({ theme, onChange }: { theme: Theme; onChange: (t: Theme) => void }) {
   return (
-    <button
-      role="switch"
-      aria-checked={dark}
-      aria-label="Dark theme"
-      title={dark ? 'Switch to light theme' : 'Switch to dark theme'}
-      onClick={onToggle}
-      className="relative flex h-8 w-[3.75rem] shrink-0 items-center rounded-full border border-line bg-surface-2 p-0.5 transition-colors hover:border-line-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-    >
-      <span
-        className={cn('absolute top-0.5 h-[26px] w-[26px] rounded-full bg-surface-4 shadow-panel transition-transform duration-200 ease-out', dark ? 'translate-x-[1.75rem]' : 'translate-x-0')}
-        aria-hidden
-      />
-      <Sun className={cn('relative z-10 mx-[5px] h-4 w-4 transition-colors', dark ? 'text-ink-3' : 'text-warn-fg')} aria-hidden />
-      <Moon className={cn('relative z-10 ml-auto mr-[5px] h-4 w-4 transition-colors', dark ? 'text-brand-fg' : 'text-ink-3')} aria-hidden />
-    </button>
+    <div role="radiogroup" aria-label="Colour theme" className="hidden h-9 shrink-0 sm:flex items-center rounded-md border border-line bg-surface-1 p-0.5">
+      {THEMES.map(({ id, label }) => {
+        const Icon = themeIcon[id];
+        const on = theme === id;
+        return (
+          <button
+            key={id}
+            role="radio"
+            aria-checked={on}
+            aria-label={`${label} theme`}
+            title={`${label} theme`}
+            onClick={() => onChange(id)}
+            className={cn(
+              'grid h-full w-8 place-items-center rounded-[4px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand',
+              on ? 'bg-surface-3 text-ink-1' : 'text-ink-3 hover:text-ink-1',
+            )}
+          >
+            <Icon className="h-[15px] w-[15px]" strokeWidth={1.75} aria-hidden />
+          </button>
+        );
+      })}
+    </div>
   );
 }

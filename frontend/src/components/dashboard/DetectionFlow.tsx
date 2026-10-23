@@ -17,7 +17,7 @@ interface Node {
 export function DetectionFlow({ incidents }: { incidents: Incident[] }) {
   const total = incidents.length;
 
-  const byCamera = countBy(incidents, (i) => i.cameraName).map(([label, count]) => ({ label, count, tone: 'bg-brand' }));
+  const byCamera = countBy(incidents, (i) => i.cameraName).map(([label, count]) => ({ label, count, tone: 'bg-accent' }));
   const byType = countBy(incidents, (i) => i.label).map(([label, count]) => ({
     label: eventTypeLabel(label),
     count,
@@ -51,7 +51,7 @@ export function DetectionFlow({ incidents }: { incidents: Incident[] }) {
             <p className="eyebrow mb-2">{col.title}</p>
             <ul className="space-y-2">
               {col.nodes.map((n) => (
-                <li key={n.label} className="rounded-xl bg-surface-1 px-3 py-2.5">
+                <li key={n.label} className="rounded-lg border border-line bg-surface-2 px-3 py-2.5">
                   <div className="flex items-center justify-between gap-3">
                     <span className="flex min-w-0 items-center gap-2 text-[13px] text-ink-2">
                       <span className={cn('h-2 w-2 shrink-0 rounded-full', n.tone)} aria-hidden />

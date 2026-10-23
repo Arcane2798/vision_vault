@@ -26,12 +26,12 @@ export function Modal({ open, title, onClose, children, footer }: ModalProps) {
       ref={ref}
       onCancel={(e) => (e.preventDefault(), onClose())}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-line bg-surface-1 p-0 text-ink-1 shadow-pop backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+      className="w-[calc(100%-2rem)] max-w-lg rounded-xl border border-line bg-surface-1 p-0 text-ink-1 shadow-pop backdrop:bg-[rgb(7_12_26/0.55)] backdrop:backdrop-blur-[2px]"
     >
       {open && (
         <div>
           <div className="flex items-center justify-between border-b border-line px-5 py-3">
-            <h2 className="font-semibold">{title}</h2>
+            <h2 className="display text-[20px]">{title}</h2>
             <Button variant="ghost" size="sm" aria-label="Close" onClick={onClose} icon={<X className="h-4 w-4" />} />
           </div>
           <div className="px-5 py-4">{children}</div>

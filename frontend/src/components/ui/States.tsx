@@ -28,8 +28,8 @@ export function LoadingState({ label = 'Loading…', className }: { label?: stri
 export function EmptyState({ title, message, action, icon }: { title: string; message?: string; action?: ReactNode; icon?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
-      <span className="mb-1 grid h-11 w-11 place-items-center rounded-full border border-line bg-surface-2 text-ink-3" aria-hidden>
-        {icon ?? <Inbox className="h-5 w-5" />}
+      <span className="mb-1 text-ink-3" aria-hidden>
+        {icon ?? <Inbox className="h-5 w-5" strokeWidth={1.5} />}
       </span>
       <p className="font-medium text-ink-1">{title}</p>
       {message && <p className="max-w-sm text-sm text-ink-3">{message}</p>}
@@ -41,8 +41,8 @@ export function EmptyState({ title, message, action, icon }: { title: string; me
 export function ErrorState({ error, onRetry }: { error: Error; onRetry?: () => void }) {
   return (
     <div role="alert" className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
-      <span className="mb-1 grid h-11 w-11 place-items-center rounded-full border border-danger/30 bg-danger/10 text-danger-fg" aria-hidden>
-        <AlertOctagon className="h-5 w-5" />
+      <span className="mb-1 text-danger-fg" aria-hidden>
+        <AlertOctagon className="h-5 w-5" strokeWidth={1.5} />
       </span>
       <p className="font-medium text-ink-1">Could not load data</p>
       <p className="max-w-md text-sm text-ink-3">{error.message}</p>
@@ -79,7 +79,7 @@ export function ListSkeleton({ rows = 4, thumb = true }: { rows?: number; thumb?
 /** Camera-shaped placeholder (16:9) while the camera list or stream is loading. */
 export function FeedSkeleton({ label = 'Connecting to camera…' }: { label?: string }) {
   return (
-    <div role="status" className="relative grid aspect-video place-items-center overflow-hidden rounded-[20px] border border-line/70 panel-tint">
+    <div role="status" className="relative grid aspect-video place-items-center overflow-hidden rounded-xl border border-line panel-tint">
       <div className="flex flex-col items-center gap-3 text-sm text-ink-3">
         <Viewfinder size="lg" />
         {label}

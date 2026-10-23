@@ -42,7 +42,7 @@ export function CameraFeed({ camera, compact, onSelect, selected, actions, testV
   return (
     <figure
       className={cn(
-        'panel-tint group overflow-hidden rounded-[20px] border p-2 transition-colors',
+        'panel-tint group overflow-hidden rounded-xl border p-2 transition-colors',
         selected ? 'border-brand ring-2 ring-brand/40' : 'border-line/70',
         onSelect && 'cursor-pointer hover:border-line-strong',
       )}

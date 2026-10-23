@@ -61,7 +61,7 @@ export default function IncidentDetailPage() {
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-medium tabular-nums text-ink-3">Incident {inc.id}</p>
-          <h1 className="text-[22px] font-semibold leading-tight tracking-tight">
+          <h1 className="display text-[28px] leading-[1.1] sm:text-[32px]">
             {eventTypeLabel(inc.label)} at {inc.cameraName}
           </h1>
           <p className="mt-1 text-sm tabular-nums text-ink-3">{formatDateTime(inc.timestamp)}</p>

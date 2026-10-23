@@ -107,7 +107,7 @@ export default function DashboardPage() {
             <CardHeader
               title="Recent events"
               action={
-                <Link to="/incidents" className="inline-flex items-center gap-0.5 text-sm font-medium text-brand-fg hover:underline">
+                <Link to="/incidents" className="inline-flex items-center gap-0.5 text-[13px] font-medium text-brand-fg underline-offset-4 hover:underline">
                   See all <ChevronRight className="h-4 w-4" aria-hidden />
                 </Link>
               }
@@ -120,22 +120,22 @@ export default function DashboardPage() {
               ) : !recent?.length ? (
                 <EmptyState title="No events yet" message="When someone unknown stays at the door, the snapshot and time appear here." />
               ) : (
-                <ul className="space-y-2">
+                <ul className="divide-y divide-line">
                   {recent.map((i) => (
                     <li key={i.id}>
                       <Link
                         to={`/incidents/${i.id}`}
-                        className="flex gap-3 rounded-xl bg-surface-1 p-2.5 transition-colors hover:bg-brand-soft/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+                        className="flex gap-3 rounded-lg p-2 transition-colors hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
                       >
                         {i.snapshotUrl ? (
-                          <img src={i.snapshotUrl} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-lg bg-black object-cover" />
+                          <img src={i.snapshotUrl} alt="" loading="lazy" className="h-12 w-16 shrink-0 rounded-md bg-black object-cover" />
                         ) : (
-                          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-surface-3 text-ink-3" aria-hidden>
+                          <span className="grid h-12 w-16 shrink-0 place-items-center rounded-md bg-surface-3 text-ink-3" aria-hidden>
                             <Cctv className="h-4 w-4" />
                           </span>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="flex items-center gap-1.5 truncate text-sm font-semibold">
+                          <p className="flex items-center gap-1.5 truncate text-[13.5px] font-medium">
                             <span className={cn('h-2 w-2 shrink-0 rounded-full', i.label === 'intrusion' ? 'bg-danger' : 'bg-caution')} aria-hidden />
                             {eventTypeLabel(i.label)}
                           </p>
@@ -183,7 +183,7 @@ export default function DashboardPage() {
             {incidents.initialLoading ? (
               <div className="grid gap-3 md:grid-cols-3">
                 {[0, 1, 2].map((k) => (
-                  <Skeleton key={k} className="h-20 rounded-xl" />
+                  <Skeleton key={k} className="h-20 rounded-lg" />
                 ))}
               </div>
             ) : incidents.error && !incidents.data ? (
@@ -231,9 +231,9 @@ function DoorHeadline({ status, error, loading, stale, updatedAt, security }: { 
   const off = security?.effectiveLevel === 'off';
   return (
     // height reserved for the headline and its status line, so nothing below jumps when they load
-    <div className="min-h-[5.75rem] sm:min-h-[4.5rem]">
+    <div className="min-h-[6.25rem] pb-1 sm:min-h-[5.25rem]">
       {text ? (
-        <h1 id="door-state" className={cn('text-[28px] font-bold leading-[1.15] tracking-[-0.025em] sm:text-[36px]', alarm ? 'text-danger-fg' : warn ? 'text-warn-fg' : 'text-ink-1')} aria-live="polite">
+        <h1 id="door-state" className={cn('display text-[32px] leading-[1.08] sm:text-[42px]', alarm ? 'text-danger-fg' : warn ? 'text-warn-fg' : 'text-ink-1')} aria-live="polite">
           {text}
         </h1>
       ) : (
@@ -249,7 +249,8 @@ function DoorHeadline({ status, error, loading, stale, updatedAt, security }: { 
           Last update at {formatTime(new Date(updatedAt).toISOString())}. Retrying every few seconds.
         </p>
       ) : security && (
-        <Link to="/live" className={cn('mt-1.5 inline-flex items-center gap-0.5 text-sm font-medium hover:underline', off ? 'text-warn-fg' : 'text-brand-fg')}>
+        <Link to="/live" className={cn('mt-2.5 inline-flex items-center gap-1 text-[13px] font-medium underline-offset-4 hover:underline', off ? 'text-warn-fg' : 'text-ink-2')}>
+          <span className={cn('mr-1 h-1.5 w-1.5 rounded-full', off ? 'bg-warn' : 'bg-ok')} aria-hidden />
           {off ? `Security is ${effectiveLevelText(security).toLowerCase()}. Nothing is recorded or alerted.` : 'Security is on. Strangers are recorded and reported.'}
           <ChevronRight className="h-4 w-4" aria-hidden />
         </Link>
@@ -262,7 +263,7 @@ function DoorHeadline({ status, error, loading, stale, updatedAt, security }: { 
 function AtTheDoor({ status, stale }: { status: LiveStatus; stale: boolean }) {
   // not a live region: FPS changes every poll and would be read out constantly; the headline announces state changes
   return (
-    <div className={cn('flex flex-col gap-3 rounded-2xl border border-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between', stale && 'opacity-60')}>
+    <div className={cn('flex flex-col gap-3 rounded-xl border border-line bg-surface-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between', stale && 'opacity-60')}>
       <div className="flex min-w-0 items-center gap-3">
         <Users className="h-4 w-4 shrink-0 text-ink-3" aria-hidden />
         <span className="shrink-0 text-sm font-medium">{stale ? 'Last known at the door' : 'At the door now'}</span>
@@ -284,14 +285,14 @@ function TodayRow({ value, suffix, label, hint, alarm, to, loading }: { value?: 
         {loading ? (
           <Skeleton className="h-8 w-10" />
         ) : (
-          <span className={cn('text-[28px] font-bold leading-none tracking-[-0.03em] tabular-nums', alarm ? 'text-danger-fg' : 'text-ink-1')}>
+          <span className={cn('text-[28px] font-medium leading-none tracking-[-0.03em] tabular-nums', alarm ? 'text-danger-fg' : 'text-ink-1')}>
             {value ?? '-'}
-            {suffix && <span className="text-base font-semibold text-ink-3">{suffix}</span>}
+            {suffix && <span className="text-base font-normal text-ink-3">{suffix}</span>}
           </span>
         )}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-ink-1">{label}</span>
+        <span className="block text-[13.5px] font-medium text-ink-1">{label}</span>
         <span className="block text-xs text-ink-3">{hint}</span>
       </span>
       {to && <ChevronRight className="h-4 w-4 shrink-0 text-ink-3" aria-hidden />}
@@ -299,7 +300,7 @@ function TodayRow({ value, suffix, label, hint, alarm, to, loading }: { value?: 
   );
   return to ? (
     <li>
-      <Link to={to} className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-surface-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand">
+      <Link to={to} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand">
         {body}
       </Link>
     </li>

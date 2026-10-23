@@ -6,7 +6,9 @@ import { AuthProvider } from '@/context/AuthContext';
 import { RealtimeProvider } from '@/context/RealtimeContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import App from './App';
-import '@fontsource-variable/plus-jakarta-sans/wght.css';
+import '@fontsource-variable/geist/wght.css';
+import '@fontsource-variable/geist-mono/wght.css';
+import '@fontsource-variable/newsreader/opsz.css';
 import './index.css';
 
 document.title = config.appName;

@@ -48,7 +48,7 @@ export default function LiveMonitoringPage() {
               actions={
                 <Link
                   to={`/incidents?camera=${encodeURIComponent(camera.id)}`}
-                  className="hidden items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium text-brand-fg hover:bg-surface-3 sm:inline-flex"
+                  className="hidden items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-brand-fg hover:bg-surface-3 sm:inline-flex"
                 >
                   <ListChecks className="h-3.5 w-3.5" aria-hidden /> Incidents
                 </Link>

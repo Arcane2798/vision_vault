@@ -2,8 +2,10 @@ import { Link, NavLink } from 'react-router-dom';
 import { Building2, ChevronRight, Cctv, Film, LayoutDashboard, ListChecks, Map as MapIcon, MonitorPlay, PanelLeftClose, PanelLeftOpen, Users } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useSecurity } from '@/context/SecurityContext';
+import { config } from '@/config/env';
 import { cn, effectiveLevelText } from '@/utils/format';
 import type { Permission } from '@/utils/permissions';
+import { BrandMark } from './BrandMark';
 
 type NavItem = { to: string; label: string; Icon: typeof Cctv; permission: Permission };
 
@@ -31,36 +33,51 @@ export const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
 
 export const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
+// the active item carries a thin accent rule on its left edge instead of a filled pill
 const linkCls = (active: boolean, mini: boolean) =>
   cn(
-    'flex h-10 items-center gap-3 rounded-xl px-3 text-[13.5px] font-medium transition-colors',
-    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/70',
+    'relative flex h-9 items-center gap-3 rounded-md px-3 text-[13.5px] transition-colors',
+    'focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
+    "before:absolute before:inset-y-2 before:left-0 before:w-[2px] before:rounded-full before:content-['']",
     mini && 'justify-center px-0',
-    active ? 'bg-surface-3 text-ink-1' : 'text-ink-2 hover:bg-surface-2 hover:text-ink-1',
+    active ? 'bg-surface-2 font-medium text-ink-1 before:bg-accent' : 'text-ink-2 hover:bg-surface-2 hover:text-ink-1',
   );
 
-/** Desktop: a navy card floating beside the workspace. data-theme="navy" keeps its colours in both themes. */
+/** Desktop: a full-height rail. `sidebar-skin` turns it solid navy in the Sime Darby theme. */
 export function Sidebar({ collapsed, onToggleCollapsed }: { collapsed: boolean; onToggleCollapsed: () => void }) {
   const { can } = useAuth();
   return (
     <aside
-      data-theme="navy"
       aria-label="Main navigation"
       className={cn(
-        'sticky top-[5.25rem] hidden h-[calc(100vh-6.25rem)] shrink-0 flex-col rounded-[24px] bg-surface-1 p-3 text-ink-1 transition-[width] duration-200 ease-out lg:flex',
-        collapsed ? 'w-[4.5rem]' : 'w-60',
+        'sidebar-skin sticky top-0 hidden h-screen shrink-0 flex-col border-r border-line bg-surface-1 text-ink-1 transition-[width] duration-200 ease-out lg:flex',
+        collapsed ? 'w-[4.25rem]' : 'w-60',
       )}
     >
-      <nav className="flex-1 overflow-y-auto">
+      <Link
+        to="/"
+        aria-label={`${config.appName} home`}
+        className={cn('flex h-16 shrink-0 items-center gap-2.5 border-b border-line px-4 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent', collapsed && 'justify-center px-0')}
+      >
+        <BrandMark className="h-7 w-7 shrink-0" />
+        {!collapsed && (
+          <span className="min-w-0 leading-tight">
+            <span className="block truncate text-[15px] font-semibold tracking-[-0.01em]">{config.appName}</span>
+            <span className="block truncate text-[11px] text-ink-3">Township home security</span>
+          </span>
+        )}
+      </Link>
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
         {NAV_GROUPS.map((g, gi) => {
           const items = g.items.filter((i) => can(i.permission));
           if (!items.length) return null;
           return (
-            <ul key={g.label} aria-label={g.label} className={cn('space-y-1', gi > 0 && 'mt-3 border-t border-line pt-3')}>
+            <ul key={g.label} aria-label={g.label} className={cn('space-y-0.5', gi > 0 && 'mt-6')}>
+              {!collapsed && <li className="eyebrow mb-2 px-3" aria-hidden>{g.label}</li>}
               {items.map(({ to, label, Icon }) => (
                 <li key={to}>
                   <NavLink to={to} end={to === '/'} title={collapsed ? label : undefined} className={({ isActive }) => linkCls(isActive, collapsed)}>
-                    <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
+                    <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
                     <span className={cn('truncate', collapsed && 'sr-only')}>{label}</span>
                   </NavLink>
                 </li>
@@ -70,14 +87,14 @@ export function Sidebar({ collapsed, onToggleCollapsed }: { collapsed: boolean; 
         })}
       </nav>
 
-      <div className="space-y-1">
+      <div className="space-y-0.5 border-t border-line p-3">
         {/* switch to the guard house's own screen (it has a matching button to come back) */}
         <NavLink to="/guard" title={collapsed ? 'Guard House view' : undefined} className={linkCls(false, collapsed)}>
-          <Building2 className="h-[18px] w-[18px] shrink-0 text-guard-fg" aria-hidden />
+          <Building2 className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
           <span className={cn('truncate', collapsed && 'sr-only')}>Guard House view</span>
         </NavLink>
         <button onClick={onToggleCollapsed} className={cn(linkCls(false, collapsed), 'w-full text-ink-3')} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-          {collapsed ? <PanelLeftOpen className="h-[18px] w-[18px]" aria-hidden /> : <PanelLeftClose className="h-[18px] w-[18px]" aria-hidden />}
+          {collapsed ? <PanelLeftOpen className="h-4 w-4" strokeWidth={1.75} aria-hidden /> : <PanelLeftClose className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
           {!collapsed && <span>Collapse</span>}
         </button>
         {!collapsed && <HomeCard />}
@@ -92,8 +109,8 @@ function HomeCard() {
   const { security } = useSecurity();
   const name = user?.name ?? 'Homeowner';
   return (
-    <div className="mt-2 flex items-center gap-3 rounded-2xl bg-surface-2 p-3">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/90 text-sm font-semibold text-[#1b2d63]" aria-hidden>
+    <div className="mt-2 flex items-center gap-3 border-t border-line px-1 pt-3">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-line-strong text-[13px] font-medium text-ink-1" aria-hidden>
         {name.charAt(0).toUpperCase()}
       </span>
       <div className="min-w-0 leading-tight">
@@ -111,13 +128,13 @@ function HomeCard() {
   );
 }
 
-/** Phones and tablets: the same navigation as a navy icon strip under the header. */
+/** Phones and tablets: the same navigation as an icon strip under the header. */
 export function MobileNav() {
   const { can } = useAuth();
   const items = NAV_ITEMS.filter((i) => can(i.permission));
   return (
-    <nav data-theme="navy" aria-label="Main navigation" className="mt-2 rounded-2xl bg-surface-1 p-1.5 lg:hidden">
-      <ul className="flex items-center justify-between gap-2 overflow-x-auto [scrollbar-width:none]">
+    <nav aria-label="Main navigation" className="sidebar-skin border-t border-line bg-surface-1 px-2 lg:hidden">
+      <ul className="flex items-center justify-between gap-1 overflow-x-auto [scrollbar-width:none]">
         {items.map(({ to, label, Icon }) => (
           <li key={to} className="shrink-0">
             <NavLink
@@ -126,7 +143,7 @@ export function MobileNav() {
               aria-label={label}
               title={label}
               className={({ isActive }) =>
-                cn('grid h-11 w-[42px] place-items-center rounded-xl transition-colors', isActive ? 'bg-surface-3 text-ink-1' : 'text-ink-2 hover:bg-surface-2 hover:text-ink-1')
+                cn('grid h-11 w-11 place-items-center border-b-2 transition-colors', isActive ? 'border-accent text-ink-1' : 'border-transparent text-ink-3 hover:text-ink-1')
               }
             >
               <Icon className="h-[18px] w-[18px]" aria-hidden />
@@ -134,8 +151,8 @@ export function MobileNav() {
           </li>
         ))}
         <li className="shrink-0">
-          <NavLink to="/guard" aria-label="Guard House view" title="Guard House view" className="grid h-11 w-[42px] place-items-center rounded-xl text-guard-fg hover:bg-surface-2">
-            <Building2 className="h-[18px] w-[18px]" aria-hidden />
+          <NavLink to="/guard" aria-label="Guard House view" title="Guard House view" className="grid h-11 w-11 place-items-center border-b-2 border-transparent text-ink-3 hover:text-ink-1">
+            <Building2 className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
           </NavLink>
         </li>
       </ul>

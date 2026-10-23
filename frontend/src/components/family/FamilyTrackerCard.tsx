@@ -58,13 +58,13 @@ export function FamilyTrackerCard() {
         <div className="grid gap-4 p-4 lg:grid-cols-5">
           <ul className="space-y-2 lg:col-span-3">
             {family.data.map((m) => (
-              <li key={m.id} className="flex items-center gap-3 rounded-xl bg-surface-1 px-3 py-2">
+              <li key={m.id} className="flex items-center gap-3 rounded-lg border border-line bg-surface-2 px-3 py-2">
                 <img src={familyService.photoSrc(m)} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{m.name}</p>
                   <p className="truncate text-xs text-ink-3">{describe(m)}</p>
                 </div>
-                <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold', STATUS[m.status].cls)}>{STATUS[m.status].label}</span>
+                <span className={cn('shrink-0 rounded border px-1.5 py-0.5 text-xs font-semibold', STATUS[m.status].cls)}>{STATUS[m.status].label}</span>
                 <Button
                   size="sm"
                   variant="ghost"

@@ -8,94 +8,141 @@
  * A subtree can pin a theme with data-theme="dark" (the Guard House screen does).
  */
 @layer base {
-  /* light is the primary look: pale blue-grey page, white panels, navy accents */
+  /*
+   * Three themes, each designed on its own (not inverted):
+   *   light     - white panels on a cool grey canvas, deep navy accents
+   *   dark      - deep navy canvas, pale blue accents (the light theme turned inside out)
+   *   simedarby - warm white workspace, navy sidebar, leaf-green accents for the township brand
+   * --accent is the theme's signature colour (active nav, charts, flow bars); it equals --brand except in simedarby.
+   */
   :root,
   [data-theme='light'] {
     color-scheme: light;
-    --surface-0: 232 237 245;
+    --surface-0: 244 245 248;
     --surface-1: 255 255 255;
-    --surface-2: 243 246 251;
-    --surface-3: 232 238 247;
-    --surface-4: 218 226 240;
-    --line: 225 231 241;
-    --line-strong: 203 213 229;
-    --ink-1: 16 27 61;
-    --ink-2: 70 84 116;
-    --ink-3: 92 104 132;
+    --surface-2: 248 249 251;
+    --surface-3: 237 239 243;
+    --surface-4: 225 229 236;
+    --line: 228 231 237;
+    --line-strong: 206 211 220;
+    --ink-1: 14 22 38;
+    --ink-2: 66 76 96;
+    --ink-3: 100 110 130;
 
-    --brand: 30 52 112;
-    --brand-soft: 225 233 248;
-    --brand-fg: 47 84 170;
+    --brand: 21 42 92;
+    --brand-soft: 232 237 247;
+    --brand-fg: 30 64 150;
     --brand-on: 255 255 255;
+    --accent: 30 64 150;
+    --accent-fg: 30 64 150;
 
-    --ok: 22 163 74;
-    --ok-fg: 21 101 52;
-    --warn: 217 119 6;
-    --warn-fg: 146 64 14;
-    --danger: 220 38 38;
-    --danger-fg: 176 28 28;
-    --visitor: 8 145 178;
-    --visitor-fg: 14 106 133;
-    --caution: 234 88 12;
-    --caution-fg: 170 58 10;
-    --guard: 109 76 214;
-    --guard-fg: 86 52 180;
+    --ok: 22 141 74;
+    --ok-fg: 18 100 52;
+    --warn: 200 112 8;
+    --warn-fg: 140 70 10;
+    --danger: 205 38 38;
+    --danger-fg: 170 28 28;
+    --visitor: 8 135 168;
+    --visitor-fg: 12 100 128;
+    --caution: 220 90 14;
+    --caution-fg: 160 58 10;
+    --guard: 100 76 200;
+    --guard-fg: 82 56 170;
 
-    --shadow-panel: 0 1px 2px rgb(30 52 112 / 0.05), 0 6px 20px -10px rgb(30 52 112 / 0.14);
-    --shadow-pop: 0 24px 48px -16px rgb(30 52 112 / 0.28), 0 0 0 1px rgb(30 52 112 / 0.06);
+    --shadow-panel: 0 1px 2px rgb(14 22 38 / 0.04);
+    --shadow-pop: 0 16px 40px -12px rgb(14 22 38 / 0.22), 0 0 0 1px rgb(14 22 38 / 0.06);
   }
 
-  /* dark: the same layout at night, deep navy rather than black */
   [data-theme='dark'] {
     color-scheme: dark;
-    --surface-0: 9 15 32;
-    --surface-1: 15 23 46;
-    --surface-2: 21 31 59;
-    --surface-3: 29 41 74;
-    --surface-4: 39 53 92;
-    --line: 34 46 80;
-    --line-strong: 52 66 104;
-    --ink-1: 238 242 250;
-    --ink-2: 172 184 208;
-    --ink-3: 134 148 178;
+    --surface-0: 7 12 26;
+    --surface-1: 12 20 39;
+    --surface-2: 17 27 51;
+    --surface-3: 25 37 66;
+    --surface-4: 36 50 84;
+    --line: 28 40 68;
+    --line-strong: 46 60 96;
+    --ink-1: 232 236 245;
+    --ink-2: 168 179 202;
+    --ink-3: 130 143 172;
 
-    --brand: 128 158 236;
-    --brand-soft: 30 44 86;
-    --brand-fg: 160 184 245;
-    --brand-on: 9 15 32;
+    --brand: 150 180 245;
+    --brand-soft: 26 40 78;
+    --brand-fg: 172 197 250;
+    --brand-on: 7 12 26;
+    --accent: 150 180 245;
+    --accent-fg: 172 197 250;
 
-    --ok: 34 197 94;
-    --ok-fg: 110 231 160;
-    --warn: 245 158 11;
-    --warn-fg: 252 196 80;
-    --danger: 239 68 68;
-    --danger-fg: 252 150 150;
-    --visitor: 34 211 238;
-    --visitor-fg: 103 232 249;
-    --caution: 251 146 60;
-    --caution-fg: 253 186 116;
-    --guard: 167 139 250;
-    --guard-fg: 196 181 253;
+    --ok: 52 190 110;
+    --ok-fg: 120 225 165;
+    --warn: 235 160 40;
+    --warn-fg: 250 196 100;
+    --danger: 235 80 80;
+    --danger-fg: 252 155 155;
+    --visitor: 40 200 230;
+    --visitor-fg: 110 225 245;
+    --caution: 245 145 70;
+    --caution-fg: 252 185 125;
+    --guard: 160 140 245;
+    --guard-fg: 196 182 252;
 
-    --shadow-panel: 0 1px 2px rgb(0 0 0 / 0.25);
-    --shadow-pop: 0 24px 48px -16px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.05);
+    --shadow-panel: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-pop: 0 20px 48px -14px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.05);
   }
 
-  /* the navy sidebar and mobile nav keep the same colours in both themes */
-  [data-theme='navy'] {
+  [data-theme='simedarby'] {
+    color-scheme: light;
+    --surface-0: 245 246 242;
+    --surface-1: 255 255 255;
+    --surface-2: 249 250 246;
+    --surface-3: 237 240 233;
+    --surface-4: 224 229 219;
+    --line: 227 231 222;
+    --line-strong: 204 211 198;
+    --ink-1: 10 30 60;
+    --ink-2: 62 80 108;
+    --ink-3: 98 113 136;
+
+    --brand: 7 45 99;
+    --brand-soft: 228 236 246;
+    --brand-fg: 14 72 142;
+    --brand-on: 255 255 255;
+    --accent: 96 160 48;
+    --accent-fg: 50 110 26;
+
+    --ok: 40 140 60;
+    --ok-fg: 30 100 44;
+    --warn: 200 112 8;
+    --warn-fg: 140 70 10;
+    --danger: 205 38 38;
+    --danger-fg: 170 28 28;
+    --visitor: 8 135 168;
+    --visitor-fg: 12 100 128;
+    --caution: 220 90 14;
+    --caution-fg: 160 58 10;
+    --guard: 100 76 200;
+    --guard-fg: 82 56 170;
+
+    --shadow-panel: 0 1px 2px rgb(10 30 60 / 0.04);
+    --shadow-pop: 0 16px 40px -12px rgb(10 30 60 / 0.22), 0 0 0 1px rgb(10 30 60 / 0.06);
+  }
+
+  /* the Sime Darby sidebar is solid navy; in light / dark it uses the page's own surfaces */
+  [data-theme='simedarby'] .sidebar-skin {
     color-scheme: dark;
-    --surface-1: 27 45 99;
-    --surface-2: 38 59 122;
-    --surface-3: 50 74 143;
-    --surface-4: 62 88 160;
-    --line: 48 70 132;
-    --line-strong: 70 94 160;
+    --surface-1: 7 45 99;
+    --surface-2: 15 57 115;
+    --surface-3: 24 70 132;
+    --line: 32 74 132;
+    --line-strong: 52 94 152;
     --ink-1: 255 255 255;
-    --ink-2: 205 216 240;
-    --ink-3: 160 176 214;
-    --brand: 147 176 245;
+    --ink-2: 204 218 238;
+    --ink-3: 156 178 210;
     --brand-fg: 255 255 255;
-    --brand-on: 27 45 99;
+    --accent: 140 200 80;
+    --accent-fg: 160 214 104;
+    --brand: 140 200 80;
+    --brand-on: 7 45 99;
     --guard-fg: 206 194 255;
   }
 
@@ -108,7 +155,8 @@
     @apply bg-surface-0 font-sans text-ink-1;
     font-size: 14px;
     line-height: 1.5;
-    letter-spacing: -0.005em;
+    font-feature-settings: 'ss01', 'cv11';
+    -webkit-font-smoothing: antialiased;
   }
   ::selection {
     background: rgb(var(--brand) / 0.3);
@@ -142,11 +190,16 @@
 @layer components {
   /* small label used for section titles inside cards and table heads */
   .eyebrow {
-    @apply text-xs font-medium text-ink-3;
+    @apply text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3;
   }
-  /* flat tinted panel for cards inside the white workspace (no decorative gradient) */
+  /* the standard panel: white on the grey canvas, hairline border, no decoration */
   .panel-tint {
-    background-color: rgb(var(--surface-2));
+    background-color: rgb(var(--surface-1));
+  }
+  /* editorial serif for page titles and the door headline */
+  .display {
+    @apply font-display font-normal tracking-[-0.015em];
+    font-optical-sizing: auto;
   }
   /* viewfinder corner brackets drawn with 4 background gradients: the brand motif */
   .viewfinder {

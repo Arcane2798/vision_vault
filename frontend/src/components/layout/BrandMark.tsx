@@ -8,7 +8,7 @@ import { cn } from '@/utils/format';
 export function BrandMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={cn('h-8 w-8', className)} aria-hidden fill="none">
-      <rect width="32" height="32" rx="10" className="fill-brand" />
+      <rect width="32" height="32" rx="7" className="fill-brand" />
       <g className="stroke-brand-on" strokeWidth="2" strokeLinecap="round">
         <path d="M8 12V9.5A1.5 1.5 0 0 1 9.5 8H12" />
         <path d="M20 8h2.5A1.5 1.5 0 0 1 24 9.5V12" />
@@ -26,7 +26,7 @@ export function BrandLockup({ className }: { className?: string }) {
   return (
     <span className={cn('flex min-w-0 items-center gap-2', className)}>
       <BrandMark />
-      <span className="truncate text-[17px] font-bold tracking-[-0.02em] text-ink-1">{config.appName}</span>
+      <span className="truncate text-[16px] font-semibold tracking-[-0.01em] text-ink-1">{config.appName}</span>
     </span>
   );
 }
